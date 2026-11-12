@@ -1,9 +1,9 @@
 {
   "id": "vault-relay-v4",
   "name": "Vault Relay",
-  "version": "5.2.9",
+  "version": "5.2.10",
   "minAppVersion": "1.5.0",
-  "description": "Reviewed ZIP/ACK transfer with separate Baidu upload and download navigation. Windows, Android, iOS and iPadOS test build.",
+  "description": "Adaptive file lists, shared connection settings and direct Baidu navigation. Reviewed ZIP/ACK transfer for Windows, Android, iOS and iPadOS; test build.",
   "author": "Vault Relay",
   "isDesktopOnly": false
 }

@@ -2,35 +2,39 @@
 
 Transfer notes and acknowledgements using user-managed ZIP files and Baidu Netdisk, with explicit review before formal note changes.
 
-## 5.2.9 Apple compatibility TEST
+## 5.2.10 — Shared console and adaptive lists TEST
 
-Supports Windows, Android, iOS and iPadOS through separate platform branches. The Apple build uses the system Files picker rather than scanning other apps' download folders. This release has automated compatibility coverage but has **not** passed a real iPhone/iPad test yet. No continuous background sync is promised on Apple devices.
+Common settings and operations use the same names, grouping and responsibilities on Windows, Android and iPad/iOS. Platform settings remain separate: **Windows 专用设置** contains the local Baidu sync folder and automatic transport controls; **移动端专用设置** describes Android scanning or Apple's Files picker.
 
-## Upload navigation in 5.2.9
+Baidu share link, extraction code and the optional **百度网盘上传文件夹** belong to **设置与连接检查 → ① 公共设置**. The upload folder is a cloud navigation path, not a local ZIP destination. An unset field explicitly says 尚未设置 and upload navigation opens your own netdisk homepage. Baidu login or app redirects may require manually locating the folder.
 
-The console now separates **preview and generate ZIP** from **open Baidu upload**. Both the main transfer section and advanced manual upload section provide an upload dialog. It reuses the saved group upload target, offers the latest own pending ZIP with copyable name/path, and verifies SHA before offering system sharing. Download navigation remains separate and opens the group share page. Opening any page or share sheet does not confirm cloud delivery.
-
-BRAT installation on an iPad was reported successful for 5.2.8 after the release attachment types were corrected. The full Apple ZIP/import/ACK workflow still requires device testing.
+Every upload navigation button opens Baidu directly, without an intermediate plugin dialog. Download navigation opens the group share page. Generated ZIP results appear inline beside the ZIP controls; independent ACK files and sharing actions appear only in ACK 高级管理. Empty lists are hidden, small lists fit their content, and large lists scroll within a height limit. Truncated labels remain expandable by tap or keyboard.
 
 ## Install and use
 
-Install BRAT from Obsidian's community plugins, then use **Add beta plugin** and enter **ab11158/vault-relay**. Enable Vault Relay after installation and check that the console shows version 5.2.9. See the [Apple installation and test guide](APPLE-INSTALL.md).
+Install BRAT from Obsidian's community plugins, then add **ab11158/vault-relay**. Enable Vault Relay and check for **5.2.10**. For an existing BRAT installation, check for updates or change a pinned version to 5.2.10. See the [Apple guide](APPLE-INSTALL.md).
 
-This repository uses a regular GitHub release so BRAT's default latest-release lookup can install it. The release title, changelog and documentation explicitly mark it as a TEST build, not production validation.
+Use a test vault. Keep existing data.json, identities, pairing, ACK history and transfer folders when upgrading. A newly added device must have its own Device ID and join the existing GroupID; do not copy another device's data.json.
 
-Use an isolated test vault. Existing installations should preserve data.json, identity, pairing, ACK history and all transfer folders. New Apple devices must receive a new identity; join using the existing GroupID rather than copying another device's data.json.
+Download ZIP/ACK files from your own sharing folder, save them to Files on Apple devices, then select them in Vault Relay. Receiving a ZIP only stages version data. Review and explicit confirmation are required before formal notes are written. Generate and upload ACK files afterward and verify their receipt on the sending computer.
 
-Download ZIP/ACK files from your own Baidu sharing folder, save them to Files and select them in Vault Relay. Receiving a ZIP only stages version data; explicit review and confirmation are required before formal notes are written. Generate and upload ACK files afterward and verify their receipt on the sending computer.
+This is a regular GitHub release for BRAT latest-version lookup, explicitly labeled TEST. It is not an App Store release or an Obsidian community listing.
+
+## Validation and limitations
+
+29 regression checks, 7 simulated Apple compatibility checks and Android/iOS-mode browser UI checks pass. Browser checks cover direct navigation, common settings, ZIP/ACK validation, empty/single/overflowing lists, readable diagnostics, expandable labels, and Apple picker/share behavior using mocks. They do not prove actual Safari, OS sharing or Baidu navigation/upload behavior.
+
+For the prior 5.2.9 version, an iPad installation, restart identity retention, small ZIP formal import, repeated selection with no new items, and independent ACK generation were verified on hardware. The iPad ACK cloud return to Windows is still pending. 5.2.10 requires device validation after upgrading.
 
 ## Safety and service disclosures
 
-- No payment, account service, trial enforcement or subscription activation is implemented in this build.
-- Uses your own Baidu Netdisk account/client or browser for transfer. No developer-hosted note storage is provided.
-- Apple access outside the vault is limited to files explicitly selected by the user; Android can probe user-readable download locations; desktop uses user-configured local Baidu sync folders. Sources are preserved.
-- System sharing depends on Obsidian and OS support. Opening an upload page or share sheet does not prove cloud delivery.
-- Quarantine lasts at least 30 days; permanent deletion is disabled in this test build. Cloud/sync-folder deletion is prohibited. Existing destinations are never overwritten during restore.
-- See [privacy disclosures](PRIVACY.md).
+- No payment, trial enforcement or subscription activation is implemented in this build.
+- Uses your own Baidu Netdisk account/client or browser. No developer-hosted note storage is provided.
+- Apple access outside the vault is limited to files explicitly selected by the user; Android can probe readable download locations; Windows uses a configured local sync folder. Source files are preserved.
+- Opening a page or share sheet does not prove cloud delivery, mark cloud publication or create a successful import ACK.
+- Quarantine lasts at least 30 days. Permanent deletion is disabled, including after expiry. Cloud/sync-folder deletion is prohibited. Restore refuses to overwrite an existing destination.
+- See [privacy disclosures](PRIVACY.md) and [version comparison](VERSION-COMPARISON.md).
 
-## License and distribution
+## License
 
-The original Vault Relay code retains its copyright and is available for free evaluation under the [test build license](LICENSE). It is not offered under a permissive open-source license. Bundled JSZip and its dependencies retain their own licenses; see [third-party licenses](THIRD_PARTY_LICENSES.md). This GitHub test release does not imply acceptance into the Obsidian community directory.
+Original Vault Relay code is available for free evaluation under [LICENSE](LICENSE), not a permissive open-source license. Bundled JSZip and dependencies retain their own licenses in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).

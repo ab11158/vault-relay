@@ -1,5 +1,16 @@
 # Changelog
 
+## 5.2.10 — Shared console and adaptive lists TEST (2026-11-13)
+
+- Move group share link, extraction code and optional cloud upload folder to common settings on every platform. Clearly show an unset optional path.
+- Label Windows settings and mobile settings explicitly; retain platform-specific functions.
+- Open Baidu upload navigation directly from every upload button, without an intermediate plugin modal. Keep download share-page navigation separate.
+- Place latest own pending ZIP results inline; keep independent ACK results and sharing only in ACK advanced management.
+- Hide empty result/list containers, fit small lists to content and scroll only when overflowing their height limit. Retain expandable labels and readable ACK diagnostics.
+- Preserve device/group identities, ACK history, explicit formal import, conflict protection, 30-day quarantine and refusal to overwrite restored files. Permanent deletion stays off; cloud/sync folders remain protected.
+
+Automated checks pass; 5.2.10 real-device validation and the pending iPad ACK return to Windows remain to be completed.
+
 ## 5.2.9 — ZIP upload navigation TEST (2026-11-12)
 
 - Separate ZIP preview/generation from opening Baidu upload navigation.

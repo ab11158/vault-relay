@@ -809,3 +809,28 @@
     max-width:90px;font-size:10px;padding:5px 4px;
   }
 }
+
+/* V5.2.10: content determines height; scrolling starts only at the cap. */
+.vru-panel .vru-fixed-scroll,
+.vru-panel .vru-ack-list-scroll,
+.vru-panel .vru-ack-diagnostics-scroll,
+.vru-panel .vru-operation-scroll,
+.vru-panel .vru-undo-scroll,
+.vru-panel .vru-ack-json-scroll,
+.vru-panel .vru-prepared-files {
+  height:auto;min-height:0;overflow-y:auto;scrollbar-gutter:auto;
+}
+.vru-panel .vru-prepared-files {max-height:44dvh;overflow-x:hidden;}
+.vru-panel .vru-fixed-scroll:empty,
+.vru-comparison-list:empty,.vru-review-list:empty,.vr2-scroll:empty {display:none;}
+.vru-panel .vru-ack-file-line {padding:5px 0;}
+.vru-panel .vru-ack-file-line:last-child,
+.vru-panel .vru-ack-upload-file:last-child {border-bottom:0;}
+.vru-panel .vru-ack-file-line .vru-row:empty {display:none;}
+.vru-panel .vru-prepared-zip {margin:9px 0;}
+.vru-panel .vru-prepared-zip > summary {font-weight:600;cursor:pointer;}
+.vru-panel .vru-prepared-files .vru-path {margin:5px 0;}
+.vru-comparison-modal .vru-comparison-list,
+.vru-review-modal .vru-review-text,.vr2-scroll {
+  height:auto;min-height:0;overflow-y:auto;
+}
