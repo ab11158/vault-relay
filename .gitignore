@@ -1,0 +1,10 @@
+# Never publish vault identities, payment credentials, or personal test data.
+data.json
+.env
+.env.*
+*.pem
+*.key
+VaultRelay-Transfer/
+.obsidian/
+node_modules/
+results/

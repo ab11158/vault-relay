@@ -1,0 +1,811 @@
+.vr2-panel{width:min(760px,95vw)}
+.vr2-history{width:min(1050px,95vw)}
+.vr2-help{color:var(--text-muted);font-size:.86em;line-height:1.5}
+.vr2-summary{padding:8px 10px;background:var(--background-secondary);border-radius:6px}
+.vr2-warning{color:var(--text-error);padding:5px 0}
+.vr2-scroll{max-height:45vh;overflow-y:auto;border:1px solid var(--background-modifier-border);border-radius:8px;padding:8px 12px}
+.vr2-scroll p{overflow-wrap:anywhere}
+.vr2-history-list .setting-item{padding:8px 0}
+.vr2-diff{max-height:58vh;overflow:auto;font:12px/1.4 var(--font-monospace);white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid var(--background-modifier-border)}
+.vr2-diff>div{padding:3px 10px;}
+.vr2-diff-add{background:rgba(57,145,71,.15)}
+.vr2-diff-remove{background:rgba(190,64,64,.15)}
+.vr2-diff-equal{color:var(--text-muted)}
+
+.vr2-download{width:min(920px,96vw)}
+.vr2-conflicts{max-height:45vh;border-color:var(--background-modifier-border-hover)}
+.vr2-conflicts .setting-item{padding:12px 4px;border-bottom:1px solid var(--background-modifier-border)}
+.vr2-conflicts .setting-item:last-child{border-bottom:0}
+.vr2-conflicts .setting-item-name{font-weight:600;overflow-wrap:anywhere}
+.vr2-conflicts .setting-item-description{overflow-wrap:anywhere}
+
+/* Color-coded source blocks used only in Vault Relay merge drafts. */
+.callout[data-callout="vr-blue"]{
+  --callout-color:60,126,207;
+  --callout-icon:lucide-file-diff;
+}
+.callout[data-callout="vr-orange"]{
+  --callout-color:204,133,43;
+  --callout-icon:lucide-file-diff;
+}
+.callout[data-callout="vr-blue"] .callout-content{color:var(--text-normal);border-left:3px solid #3c7ecf;padding-left:10px}
+.callout[data-callout="vr-orange"] .callout-content{color:var(--text-normal);border-left:3px solid #cc852b;padding-left:10px}
+.vr2-scroll .setting-item-description{overflow-wrap:anywhere}
+.vr2-panel .setting-item-info{min-width:0}
+.vr2-panel .setting-item-control{flex-wrap:wrap;justify-content:flex-end}
+
+/* v1.1.0: Inline connection details, default collapsed. */
+.vr2-inline { white-space: pre-wrap; line-height: 1.5; background: var(--background-secondary); border: 1px solid var(--background-modifier-border); border-radius: 8px; padding: 10px 12px; margin: 7px 0 12px; overflow-wrap: anywhere; }
+
+/* Vault Relay Unified Lab: scoped, minimal, mobile-friendly. */
+.vru-panel {max-width:760px; margin:auto; padding:0 4px 18px; line-height:1.55;}
+.vru-panel h2 {margin-bottom:6px; font-weight:700;}
+.vru-panel .vru-subtitle, .vru-meta, .vru-footer {font-size:12px;color:var(--text-muted);overflow-wrap:anywhere;}
+.vru-panel .vru-warning {padding:11px 13px; margin:12px 0; border:1px solid var(--color-orange);border-radius:9px; font-size:13px;}
+.vru-panel .vru-section, .vru-panel .vru-settings {border:1px solid var(--background-modifier-border);border-radius:10px;padding:12px 13px;margin:12px 0;}
+.vru-panel .vru-section h3 {font-size:15px;margin:0 0 8px;}
+.vru-panel .vru-help {font-size:12px;color:var(--text-muted);line-height:1.5;}
+.vru-panel .vru-ok {color:var(--text-success);font-weight:600;}
+.vru-panel .vru-danger {color:var(--text-error);font-weight:600;}
+.vru-panel .vru-path {padding:5px 8px;background:var(--background-secondary);border-radius:5px;font-size:12px;overflow-wrap:anywhere;}
+.vru-panel .vru-row {display:flex;flex-wrap:wrap;gap:7px;margin:9px 0;align-items:center;}
+.vru-panel .vru-button {font:inherit;font-size:12px;padding:7px 11px;white-space:normal;text-align:center;max-width:100%;height:auto;min-height:32px;}
+.vru-panel .vru-primary {background:var(--interactive-accent);color:var(--text-on-accent);}
+.vru-panel .vru-setting {display:flex;flex-direction:column;gap:5px;margin:12px 0;font-size:12px;}
+.vru-panel .vru-setting input {width:100%;padding:7px;box-sizing:border-box;font-size:13px;}
+.vru-panel .vru-hidden {position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;}
+.vru-panel .vru-settings summary {font-weight:700;cursor:pointer;}
+.vru-panel .vru-fold {margin:7px 0;color:var(--text-muted);font-size:12px;}
+.vru-panel .vru-fold summary {display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer;text-overflow:ellipsis;}
+.vru-panel .vru-fold[open] summary {display:block;}
+.vru-panel .vru-preview {padding:9px;border:1px solid var(--text-accent);border-radius:8px;}
+.vru-panel .vru-log {margin:8px 0;padding:6px 8px;background:var(--background-secondary);border-radius:7px;overflow-wrap:anywhere;}
+.vru-panel .vru-log strong {font-size:12px;}
+.vru-panel .vru-log p {font-size:12px;margin:5px 0;white-space:pre-wrap;overflow-wrap:anywhere;}
+.vru-panel .vru-footer {text-align:center;margin:15px 0;}
+
+
+/* V4.0.1: Help button at the top; scrollable documentation for phones/tablets. */
+.vru-headline {display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap;}
+.vru-headline h2 {margin:0;min-width:0;flex:1;}
+.vru-manual-modal {width:min(800px,96vw);max-width:96vw;}
+.vru-manual-modal .modal-content {max-height:85vh;overflow-y:auto;overscroll-behavior:contain;}
+.vru-manual-content {line-height:1.66;font-size:14px;overflow-wrap:anywhere;padding-bottom:12px;}
+.vru-manual-head {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;}
+.vru-manual-head h2 {font-size:20px;margin:0;}
+.vru-manual-intro {color:var(--text-muted);font-size:13px;}
+.vru-manual-section {padding:10px 0;border-top:1px solid var(--background-modifier-border);}
+.vru-manual-section h3 {font-size:15px;margin:4px 0 9px;}
+.vru-manual-section p {margin:0 0 9px;}
+.vru-manual-section ol {margin:5px 0 10px;padding-left:24px;}
+.vru-manual-section li {margin:5px 0;}
+.vru-manual-tail {padding:14px 0 4px;display:flex;justify-content:flex-end;}
+@media (max-width:480px) {
+  .vru-manual-modal {width:98vw;max-width:98vw;}
+  .vru-manual-content {font-size:13px;}
+  .vru-manual-head h2 {font-size:17px;}
+}
+
+/* V4.0.2: text selection, copyable IDs and cleaning dialog */
+.vru-panel,.vru-manual-content,.vru-cleanup-modal .modal-content,
+.vru-panel p,.vru-panel pre,.vru-panel label,.vru-panel strong {
+  user-select:text;-webkit-user-select:text;
+}
+.vru-panel input,.vru-panel textarea{user-select:text;-webkit-user-select:text;}
+.vru-readonly{flex:1;min-width:220px;max-width:100%;font-family:var(--font-monospace);font-size:12px;}
+.vru-group-choice{display:flex;flex-direction:column;align-items:flex-start;gap:10px;border-top:1px solid var(--background-modifier-border);padding:12px 0;}
+.vru-group-choice input{width:100%;box-sizing:border-box;padding:8px;}
+.vru-identity{margin-top:10px;}
+.vru-cleanup-modal{width:min(740px,96vw);max-width:96vw;}
+.vru-cleanup-modal .modal-content{overflow-y:auto;max-height:80vh;}
+.vru-cleanup-item{padding:10px 8px;margin:8px 0;border:1px solid var(--background-modifier-border);border-radius:8px;overflow-wrap:anywhere;}
+.vru-cleanup-item strong{font-size:13px;}
+.vru-cleanup-item p{margin:5px 0;}
+.vru-copyable{white-space:pre-wrap;word-break:break-word;user-select:text;-webkit-user-select:text;}
+
+/* V4.0.4: explicit persisted Windows on/off controls */
+.vru-toggle{min-width:88px;font-weight:600;transition:background-color .12s ease,color .12s ease;}
+.vru-toggle-on{background:var(--interactive-accent)!important;color:var(--text-on-accent)!important;border-color:var(--interactive-accent)!important;}
+.vru-toggle-off{background:var(--background-secondary)!important;color:var(--text-muted)!important;border-color:var(--background-modifier-border)!important;}
+.vru-toggle:focus-visible{outline:2px solid var(--interactive-accent);outline-offset:2px;}
+
+/* V4.0.5: the mobile version preview keeps its action above a bounded, visible file list. */
+.vr2-panel .vr2-review-heading{
+  font-weight:600;margin:12px 0 8px;user-select:text;-webkit-user-select:text;
+}
+.vr2-panel .vr2-review-list{
+  display:block;min-height:0;max-height:none;
+  overflow:visible;overscroll-behavior:auto;
+  border:1px solid var(--background-modifier-border);
+  border-radius:9px;padding:8px;background:var(--background-primary);
+}
+.vr2-panel .vr2-review-item{
+  display:block;padding:10px 8px;margin:6px 0;
+  border:1px solid var(--background-modifier-border);
+  border-radius:7px;overflow-wrap:anywhere;user-select:text;-webkit-user-select:text;
+}
+.vr2-panel .vr2-review-item strong{display:block;font-size:13px;font-weight:600;}
+.vr2-panel .vr2-review-meta,.vr2-panel .vr2-review-empty{
+  display:block;margin:5px 0 0;color:var(--text-muted);font-size:12px;
+}
+.vr2-panel .vr2-review-extra{margin-top:7px;font-size:12px;}
+.vr2-panel .vr2-review-extra p{overflow-wrap:anywhere;user-select:text;-webkit-user-select:text;}
+
+/* V4.0.6: single edit location in Settings; no download wizard. */
+.vru-share-setting{display:flex;flex-direction:column;gap:6px;margin:10px 0;}
+.vru-share-setting span{font-size:12px;color:var(--text-muted);}
+.vru-share-edit{width:100%;max-width:100%;box-sizing:border-box;font-size:13px;}
+
+
+
+/* V4.0.10 — simplify the daily control panel. Preserve the actual directory;
+   hide only the ROOT VaultRelay-Transfer folder in Obsidian's FILE EXPLORER.
+   Search/sync code continues to see it; other user folders remain visible. */
+.workspace-leaf-content[data-type="file-explorer"]
+  .nav-folder:has(> .nav-folder-title[data-path="VaultRelay-Transfer"]),
+.workspace-leaf-content[data-type="file-explorer"]
+  .nav-folder-title[data-path="VaultRelay-Transfer"] {
+  display:none!important;
+}
+
+/* Do not let a native file input's "未选择任何文件" label leak into the UI. */
+.vru-panel input.vru-hidden {display:none!important;}
+.vru-panel .vru-advanced {margin:10px 0; padding:9px;}
+.vru-panel .vru-advanced summary {font-size:12px;}
+.vru-panel .vru-logs {margin:16px 0;}
+.vru-panel .vru-logs > summary {font-size:15px;font-weight:700;cursor:pointer;}
+.vru-panel .vru-logs h3 {font-size:13px;margin:15px 0 8px;}
+.vru-panel .vru-logs .vru-row {justify-content:flex-start;}
+.vru-panel .vru-logs .vru-path{margin:6px 0;}
+
+/* V4.0.10 — review a single real path in a spacious, read-only, two-column
+   modal. On narrow phones, stack the columns and scroll the entire modal. */
+.vru-review-modal {
+  width:min(1250px,98vw)!important;
+  max-width:98vw!important;
+  max-height:94dvh;
+}
+.vru-review-modal .modal-content{
+  max-height:calc(94dvh - 58px);
+  overflow-y:auto;
+  padding:14px 16px 18px;
+  overscroll-behavior:contain;
+}
+.vru-review-heading{display:flex;justify-content:space-between;
+  gap:12px;align-items:center;flex-wrap:wrap;}
+.vru-review-heading h2{margin:0;font-size:20px;}
+.vru-review-path{font:600 13px/1.5 var(--font-monospace);
+  overflow-wrap:anywhere;margin:12px 0;}
+.vru-review-meta{font-size:12px;color:var(--text-muted);
+  border:1px solid var(--background-modifier-border);
+  padding:9px;border-radius:8px;}
+.vru-review-meta p{margin:4px 0;overflow-wrap:anywhere;user-select:text;}
+.vru-review-warning{font-size:12px;
+  border-left:3px solid var(--color-orange);
+  padding:7px 12px;background:var(--background-secondary);}
+.vru-review-columns{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:12px;align-items:start;margin:14px 0;
+}
+.vru-review-side{min-width:0;
+  border:1px solid var(--background-modifier-border);
+  background:var(--background-primary);border-radius:9px;
+  padding:10px;overflow:hidden;}
+.vru-review-side h3{margin:0 0 9px;font-size:14px;}
+.vru-review-text{
+  margin:0;padding:11px;
+  white-space:pre-wrap;overflow-wrap:anywhere;
+  color:var(--text-normal);
+  max-height:min(59dvh,800px);min-height:160px;
+  overflow:auto;user-select:text;-webkit-user-select:text;
+  font:12.5px/1.7 var(--font-monospace);
+  background:var(--background-secondary);border-radius:6px;
+}
+.vru-review-actions{display:flex;justify-content:flex-end;margin-top:12px;}
+.vru-review-diff-note{font-size:12px;color:var(--text-muted);}
+.vr2-review-open{font-size:12px;margin:6px 0;padding:6px 9px;}
+@media(max-width:660px){
+  .vru-review-modal{width:99vw!important;max-width:99vw!important;}
+  .vru-review-modal .modal-content{max-height:calc(94dvh - 36px);padding:10px 11px;}
+  .vru-review-columns{grid-template-columns:1fr;gap:10px;}
+  .vru-review-text{max-height:38dvh;min-height:150px;font-size:12px;}
+  .vru-review-heading h2{font-size:16px;}
+}
+
+
+/* V4.0.11 — audit list is the PAGE, not a tiny nested scrolling box.
+ * The entire audit modal can scroll; files are searchable and their paths
+ * open the read-only full-content viewer directly. */
+.vr2-audit-panel{
+  width:min(1040px,99vw)!important;
+  max-width:99vw!important;
+  max-height:96dvh;
+}
+.vr2-audit-panel .modal-content{
+  max-height:calc(95dvh - 58px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:14px 18px 28px;
+}
+.vr2-audit-panel .vr2-review-list{
+  display:block!important;
+  max-height:none!important;
+  min-height:0!important;
+  height:auto!important;
+  overflow:visible!important;
+  border:none!important;
+  background:transparent!important;
+  padding:0!important;
+}
+.vr2-audit-panel .vr2-review-item{
+  padding:13px 11px!important;
+  margin:8px 0!important;
+  border:1px solid var(--background-modifier-border);
+  background:var(--background-secondary);
+  border-radius:10px;
+}
+.vr2-audit-panel .vr2-review-path-button{
+  display:block;
+  width:100%;
+  height:auto;
+  min-height:40px;
+  padding:9px 10px;
+  text-align:left;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  font:600 13px/1.6 var(--font-monospace);
+  color:var(--text-accent);
+  background:var(--background-primary);
+  border:1px solid var(--background-modifier-border);
+  border-radius:7px;
+  cursor:pointer;
+}
+.vr2-audit-panel .vr2-review-path-button:focus-visible{
+  outline:2px solid var(--interactive-accent);
+  outline-offset:2px;
+}
+.vr2-audit-panel .vr2-review-search-area{
+  margin:14px 0 8px;
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+}
+.vr2-audit-panel .vr2-review-search-label{
+  font-weight:600;
+  font-size:13px;
+}
+.vr2-audit-panel .vr2-review-search{
+  box-sizing:border-box;
+  width:100%;
+  max-width:100%;
+  min-height:42px;
+  font-size:15px;
+  border-radius:8px;
+  padding:9px 12px;
+}
+.vr2-audit-panel .vr2-review-showmore{
+  width:100%;padding:12px;
+  margin:10px 0;
+  white-space:normal;
+}
+@media(max-width:660px){
+  .vr2-audit-panel{width:100vw!important;max-width:100vw!important;}
+  .vr2-audit-panel .modal-content{
+    max-height:calc(96dvh - 34px);
+    padding:11px 12px 24px;
+  }
+  .vr2-audit-panel .vr2-review-item{padding:10px 8px!important;}
+  .vr2-audit-panel .vr2-review-path-button{font-size:13px;}
+}
+
+/* V5.0.0: compact but accessible daily console and standalone log heading. */
+.vru-panel .vru-one-line {
+  display:block;
+  max-width:100%;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  cursor:pointer;
+  border-radius:4px;
+}
+.vru-panel .vru-one-line:hover {color:var(--text-normal);}
+.vru-panel .vru-one-line:focus-visible {
+  outline:2px solid var(--interactive-accent);
+  outline-offset:2px;
+}
+.vru-panel .vru-one-line.vru-one-line-expanded {
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.vru-panel .vru-warning,
+.vru-panel .vru-danger {white-space:normal!important;overflow:visible!important;}
+.vru-panel .vru-advanced-root,
+.vru-panel .vru-logs-root {
+  border-top:1px solid var(--background-modifier-border);
+  margin:20px 0 12px;
+  padding-top:12px;
+}
+.vru-panel .vru-advanced-root > h2,
+.vru-panel .vru-logs-root > h2 {
+  margin:0 0 12px;
+  font-size:19px;
+  font-weight:750;
+}
+.vru-panel .vru-advanced-root > details {
+  margin:8px 0;
+}
+.vru-panel .vru-advanced-root > details > summary {
+  font-size:14px;
+  font-weight:650;
+  cursor:pointer;
+  padding:3px 0;
+}
+.vru-panel .vru-logs-root > .vru-logs {margin:8px 0;}
+.vru-panel .vru-logs-root > .vru-logs > summary {font-size:14px;}
+.vru-keep-item {display:flex;align-items:flex-start;gap:10px;margin:12px 0;
+  padding:10px 12px;border:1px solid var(--background-modifier-border);border-radius:8px;
+  overflow-wrap:anywhere;}
+.vru-keep-item input {flex:0 0 auto;margin-top:4px;}
+.vru-manual-content .vru-manual-section p {margin-bottom:9px;overflow-wrap:anywhere;}
+@media (max-width:500px){
+  .vru-panel .vru-advanced-root > h2,
+  .vru-panel .vru-logs-root > h2 {font-size:18px;}
+  .vru-keep-item {font-size:13px;}
+}
+
+/* V5.0.1: five uniform, native accessible top-level collapsible headings. */
+.vru-panel details.vru-main-section,
+.vru-panel details.vru-main-section.vru-advanced-root,
+.vru-panel details.vru-main-section.vru-logs-root {
+  display:block;
+  border:1px solid var(--background-modifier-border);
+  border-radius:10px;
+  padding:0;
+  margin:11px 0;
+  background:var(--background-primary);
+}
+.vru-panel details.vru-main-section > summary {
+  display:list-item;
+  cursor:pointer;
+  padding:12px 14px;
+  font-size:16px;
+  line-height:1.5;
+  font-weight:750;
+  color:var(--text-normal);
+}
+.vru-panel details.vru-main-section > summary:focus-visible {
+  outline:2px solid var(--interactive-accent);
+  outline-offset:-3px;
+  border-radius:8px;
+}
+.vru-panel details.vru-main-section[open] > summary {
+  border-bottom:1px solid var(--background-modifier-border);
+}
+.vru-panel details.vru-main-section > :not(summary) {
+  margin-left:12px;
+  margin-right:12px;
+}
+.vru-panel details.vru-main-section > :last-child:not(summary) {
+  margin-bottom:12px;
+}
+/* No extra log-details nesting: log tools belong directly to the top-level pane. */
+.vru-export-choice-modal {width:min(580px,95vw);max-width:95vw;}
+.vru-export-choice {line-height:1.6;overflow-wrap:anywhere;}
+.vru-export-choice h2 {font-size:20px;margin:3px 0 12px;}
+.vru-export-choice .vru-export-caution {
+  color:var(--text-muted);
+  font-size:13px;
+  margin:0 0 12px;
+}
+.vru-export-choice .vru-export-status {
+  color:var(--text-muted);
+  font-size:13px;
+}
+.vru-export-choice .vru-export-path {
+  font:12px/1.6 var(--font-monospace);
+  background:var(--background-secondary);
+  border-radius:7px;
+  padding:9px 11px;
+  word-break:break-all;
+  user-select:text;
+  -webkit-user-select:text;
+}
+.vru-export-choice .vru-row {
+  display:flex;gap:10px;flex-wrap:wrap;margin:15px 0 12px;
+}
+.vru-export-choice .vru-row .vru-button {
+  min-height:38px;max-width:100%;padding:8px 14px;
+}
+@media (max-width:500px){
+  .vru-panel details.vru-main-section > summary {font-size:15px;}
+  .vru-export-choice .vru-row .vru-button {flex:1 1 120px;}
+}
+
+/* V5.0.1 usability fix: the manual must not be hidden off to the right of
+   a flexible heading or inside any of the five collapsed main sections. */
+.vru-panel .vru-help-access {
+  width:100%;display:flex;align-items:center;margin:9px 0 11px;
+}
+.vru-panel .vru-help-access > .vru-button {
+  display:block;flex:0 0 auto;max-width:100%;min-height:36px;
+  padding:8px 16px;white-space:normal;font-size:13px;
+  border:1px solid var(--interactive-accent);
+  border-radius:8px;cursor:pointer;
+}
+@media (max-width:500px) {
+  .vru-panel .vru-help-access > .vru-button {width:100%;font-size:14px;}
+}
+
+/* V5.1.0: Read-only SHA comparison and selected-file export. */
+.vru-comparison-modal { width:min(960px,96vw); max-width:96vw; }
+.vru-comparison-modal .modal-content, .vru-comparison-modal .modal-content>* {
+  max-width:100%; box-sizing:border-box;
+}
+.vru-comparison-modal .vru-comparison-summary {
+  font-weight:650; font-size:13px; line-height:1.65;
+  padding:10px 13px; background:var(--background-secondary);
+  border-radius:9px; overflow-wrap:anywhere;
+}
+.vru-comparison-modal .vru-comparison-list {
+  max-height:min(51vh,550px); overflow:auto; overscroll-behavior:contain;
+  border:1px solid var(--background-modifier-border);
+  border-radius:10px; padding:5px 10px;
+}
+.vru-comparison-modal .vru-comparison-item {
+  padding:11px 5px; border-bottom:1px solid var(--background-modifier-border);
+  overflow-wrap:anywhere;
+}
+.vru-comparison-modal .vru-comparison-item:last-child {border-bottom:0}
+.vru-comparison-modal .vru-comparison-item strong {min-width:0;font-size:13px;overflow-wrap:anywhere}
+.vru-comparison-modal .vru-comparison-item input[type="checkbox"] {flex:0 0 auto}
+.vru-comparison-modal .vru-comparison-label {font-size:12px;color:var(--text-muted);margin:6px 0}
+.vru-comparison-modal .vru-comparison-detail {font-size:12px;margin:6px 0}
+.vru-comparison-modal .vru-comparison-detail summary {cursor:pointer;color:var(--text-accent)}
+.vru-comparison-modal .vru-comparison-detail-text {
+  line-height:1.7;font-size:11px;overflow-wrap:anywhere;
+  padding:7px 10px;background:var(--background-secondary);border-radius:6px;
+}
+.vru-comparison-modal input[type="search"] {min-width:130px;flex:1 1 180px}
+.vru-comparison-modal select {max-width:100%;flex:1 1 130px}
+.vru-comparison-modal .vru-row {display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.vru-comparison-modal .vru-row .vru-button {max-width:100%;white-space:normal}
+.vru-comparison-modal .vru-meta, .vru-comparison-modal .vru-help {
+  font-size:12px;color:var(--text-muted);overflow-wrap:anywhere;
+}
+.vru-comparison-modal .vru-warning {font-size:12px;color:var(--text-error);overflow-wrap:anywhere}
+@media (max-width:560px) {
+  .vru-comparison-modal {width:98vw;max-width:98vw}
+  .vru-comparison-modal .vru-comparison-list {max-height:43vh}
+  .vru-comparison-modal .vru-row .vru-button {flex:1 1 140px;min-height:36px}
+}
+
+
+/* V5.1.1: true responsive, one-button-per-line controls. This is deliberately
+   scoped to the new unified panel and its review/export modals; native Obsidian
+   settings and historical V4 safety-confirmation dialogs keep their layouts. */
+.vru-control-modal {
+  width:min(900px,calc(100vw - 32px));
+  max-width:calc(100vw - 32px);
+  max-height:calc(100dvh - 24px);
+  min-width:0;
+  box-sizing:border-box;
+}
+.vru-control-modal .modal-content {
+  box-sizing:border-box;
+  max-width:100%;min-width:0;
+  max-height:calc(100dvh - 82px);
+  overflow-x:hidden;overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:clamp(10px,2vw,22px);
+}
+.vru-control-modal .vru-panel {
+  box-sizing:border-box;
+  width:100%;max-width:100%;min-width:0;
+  margin:0 auto;padding:0 0 18px;
+}
+.vru-control-modal .vru-panel h2 {
+  font-size:clamp(18px,2.6vw,25px);
+  line-height:1.4;overflow-wrap:anywhere;
+}
+.vru-control-modal .vru-panel .vru-row,
+.vru-export-choice .vru-row,
+.vru-comparison-modal .vru-row {
+  display:flex;
+  flex-direction:column;
+  flex-wrap:nowrap;
+  align-items:stretch;
+  gap:9px;
+  min-width:0;
+}
+.vru-panel .vru-button,
+.vru-export-choice .vru-button,
+.vru-comparison-modal .vru-button,
+.vru-manual-content .vru-button {
+  display:block;
+  box-sizing:border-box;
+  width:100%;max-width:100%;
+  flex:0 0 auto;
+  padding:10px 12px;
+  min-height:42px;
+  line-height:1.45;
+  font-size:13px;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  word-break:normal;
+  text-align:center;
+  margin:5px 0;
+}
+.vru-export-choice .vru-row .vru-button,
+.vru-comparison-modal .vru-row .vru-button {
+  flex:0 0 auto;
+  width:100%;max-width:100%;
+}
+.vru-panel .vru-setting,
+.vru-panel .vru-readonly,
+.vru-panel .vru-row input,
+.vru-panel .vru-row select,
+.vru-comparison-modal .vru-row input,
+.vru-comparison-modal .vru-row select {
+  box-sizing:border-box;min-width:0;width:100%;max-width:100%;
+}
+.vru-panel details.vru-main-section > :not(summary) {
+  min-width:0;max-width:calc(100% - 24px);
+  box-sizing:border-box;
+}
+.vru-panel .vru-setting input,
+.vru-panel .vru-share-edit {font-size:clamp(13px,1rem,15px);}
+.vru-comparison-modal,
+.vru-export-choice-modal,
+.vru-manual-modal {
+  width:min(900px,calc(100vw - 32px));
+  max-width:calc(100vw - 32px);
+  min-width:0;
+  max-height:calc(100dvh - 28px);
+  box-sizing:border-box;
+}
+.vru-comparison-modal .modal-content,
+.vru-export-choice-modal .modal-content,
+.vru-manual-modal .modal-content {
+  box-sizing:border-box;min-width:0;
+  max-height:calc(100dvh - 84px);
+  overflow-x:hidden;overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:clamp(10px,2vw,20px);
+}
+.vru-comparison-modal h2,
+.vru-export-choice h2,
+.vru-manual-content h2 {
+  font-size:clamp(18px,2.5vw,24px);
+  line-height:1.35;
+  margin:6px 0 13px;
+  overflow-wrap:anywhere;
+}
+.vru-comparison-modal .vru-comparison-list {
+  min-height:120px;
+  max-height:clamp(170px,42dvh,450px);
+  overflow-y:auto;
+}
+/* Checkboxes and file names must continue sharing a row. */
+.vru-comparison-modal .vru-comparison-item .vru-row {
+  display:flex;flex-direction:row;align-items:flex-start;flex-wrap:nowrap;
+  gap:8px;min-width:0;
+}
+.vru-comparison-modal .vru-comparison-item .vru-row input[type=checkbox] {
+  width:18px;min-width:18px;max-width:18px;flex:0 0 18px;
+  margin:3px 0 0;
+}
+.vru-comparison-modal .vru-comparison-item strong {
+  font-size:clamp(12px,1rem,14px);
+  line-height:1.5;
+}
+.vru-comparison-modal .vru-comparison-summary {font-size:13px;}
+@media(max-width:640px) {
+  .vru-control-modal,
+  .vru-comparison-modal,
+  .vru-export-choice-modal,
+  .vru-manual-modal {
+    width:calc(100vw - 12px)!important;
+    max-width:calc(100vw - 12px)!important;
+    max-height:calc(100dvh - 12px);
+  }
+  .vru-control-modal .modal-content,
+  .vru-comparison-modal .modal-content,
+  .vru-export-choice-modal .modal-content,
+  .vru-manual-modal .modal-content {
+    max-height:calc(100dvh - 60px);
+    padding:12px 13px 22px;
+  }
+  .vru-panel .vru-button,
+  .vru-export-choice .vru-button,
+  .vru-comparison-modal .vru-button {min-height:44px;font-size:14px;}
+  .vru-panel details.vru-main-section > summary {font-size:15px;}
+  .vru-comparison-modal .vru-comparison-list {max-height:42dvh;min-height:160px;}
+}
+
+/* V5.2.0 — Windows adjustable console width. The native Obsidian modal is
+   resized within the current host window, not relative to a fixed vault path.
+   The slider is a reliable alternative if a theme hides the CSS resize grip. */
+@media (min-width:641px) {
+  .vru-control-modal {
+    width:min(var(--vr-console-width,680px),calc(100vw - 32px));
+    max-width:min(1100px,calc(100vw - 32px))!important;
+    min-width:min(520px,calc(100vw - 32px));
+    resize:horizontal;
+    overflow:auto;
+  }
+}
+.vru-width-controls {
+  display:flex;align-items:center;flex-wrap:wrap;
+  gap:8px;margin:4px 0 12px;
+  font-size:12px;color:var(--text-muted);
+}
+.vru-width-controls input[type=range] {
+  flex:1 1 130px;width:auto;min-width:90px;max-width:260px;
+}
+.vru-width-controls .vru-width-value {
+  min-width:50px;font-variant-numeric:tabular-nums;
+}
+.vru-control-modal .vru-width-controls > .vru-button {
+  width:auto;max-width:160px;flex:0 0 auto;
+  min-height:32px;min-width:0;padding:5px 10px;
+  margin:0;font-size:12px;
+}
+@media (max-width:640px) {
+  .vru-width-controls {display:none!important;}
+  .vru-control-modal {resize:none;}
+}
+
+/* V5.2.0 — optional import subfolder. Current vault root is the default. */
+.vru-optional-folder {
+  margin:8px 0;padding:8px 10px;
+  border:1px solid var(--background-modifier-border);
+  border-radius:8px;
+}
+.vru-optional-folder > summary {
+  cursor:pointer;font-size:13px;font-weight:600;
+}
+.vru-optional-folder[open] > .vru-setting {margin-top:10px;}
+.vru-optional-folder input {min-width:0;width:100%;box-sizing:border-box;}
+
+/* V5.2.0 — comparison: compact filters, expanded results, sticky actions. */
+.vru-comparison-modal .vru-comparison-summary {
+  padding:6px 10px;margin:6px 0;
+  font-size:12px;line-height:1.45;
+}
+.vru-comparison-modal .vru-comparison-info {
+  margin:5px 0;color:var(--text-muted);font-size:12px;
+}
+.vru-comparison-modal .vru-comparison-info > summary {cursor:pointer;padding:4px 0;}
+.vru-comparison-modal .vru-comparison-info > p {margin:5px 0;}
+.vru-comparison-modal .vru-comparison-filters {
+  display:grid;grid-template-columns:minmax(140px,1fr) minmax(0,1.5fr);
+  gap:8px;margin:8px 0;align-items:center;
+}
+.vru-comparison-modal .vru-comparison-filters select,
+.vru-comparison-modal .vru-comparison-filters input[type=search] {
+  display:block;box-sizing:border-box;
+  min-width:0;width:100%;max-width:100%;
+  height:36px;padding:6px 9px;margin:0;
+  border-radius:7px;
+}
+.vru-comparison-modal .vru-comparison-list {
+  min-height:min(42dvh,390px);
+  max-height:min(65dvh,720px);
+  padding:2px 8px;overflow-y:auto;
+}
+.vru-comparison-modal .vru-comparison-item {
+  padding:8px 4px;
+}
+.vru-comparison-modal .vru-comparison-actions {
+  display:flex;flex-direction:column;gap:6px;
+  position:sticky;bottom:0;z-index:5;
+  padding:8px 1px 9px;margin:6px 0;
+  border-top:1px solid var(--background-modifier-border);
+  background:var(--modal-background,var(--background-primary));
+}
+.vru-comparison-modal .vru-comparison-actions > .vru-button {
+  width:100%;margin:0;min-height:39px;
+  font-size:12px;
+}
+@media (max-width:560px) {
+  .vru-comparison-modal .vru-comparison-filters {grid-template-columns:1fr;gap:6px;}
+  .vru-comparison-modal .vru-comparison-filters select,
+  .vru-comparison-modal .vru-comparison-filters input[type=search] {height:34px;}
+  .vru-comparison-modal .vru-comparison-list {
+    min-height:min(48dvh,420px);
+    max-height:68dvh;
+  }
+  .vru-comparison-modal .vru-comparison-actions > .vru-button {min-height:42px;font-size:13px;}
+}
+
+/* V5.2.2 — Operation logs and ACK text stay inside bounded scroll panes.
+   Content is never truncated or deleted; ellipsis affects filename labels only. */
+.vru-panel .vru-fixed-scroll {
+  display:block;box-sizing:border-box;width:100%;max-width:100%;min-width:0;
+  padding:7px 10px;margin:7px 0 10px;
+  border:1px solid var(--background-modifier-border);
+  border-radius:9px;background:var(--background-secondary);
+  overflow-y:auto;overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
+.vru-panel .vru-operation-scroll {height:330px;max-height:48dvh;overflow-x:hidden;}
+.vru-panel .vru-operation-scroll .vru-log {margin:4px 0;background:var(--background-primary);}
+.vru-panel .vru-operation-scroll .vru-log:last-child {margin-bottom:0;}
+.vru-panel .vru-ack-json-scroll {
+  height:285px;max-height:46dvh;overflow:auto;
+}
+.vru-panel .vru-ack-json {
+  display:block;margin:0;width:max-content;min-width:100%;max-width:none;
+  padding:3px;font:12px/1.55 var(--font-monospace);
+  white-space:pre;word-break:normal;overflow-wrap:normal;
+  user-select:text;-webkit-user-select:text;
+}
+.vru-panel .vru-ack-list-scroll {height:164px;max-height:30dvh;overflow-x:hidden;}
+.vru-panel .vru-ack-file-line {
+  display:flex;flex-wrap:nowrap;align-items:center;
+  width:100%;min-width:0;gap:5px;margin:3px 0;padding:3px 0;
+  border-bottom:1px solid var(--background-modifier-border);
+}
+.vru-panel .vru-ack-file-name {
+  display:block;flex:1 1 auto;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font:11.5px/1.5 var(--font-monospace);
+  user-select:text;-webkit-user-select:text;
+}
+.vru-panel .vru-ack-file-line .vru-button {
+  flex:0 0 auto;max-width:118px;padding:5px 7px;
+  min-height:29px;font-size:11px;
+}
+
+/* V5.2.7: every collapsed label is actionable on touch and keyboard. */
+.vru-document-picker {
+  position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;
+}
+.vru-panel .vr527-keep-full {overflow-wrap:anywhere;}
+@supports (-webkit-touch-callout:none) {
+  .vru-panel input,.vru-panel select,.vru-panel textarea {font-size:16px;}
+}
+.vr527-collapsible {
+  display:block!important;min-width:0;max-width:100%;
+  white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis;
+  cursor:pointer;touch-action:manipulation;
+}
+.vr527-collapsible.vr527-expanded {
+  white-space:normal!important;overflow:visible!important;text-overflow:clip;
+  overflow-wrap:anywhere!important;word-break:break-word;
+}
+.vr527-collapsible:focus-visible {outline:2px solid var(--interactive-accent);outline-offset:2px;}
+.vr527-keep-full {white-space:normal!important;overflow:visible!important;overflow-wrap:anywhere;}
+.vru-panel .vru-fold[open] > summary {
+  display:block;-webkit-line-clamp:unset;white-space:normal;overflow:visible;overflow-wrap:anywhere;
+}
+.vru-panel .vru-ack-file-line {display:block;min-width:0;padding:7px 0;}
+.vru-panel .vru-ack-file-name {width:100%;max-width:100%;}
+.vru-panel .vru-ack-file-name:not([data-vr527-expandable]) {
+  white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;
+}
+.vru-panel .vru-ack-copy-tools {display:flex;flex-wrap:wrap;gap:8px;margin-top:7px;}
+.vru-panel .vru-ack-file-line .vru-button {max-width:none!important;min-height:36px;font-size:12px;}
+.vru-panel .vru-ack-navigation {display:flex;flex-direction:column;align-items:stretch;}
+.vru-panel .vru-ack-navigation > .vru-button {width:100%;text-align:left;}
+.vru-panel .vru-ack-list-scroll {height:210px;max-height:34dvh;}
+.vru-panel .vru-undo-scroll {height:300px;max-height:44dvh;overflow-x:hidden;}
+.vru-panel .vru-ack-diagnostics-scroll {height:340px;max-height:50dvh;overflow-x:hidden;}
+.vru-panel .vru-ack-diagnostic-entry,.vru-panel .vru-ack-upload-file {
+  padding:10px 0;border-bottom:1px solid var(--background-modifier-border);min-width:0;
+}
+.vru-panel .vru-ack-diagnostic-entry p {margin:6px 0;}
+.vru-panel .vru-ack-upload-files {max-height:38dvh;overflow-x:hidden;}
+.vru-ack-upload-modal {max-width:680px;width:94vw;}
+.vru-ack-upload-modal .modal-content {overflow-y:auto;max-height:85dvh;}
+.vru-panel .vru-ack-json-scroll::-webkit-scrollbar,
+.vru-panel .vru-operation-scroll::-webkit-scrollbar {width:8px;height:8px;}
+@media (max-width:520px) {
+  .vru-panel .vru-operation-scroll {height:290px;max-height:45dvh;}
+  .vru-panel .vru-ack-json-scroll {height:250px;max-height:40dvh;}
+  .vru-panel .vru-ack-list-scroll {height:210px;max-height:34dvh;}
+  .vru-panel .vru-ack-file-line .vru-button {
+    max-width:90px;font-size:10px;padding:5px 4px;
+  }
+}

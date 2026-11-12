@@ -1,0 +1,9 @@
+{
+  "id": "vault-relay-v4",
+  "name": "Vault Relay",
+  "version": "5.2.8",
+  "minAppVersion": "1.5.0",
+  "description": "Transfer notes and acknowledgements through user-managed ZIP files with review before import. Supports desktop, Android, iOS and iPadOS; Apple compatibility test build.",
+  "author": "Vault Relay",
+  "isDesktopOnly": false
+}
