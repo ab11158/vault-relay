@@ -1,4 +1,4 @@
-# Privacy and data access — 5.2.8 TEST
+# Privacy and data access — 5.2.9 TEST
 
 This build does not add a developer account, payment integration, subscription server or analytics service. Notes are not sent to a developer-operated storage service.
 

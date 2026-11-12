@@ -1,5 +1,5 @@
 'use strict';
-/* Vault Relay V5.2.8 TEST | ACK workflow, readable diagnostics and durable operation results. */
+/* Vault Relay V5.2.9 TEST | ACK workflow, readable diagnostics and durable operation results. */
 const VR527UI=(()=>{
   function expandable(el){
     if(!el || el.dataset?.vr527Expandable ||
@@ -195,7 +195,7 @@ function shortName(value,fallback='Vr1') {
     return v[0].toUpperCase()+v.slice(1,-1).toLowerCase()+v.slice(-1);
   return fallback;
 }
-// V5.2.8: migrate an unambiguous alias; conflicting valid labels require
+// V5.2.9: migrate an unambiguous alias; conflicting valid labels require
 // an explicit local choice. Never infer group identity from a short label.
 function reconcileGroupAlias(data){
   const current=shortName(data.groupShortName,'');
@@ -1861,7 +1861,7 @@ function createUnifiedPanel() {
       const h=ele(c,'div',null,'vru-manual-head');
       ele(h,'h2','Vault Relay V'+(this.plugin.manifest?.version||'4.0.10')+' · 使用说明');
       button(h,'关闭',()=>this.close());
-      ele(c,'p','适用 Windows、Android、iPadOS。日常使用 ① 上传增量包 → ② 下载并导入；接收后连续进入只读审核，只有明确确认正式写入才算导入完成。知识库比对只读，不会强制两台设备一致。','vru-manual-intro');
+      ele(c,'p','适用 Windows、Android、iPadOS。日常使用 ① 预览并生成增量 ZIP → ② 下载并导入；接收后连续进入只读审核，只有明确确认正式写入才算导入完成。知识库比对只读，不会强制两台设备一致。','vru-manual-intro');
       function part(title,paragraphs,steps){
         const s=ele(c,'section',null,'vru-manual-section');ele(s,'h3',title);
         for(const p of paragraphs||[])ele(s,'p',p);
@@ -1884,9 +1884,10 @@ function createUnifiedPanel() {
         '移动 Windows 知识库时，应先关闭 Obsidian，将整个知识库连同隐藏配置和 VaultRelay-Transfer 完整移动，再从新位置重新打开。插件仅在旧内部交换区已不存在、当前内部目录和 GroupID 完整可信时重绑定绝对路径。',
         '如果旧知识库仍存在，可能是复制而非移动；插件拒绝自动重绑定相同 DeviceID，以避免两个副本同时运行。移动知识库不会自动搬动知识库外的百度网盘同步目录；其连接需要单独核对。'
       ]);
-      part('三、上传增量包：一个主按钮',[
-        '点击「上传增量包」，打开同步核心的新增/修改/冲突预览。先检查真实文件和版本，再点击「确认上传」或「确认生成」。',
+      part('三、生成 ZIP 与打开网盘上传入口',[
+        '点击「预览并生成增量 ZIP」，打开同步核心的新增/修改/冲突预览。先检查真实文件和版本，再点击「确认上传」或「确认生成」。',
         '确认后插件自动继续：生成核心 content/info → 封装外层增量 ZIP → 校验并准备 ZIP 与独立 ACK。没有新内容时只准备仍需回传的 ACK，不制造空 ZIP。',
+        'V5.2.9：生成后点击“上传 ZIP / ACK（打开百度网盘入口）”。保存目标云端目录，打开自己的网盘上传；也可复核最新 ZIP 的 SHA 后准备系统分享。手动上传区提供相同入口。',
         'Windows：Windows 自动收发关闭时 ZIP/ACK 只保存到知识库本地待发送区；开启时校验、去重后自动写入已绑定的百度同步目录。百度客户端上传状态须另外确认。Android/iPadOS：从知识库的 VaultRelay-Transfer/temporary 手动上传至云端群组文件夹。系统分享只在 Obsidian 宿主提供 Web Share 或原生 Share/Filesystem 桥接时可直接打开；不可用时请用文件管理器手动上传。点击本按钮本身不证明云端成功。'
       ]);
       part('四、下载增量包：自动核对，人工应用',[
@@ -1917,7 +1918,7 @@ function createUnifiedPanel() {
         'V4.0.14 已实机验证已知本机删除识别、人工发布删除墓碑、接收端独立确认删除及备份、可核实本机未发送包的人工隔离撤销。Android/iPadOS 删除前必须人工确认；百度实际上传状态无法由插件自动证明，真实设备仍需单独验收。'
       ]);
       part("九、用两个动作完成日常同步",[
-        "① 上传增量包：先核对本机新增、更新、删除候选，再明确确认。Windows 写入百度网盘本地同步区；手机/iPad 生成待手动上传的外层 ZIP。上传后的云端状态必须另行核对。",
+        "① 预览并生成增量 ZIP：先核对本机新增、更新、删除候选，再明确确认。Windows 写入百度网盘本地同步区；手机/iPad 生成待手动上传的外层 ZIP。上传后的云端状态必须另行核对。",
         "② 下载并导入：先让百度网盘客户端下载新包或使用系统文件选择器；插件校验 ZIP、GroupID、SHA/CRC，并把交换文件安全写入受排除的同步工作区。接着自动打开只读版本审核；你在同一流程中明确确认新增/更新，删除单独确认。",
         "“下载成功”只证明增量文件安全接收，不代表正文已经写入。如果关闭审核窗口，本机正式笔记仍保持原样；重新打开「高级操作 → 手动下载 → ② 核对并确认正式导入」继续，不需要重新扫描已接收文件。",
         "Windows 已开启自动收发时，一般不必点击「立即安全扫描」；在急于接收新包或排查目录问题时才使用。手动下载界面的系统文件选择也能处理未自动接收的 ZIP/ACK。",
@@ -2075,16 +2076,16 @@ function createUnifiedPanel() {
     }
     async render(){
       const c=this.contentEl;c.empty();
-      ele(c,'h2','V5.2.8 · 30 天安全隔离');
+      ele(c,'h2','V5.2.9 · 30 天安全隔离');
       ele(c,'p','本功能只处理插件自有的 Windows 知识库发送 ZIP。进入隔离后保留 30 天，期间允许恢复；本测试版永久删除关闭。','vru-meta');
       ele(c,'p','百度网盘云端和 Windows 百度本地同步盘禁止插件删除；移动端公共下载文件、独立 ACK 暂不自动清理。','vru-warning');
       ele(c,'p','正在核验 ACK、原包哈希与隔离账本…','vru-meta');
-      if(!this.plugin._v525){ele(c,'p','V5.2.8 安全管理器尚未准备，未执行操作');return;}
+      if(!this.plugin._v525){ele(c,'p','V5.2.9 安全管理器尚未准备，未执行操作');return;}
       let report;
       try{report=await this.plugin.v525CleanupPreview();}
       catch(e){ele(c,'p','检查失败：'+String(e.message||e),'vru-danger');return;}
       c.empty();
-      ele(c,'h2','V5.2.8 · 30 天安全隔离');
+      ele(c,'h2','V5.2.9 · 30 天安全隔离');
       ele(c,'p','本地隔离路径：VaultRelay-Transfer/quarantine/；30天后仍需重新核验。测试版关闭永久删除。','vru-meta');
       ele(c,'p','重要：百度云端与百度本地同步盘始终保留；不会清理正式笔记、墓碑、版本账本和第三方下载文件。','vru-warning');
       ele(c,'p','可手动隔离 '+report.eligible.length+' 项 · 暂不隔离 '+report.blocked.length+' 项 · 已记账隔离/恢复 '+report.records.length+' 项。','vru-meta');
@@ -2492,13 +2493,66 @@ function createUnifiedPanel() {
   }
 
   class VaultRelayAckUploadModal extends Modal {
-    constructor(app,panel){super(app);this.panel=panel;this.p=panel.plugin;}
+    constructor(app,panel,zipMode=false){super(app);this.panel=panel;this.p=panel.plugin;this.zipMode=zipMode;}
+    async renderLatestZip(c){
+      const p=this.p;
+      ele(c,'h3','最近生成的待上传增量 ZIP');
+      const filePath=p.data.latest;
+      const record=(p.data.bundleRecords||[]).slice().reverse().find(x=>x.stored?.path===filePath);
+      const own=p.engine?.state?.deviceId;
+      if(!filePath || !record || record.status!=='pending' || record.groupId!==p.data.groupId ||
+         !own || record.senderId!==own){
+        ele(c,'p','没有可准备的本机待上传 ZIP。请返回控制台，先“预览并生成增量 ZIP”；此入口不会自动生成或重新封装历史包。','vru-meta');
+        return;
+      }
+      const local=record.stored.kind==='vault' &&
+        /^VaultRelay-Transfer\/(?:temporary|outgoing)\/[^/]+\.zip$/i.test(filePath);
+      const cloud=Platform.isDesktopApp && record.stored.kind==='cloud';
+      const name=filePath.split(/[\\/]/).pop();
+      if((!local&&!cloud) || name!==record.name){
+        ele(c,'p','待上传 ZIP 的位置与安全记录不一致，请重新核对。','vru-danger');return;
+      }
+      const line=ele(c,'div',null,'vru-ack-upload-file');
+      const label=ele(line,'span',name,'vru-ack-file-name');VR527UI.expandable(label);
+      const location=ele(line,'p',filePath,'vru-path');VR527UI.expandable(location);
+      const controls=row(line);
+      button(controls,'复制 ZIP 文件名',()=>this.panel.copy(name));
+      button(controls,'复制 ZIP 完整路径',()=>this.panel.copy(filePath));
+      const result=ele(line,'p','准备分享前会重新读取 ZIP 并核对 SHA；不会生成新包、上传文件或确认云端备份。','vru-help');
+      const prepare=button(controls,'复核 ZIP 并准备分享',async()=>{
+        prepare.disabled=true;ready.replaceChildren();
+        try{
+          if(record.status!=='pending' || p.data.groupId!==record.groupId ||
+             p.engine?.state?.deviceId!==record.senderId || p.data.latest!==filePath ||
+             record.stored.path!==filePath)throw Error('群组、设备或待传记录已变化，请关闭并重新打开上传入口');
+          const raw=new Uint8Array(await p.readTransportRecord(record));
+          const tools=p.constructor.__testing.tools;
+          if(raw.length>tools.MAX_BUNDLE_BYTES || await tools.sha256(raw)!==record.sha256)
+            throw Error('ZIP SHA 变化或超过大小限制，拒绝准备分享');
+          if(record.status!=='pending' || p.data.groupId!==record.groupId ||
+             p.engine?.state?.deviceId!==record.senderId || p.data.latest!==filePath ||
+             record.stored.path!==filePath)throw Error('复核期间待传记录变化，请重新打开上传入口');
+          result.textContent='ZIP SHA 复核通过。点击下方按钮打开系统分享；上传后仍需在百度云端核对同名文件。';
+          button(ready,'分享此 ZIP 到百度网盘',()=>{
+            if(record.status!=='pending' || p.data.groupId!==record.groupId ||
+               p.engine?.state?.deviceId!==record.senderId || p.data.latest!==filePath ||
+               record.stored.path!==filePath){new Notice('待传记录已变化，请重新复核 ZIP',7000);return;}
+            this.panel.sharePreparedFile({path:filePath,content:raw},'application/zip','上传增量 ZIP');
+          },true);
+        }catch(e){result.textContent='ZIP 未通过复核：'+String(e.message||e);}
+        finally{prepare.disabled=false;VR527UI.enhance(line);}
+      });
+      const ready=row(line);
+      VR527UI.enhance(line);
+    }
     async onOpen(){
       this.modalEl.addClass('vru-panel');this.modalEl.addClass('vru-ack-upload-modal');
       const c=this.contentEl;c.empty();
       const p=this.p;
-      ele(c,'h2','上传 ACK');
-      ele(c,'p','分享页只能下载。上传请使用自己的网盘目录，或把下方 ACK 分享给百度网盘。','vru-help');
+      ele(c,'h2',this.zipMode?'上传 ZIP / ACK':'上传 ACK');
+      ele(c,'p',this.zipMode?
+        '先在控制台预览并生成增量 ZIP，再打开自己的网盘目录上传，或使用下方系统分享。分享下载页没有上传入口。':
+        '分享页只能下载。上传请使用自己的网盘目录，或把下方 ACK 分享给百度网盘。','vru-help');
       const saved=p.data.ackUploadTarget;
       const configured=saved?.groupId===p.data.groupId?saved.path:'';
       ele(c,'h3','本群组的网盘目标目录');
@@ -2514,7 +2568,7 @@ function createUnifiedPanel() {
           if(!path)throw Error('请填写目标目录');
           p.data.ackUploadTarget={groupId:p.data.groupId,path};
           await p.persistTransport();
-          await p.log('ACK 上传目录已保存',path+'；仅保存导航位置，未上传文件');
+          await p.log(this.zipMode?'ZIP / ACK 上传目录已保存':'ACK 上传目录已保存',path+'；仅保存导航位置，未上传文件');
           new Notice('目标目录已保存',5000);
         }catch(e){new Notice('未保存：'+String(e.message||e),8000);}
       });
@@ -2528,6 +2582,7 @@ function createUnifiedPanel() {
         }catch(e){new Notice(String(e.message||e),8000);}
       },true);
       ele(c,'p','客户端接管链接或登录跳转后可能不保留目录定位。若仍进入分享下载页，请返回网盘“文件／我的文件”，按复制的路径进入目录；不要上传到独立转存副本。','vru-help');
+      if(this.zipMode)await this.renderLatestZip(c);
       ele(c,'h3','选择要上传的独立 ACK');
       ele(c,'p','本机文件位于当前知识库的 VaultRelay-Transfer/temporary。可复制路径后在网盘“上传文件”中选择；宿主支持时也可分享文件。打开入口或完成分享不等于已上传成功。','vru-help');
       const files=ele(c,'div',null,'vru-fixed-scroll vru-ack-upload-files');
@@ -2549,7 +2604,9 @@ function createUnifiedPanel() {
         }catch(e){ele(line,'p','文件未通过复核：'+String(e.message||e),'vru-danger');}
       }
       if(!files.children.length)ele(files,'p','请先返回 ACK 高级管理，点击“① 手动生成独立 ACK”。','vru-meta');
-      ele(c,'p',Platform.isIosApp?'若系统分享列表没有百度网盘，请先选择“存储到文件”，再到百度网盘上传该 ACK。保持原文件名不变，上传后核对云端同名文件；Windows 点④重新核对。':
+      ele(c,'p',Platform.isIosApp?(this.zipMode?
+        '若分享列表没有百度网盘，请先“存储到文件”，再到百度网盘上传所选 ZIP / ACK。保持原文件名不变。接收 ZIP 后仍需人工确认写入，ACK 回传后在 Windows 重新核对。':
+        '若系统分享列表没有百度网盘，请先选择“存储到文件”，再到百度网盘上传该 ACK。保持原文件名不变，上传后核对云端同名文件；Windows 点④重新核对。'):
         '上传后在云端核对同名文件；Windows 自动运输关闭时，先“检查本地同步目录”，再“重新核对 ACK 状态”。','vru-help');
       VR527UI.enhance(c);
     }
@@ -3026,8 +3083,10 @@ function createUnifiedPanel() {
         '有正文增量时 ZIP 合并尚未发送的 ACK；只有 ACK 时仍提供独立 JSON。正式笔记始终需要人工审核。','vru-help');
       const controls=row(transfer);
       const groupReady=!!p.data.groupId && !!p.engine;
-      const upload=button(controls,'① 上传增量包',()=>this.legacy('upload'),true);
+      const upload=button(controls,'① 预览并生成增量 ZIP',()=>this.legacy('upload'),true);
       upload.disabled=!groupReady;
+      const uploadLink=button(controls,'上传 ZIP / ACK（打开百度网盘入口）',()=>new VaultRelayAckUploadModal(this.app,this,true).open());
+      uploadLink.disabled=!groupReady;
       const download=row(transfer);
       if(Platform.isDesktopApp){
         const receive=button(download,'② 检查本地同步目录（下载接收）',()=>this.run('Windows 安全扫描',async()=>{
@@ -3057,9 +3116,10 @@ function createUnifiedPanel() {
       ele(more,'summary','手动上传');
       if(this._advOpen?.upload)more.open=true;
       more.addEventListener('toggle',()=>{(this._advOpen||={}).upload=more.open;});
-      ele(more,'p','手动上传仅保留同步核心的审核确认入口；不开放无范围限制的历史 content/info 重新封装，避免旧设备版本混入新包。ACK 单独发送见「ACK 高级管理」。','vru-help');
+      ele(more,'p','先预览并确认生成 ZIP，再打开百度网盘上传入口，手动选择文件上传。接收方正式导入后回传 ACK；打开网盘或系统分享均不代表云端上传完成。','vru-help');
       const step=row(more);
-      button(step,'打开原生上传预览并确认',()=>this.legacy('upload'));
+      button(step,'预览并生成增量 ZIP',()=>this.legacy('upload')).disabled=!groupReady;
+      button(step,'打开百度网盘上传入口（ZIP / ACK）',()=>new VaultRelayAckUploadModal(this.app,this,true).open()).disabled=!groupReady;
       if(!Platform.isDesktopApp)button(step,'撤销确定未上传的本机草稿',()=>this.legacy('withdraw'));
 
       const manualDownload=ele(advanced,'details',null,'vru-settings vru-advanced');
@@ -3070,6 +3130,8 @@ function createUnifiedPanel() {
         '① 手动从系统文件夹选择 ZIP/ACK 并安全接收，随后自动进入 ② 审核及确认。Windows 自动收发和立即安全扫描在「设置与连接检查 → 连接设置」。':
         Platform.isIosApp?'iOS / iPadOS 不会扫描其他应用的下载目录。请先将下载文件存储到“文件”，再通过下方按钮选择 ZIP / ACK；取消选择不会导入。':
         '扫描尽量覆盖可访问的公共存储目录（含子目录），并优先检测常用和自设目录；如有权限限制、数量上限或中途退出，请采用系统选文件兜底。','vru-help');
+      if(!Platform.isDesktopApp)
+        button(manualDownload,'打开百度网盘群组分享页（下载 ZIP / ACK）',()=>this.openShareBrowser(false)).disabled=!groupReady;
       const receiveTools=row(manualDownload);
       if(Platform.isDesktopApp){
         const chooser=ele(manualDownload,'input');chooser.type='file';
@@ -8354,7 +8416,7 @@ const NativeUi = Native.__ui;
 const UnifiedBase = Plugin;
 const OBS = require('obsidian');
 
-// V5.2.8 safe-local lifecycle modules, inlined for portable Obsidian install.
+// V5.2.9 safe-local lifecycle modules, inlined for portable Obsidian install.
 const V525 = (()=>{
   const factories=Object.create(null), cache=Object.create(null);
 factories["path-guard"]=function(module,exports,require){
@@ -8838,7 +8900,7 @@ module.exports = { ConsoleRefreshHub };
 };
 factories["v525-live"]=function(module,exports,require){
 'use strict';
-/* Vault Relay V5.2.8 live integration.  No automatic deletion, ever. */
+/* Vault Relay V5.2.9 live integration.  No automatic deletion, ever. */
 const { SafeQuarantine } = require("quarantine");
 const { evaluatePacketClearance } = require("ack-clearance");
 const { ReviewNotificationGate } = require("review-gate");
@@ -9042,7 +9104,7 @@ class V525LiveService {
     rec.v525CloudVerified={atUtc:new Date().toISOString(),zipSha256:rec.sha256,
       groupId:rec.groupId,by:'user-manual-confirmation'};
     await this.p.persistTransport();
-    await this.p.log('V5.2.8 云端备份人工确认','用户确认已在百度网盘云端核对本包：'+rec.name+
+    await this.p.log('V5.2.9 云端备份人工确认','用户确认已在百度网盘云端核对本包：'+rec.name+
       '；仅作为资格证据，不代表插件已验证服务器内容');
   }
   async stage(packetId){
@@ -9051,13 +9113,13 @@ class V525LiveService {
       throw Error('本版本仅允许 Windows 中插件自有 outgoing/temporary ZIP 进入隔离');
     const result=await this.quarantine.quarantineZip({packetId,
       sourcePath:rec.stored.path,expectedSha256:rec.sha256});
-    await this.p.log('V5.2.8 安全隔离','已进入30天隔离：'+result.originalPath+' → '+result.quarantinePath+
+    await this.p.log('V5.2.9 安全隔离','已进入30天隔离：'+result.originalPath+' → '+result.quarantinePath+
       '；到期日 '+result.purgeNotBeforeUtc+'；期间可恢复，未删除云端任何文件');
     return result;
   }
   async restore(id){
     const result=await this.quarantine.restore(id);
-    await this.p.log('V5.2.8 隔离恢复','恢复 '+result.originalPath+'；SHA 复核通过');
+    await this.p.log('V5.2.9 隔离恢复','恢复 '+result.originalPath+'；SHA 复核通过');
     return result;
   }
   async deletedPresentation(plan){
@@ -9364,18 +9426,18 @@ class VaultRelayV4 extends UnifiedBase {
         'V4.0.10 已暂停 Windows 旧版正式笔记自动应用；自动 ZIP/ACK 运输开关与历史配置保留不变。正式内容必须在审核窗口人工确认');
     }
   }
-  // V5.2.8 replaces the legacy 7-day and mirrored-cloud cleanup entrypoints.
+  // V5.2.9 replaces the legacy 7-day and mirrored-cloud cleanup entrypoints.
   // Never call the legacy destructive helpers, even from hourly/background scans.
   async safeCleanup({automatic=false}={}){
-    if(!automatic)await this.log('V5.2.8 清理保护',
+    if(!automatic)await this.log('V5.2.9 清理保护',
       '旧版立即删除流程已禁止。请使用30天隔离预览；同步盘与云端永不自动清理');
     return {sending:0,downloads:0,acks:0,cloud:0};
   }
   async cleanupAckConfirmed(){return {deleted:0,pending:(this.data.bundleRecords||[]).length,blocked:0};}
   async removeVerifiedAckCopies(){return 0;}
-  async deleteVerifiedCloudCopies(){throw Error('V5.2.8 禁止删除百度本地同步盘与云端文件');}
+  async deleteVerifiedCloudCopies(){throw Error('V5.2.9 禁止删除百度本地同步盘与云端文件');}
   async checkTemporary(deleteConfirmed=false,silent=false){
-    if(deleteConfirmed)throw Error('V5.2.8 禁止旧版立即删除；请使用30天隔离');
+    if(deleteConfirmed)throw Error('V5.2.9 禁止旧版立即删除；请使用30天隔离');
     return UnifiedBase.prototype.checkTemporary.call(this,false,silent);
   }
   async log(kind,message){

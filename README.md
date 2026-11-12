@@ -2,13 +2,19 @@
 
 Transfer notes and acknowledgements using user-managed ZIP files and Baidu Netdisk, with explicit review before formal note changes.
 
-## 5.2.8 Apple compatibility TEST
+## 5.2.9 Apple compatibility TEST
 
 Supports Windows, Android, iOS and iPadOS through separate platform branches. The Apple build uses the system Files picker rather than scanning other apps' download folders. This release has automated compatibility coverage but has **not** passed a real iPhone/iPad test yet. No continuous background sync is promised on Apple devices.
 
+## Upload navigation in 5.2.9
+
+The console now separates **preview and generate ZIP** from **open Baidu upload**. Both the main transfer section and advanced manual upload section provide an upload dialog. It reuses the saved group upload target, offers the latest own pending ZIP with copyable name/path, and verifies SHA before offering system sharing. Download navigation remains separate and opens the group share page. Opening any page or share sheet does not confirm cloud delivery.
+
+BRAT installation on an iPad was reported successful for 5.2.8 after the release attachment types were corrected. The full Apple ZIP/import/ACK workflow still requires device testing.
+
 ## Install and use
 
-Install BRAT from Obsidian's community plugins, then use **Add beta plugin** and enter **ab11158/vault-relay**. Enable Vault Relay after installation and check that the console shows version 5.2.8. See the [Apple installation and test guide](APPLE-INSTALL.md).
+Install BRAT from Obsidian's community plugins, then use **Add beta plugin** and enter **ab11158/vault-relay**. Enable Vault Relay after installation and check that the console shows version 5.2.9. See the [Apple installation and test guide](APPLE-INSTALL.md).
 
 This repository uses a regular GitHub release so BRAT's default latest-release lookup can install it. The release title, changelog and documentation explicitly mark it as a TEST build, not production validation.
 
