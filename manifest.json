@@ -1,9 +1,9 @@
 {
   "id": "vault-relay-v4",
   "name": "Vault Relay",
-  "version": "5.2.11",
+  "version": "5.2.12",
   "minAppVersion": "1.5.0",
-  "description": "Optional Baidu synchronization-space directory navigation; existing Android transfer preserved. Reviewed ZIP/ACK transfer; test build.",
+  "description": "Unified Baidu cloud directory settings with explicit legacy selection and workspace navigation. Reviewed ZIP/ACK transfer; TEST build.",
   "author": "Vault Relay",
   "isDesktopOnly": false
 }

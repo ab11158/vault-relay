@@ -1,4 +1,4 @@
-# Privacy and data access — 5.2.11 TEST
+# Privacy and data access — 5.2.12 TEST
 
 This build does not add a developer account, payment integration, subscription server or analytics service. Notes are not sent to a developer-operated storage service.
 
@@ -13,3 +13,5 @@ If installed using BRAT, BRAT contacts GitHub to retrieve plugin updates. This b
 This preparation does not publish any real vault data, device configuration, payment credentials or test artifacts.
 
 The optional synchronization-space destination is stored locally per group. Opening it uses the system HTTPS browser interface; no Baidu credentials, API tokens or cloud directory migration are added.
+
+5.2.12 stores an explicitly chosen cloud directory locally per group. Legacy directory fields remain unchanged. URL parsing and workspace-prefix handling run locally; opening a directory uses the system HTTPS browser. No cloud API credentials, automatic migration or device configuration sharing is added.

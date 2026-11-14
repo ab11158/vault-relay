@@ -1,5 +1,5 @@
 'use strict';
-/* Vault Relay V5.2.11 TEST | Optional synchronization-space navigation; existing transport preserved. */
+/* Vault Relay V5.2.12 TEST | Unified cloud directory navigation; explicit legacy selection; existing transport preserved. */
 const VR527UI=(()=>{
   function expandable(el){
     if(!el || el.dataset?.vr527Expandable ||
@@ -51,30 +51,68 @@ const VR527UI=(()=>{
     const path=normalizeCloudPath(value);
     return 'https://pan.baidu.com/disk/main#/index?category=all'+(path?'&path='+encodeURIComponent(path):'');
   }
-  function syncSpaceTarget(value){
-    const raw=String(value||'').trim();
-    if(!raw || /[\x00-\x1f\x7f\\]/.test(raw))
-      throw Error('请粘贴同步空间目录网址，或包含 /_pcs_.workspace 的完整云端路径');
+  function directoryTarget(value,space='synchronization'){
+    const input=String(value||'');
+    if(/[\x00-\x1f\x7f\\]/.test(input))throw Error('百度网盘同步空间共享目录包含无效字符');
+    const raw=input.trim();
+    if(!['synchronization','main'].includes(space))throw Error('请选择同步空间或普通网盘');
     let path=raw;
     if(!raw.startsWith('/')){
       let url;
-      try{url=new URL(raw);}catch(_){throw Error('同步空间网址无效');}
-      if(url.protocol!=='https:' || url.hostname!=='pan.baidu.com' || url.port ||
-         url.username || url.password || url.pathname!=='/disk/synchronization' ||
-         url.search || !url.hash.startsWith('#/index?'))
-        throw Error('只接受百度网盘官方 HTTPS 同步空间目录网址，不接受分享页或普通网盘网址');
-      const params=new URL('https://pan.baidu.com/?'+url.hash.slice(8)).searchParams;
-      if(params.getAll('path').length!==1)throw Error('同步空间网址必须包含唯一完整目录路径');
-      path=params.get('path');
+      try{url=new URL(raw);}catch(_){throw Error('请填写以 / 开头的目录，或官方 HTTPS 目录网址');}
+      if(!/^https:\/\/pan\.baidu\.com\/disk\/(main|synchronization)#\/index\?/.test(raw) ||
+         url.protocol!=='https:' || url.host!=='pan.baidu.com' || url.username || url.password ||
+         !['/disk/main','/disk/synchronization'].includes(url.pathname) || url.search || !url.hash.startsWith('#/index?'))
+        throw Error('只接受百度网盘官方 HTTPS 目录网址，不接受分享链接');
+      const params=new URLSearchParams(url.hash.slice(8));
+      if(params.getAll('path').length!==1)throw Error('目录网址必须包含唯一目录路径');
+      path=params.get('path');space=url.pathname==='/disk/synchronization'?'synchronization':'main';
+      // A main-route upload URL may address an explicit workspace path.
+      if(path==='/_pcs_.workspace'||path.startsWith('/_pcs_.workspace/'))space='synchronization';
     }
+    if(!path || /[\x00-\x1f\x7f\\]/.test(path) || /%[0-9a-f]{2}/i.test(path))
+      throw Error('目录为空或含有不安全的编码');
     path=normalizeCloudPath(path);
-    if(!(path==='/_pcs_.workspace' || path.startsWith('/_pcs_.workspace/')) || /%[0-9a-f]{2}/i.test(path))
-      throw Error('请使用同步空间的真实完整路径（以 /_pcs_.workspace 开头），不会自动补前缀');
-    return {space:'synchronization',path};
+    if(space==='synchronization' && path!=='/_pcs_.workspace' && !path.startsWith('/_pcs_.workspace/'))
+      path='/_pcs_.workspace'+(path==='/'?'':path);
+    if(space==='main' && (path==='/_pcs_.workspace'||path.startsWith('/_pcs_.workspace/')))
+      throw Error('该完整路径属于同步空间，请选择同步空间');
+    return {space,path};
   }
+  function syncSpaceTarget(value){return directoryTarget(value,'synchronization');}
   function syncSpaceUrl(value){
     const target=syncSpaceTarget(value);
     return 'https://pan.baidu.com/disk/synchronization#/index?category=all&path='+encodeURIComponent(target.path);
+  }
+  function visibleDirectory(target){
+    return target?.space==='synchronization'?(target.path.slice('/_pcs_.workspace'.length)||'/'):(target?.path||'');
+  }
+  function savedDirectory(data){
+    const saved=data.cloudDirectoryTarget;
+    if(!saved || !data.groupId || saved.groupId!==data.groupId)return null;
+    const parsed=directoryTarget(saved.path,saved.space);
+    if(parsed.path!==saved.path || parsed.space!==saved.space)throw Error('已保存的目录配置无效，请重新明确保存');
+    return parsed;
+  }
+  function legacySync(data){
+    const saved=data.syncSpaceTarget;
+    if(!data.groupId || saved?.groupId!==data.groupId || saved.space!=='synchronization')return null;
+    try{
+      const parsed=syncSpaceTarget(saved.path);
+      return parsed.path===saved.path?parsed:null;
+    }catch(_){return null;}
+  }
+  function navigationTarget(data,operation){
+    const saved=savedDirectory(data);
+    if(saved)return saved;
+    if(operation==='browse'){
+      const sync=legacySync(data);
+      if(!sync)throw Error('请在公共设置保存百度网盘同步空间共享目录');
+      return sync;
+    }
+    // Untyped legacy Android upload paths retain their original exact route.
+    const old=data.ackUploadTarget;
+    return {space:'main',path:data.groupId && old?.groupId===data.groupId?normalizeCloudPath(old.path||''):''};
   }
   function ackRows(state){
     const labels={applied:'已正式导入',same:'内容相同，无需重复写入',equivalent:'内容等效',
@@ -97,7 +135,7 @@ const VR527UI=(()=>{
     const date=new Date(value);
     return Number.isFinite(date.getTime())?date.toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false})+'（北京时间）':String(value);
   }
-  return {expandable,enhance,observe,normalizeCloudPath,uploadUrl,syncSpaceTarget,syncSpaceUrl,ackRows,formatTime};
+  return {expandable,enhance,observe,normalizeCloudPath,uploadUrl,directoryTarget,visibleDirectory,savedDirectory,legacySync,navigationTarget,syncSpaceTarget,syncSpaceUrl,ackRows,formatTime};
 })();
 function loadBridge(){
 const module={exports:{}};
@@ -2750,25 +2788,18 @@ function createUnifiedPanel() {
     }
     openUploadBrowser(){
       try{
-        const saved=this.plugin.data.ackUploadTarget;
-        const path=saved?.groupId===this.plugin.data.groupId?
-          VR527UI.normalizeCloudPath(saved.path||''):'';
-        // Direct user gesture: never await or open an intermediate modal.
-        window.open(VR527UI.uploadUrl(path),'_blank','noopener,noreferrer');
-        new Notice(path?'已尝试打开百度网盘上传文件夹；请在网盘中核对位置和上传结果':
-          '已尝试打开百度网盘首页；请进入自己的上传文件夹',6500);
+        const target=VR527UI.navigationTarget(this.plugin.data,'upload');
+        window.open(VR527UI.uploadUrl(target.path),'_blank','noopener,noreferrer');
+        new Notice('已尝试打开上传页面；请核对目录并选择原 ZIP / ACK。打开页面不代表上传完成。',7000);
       }catch(e){new Notice('无法打开网盘：'+String(e.message||e),7500);}
     }
     openSyncSpaceBrowser(){
       try{
-        const saved=this.plugin.data.syncSpaceTarget;
-        if(!saved || saved.groupId!==this.plugin.data.groupId || saved.space!=='synchronization')
-          throw Error('请在「设置与连接检查 → 百度网盘连接」保存当前群组的同步空间目录网址');
-        const url=VR527UI.syncSpaceUrl(saved.path);
-        // Direct click only: never await, carry a file or mutate transport state.
+        const target=VR527UI.navigationTarget(this.plugin.data,'browse');
+        const url=target.space==='synchronization'?VR527UI.syncSpaceUrl(target.path):VR527UI.uploadUrl(target.path);
         window.open(url,'_blank','noopener,noreferrer');
-        new Notice('已尝试打开同步空间：'+saved.path+'；请核对群组目录。打开页面不代表上传、下载或对端接收完成。',8500);
-      }catch(e){new Notice('无法打开同步空间：'+String(e.message||e),8500);}
+        new Notice('已尝试打开百度网盘同步空间共享目录；请核对实际文件。打开页面不代表下载或接收完成。',7500);
+      }catch(e){new Notice('无法打开目录：'+String(e.message||e),7500);}
     }
     renderPreparedAck(parent,filePath){
       const p=this.plugin,own=p.engine?.state?.deviceId,group=p.data.groupId;
@@ -3023,50 +3054,65 @@ function createUnifiedPanel() {
         button(firstActions,'② 打开浏览器',()=>this.openShareBrowser(true));
         ele(common,'p','首次测试：保存 → ① 复制 → ② 打开浏览器 → 自己粘贴链接并回车。浏览器能否由系统拉起，须实机核实。','vru-meta');
 
-      const targetField=ele(common,'label',null,'vru-setting');
-      ele(targetField,'span','普通网盘上传文件夹（原入口，可选）');
-      const target=ele(targetField,'input');target.type='text';
-      const savedTarget=p.data.ackUploadTarget;
-      target.value=savedTarget?.groupId===p.data.groupId?savedTarget.path||'':'';
-      target.placeholder='例如 /同步文件夹/test1（示例，不代表已设置）';
-      target.className='vru-cloud-upload-target';
-      const targetStatus=ele(common,'p',target.value?'已保存的云端上传位置：'+target.value:
-        '尚未设置；打开上传入口时进入网盘首页。','vru-meta vru-cloud-target-status');
-      ele(common,'p','这是百度网盘中的云端文件夹路径，只用于尝试打开上传位置；不是本地 ZIP 存放位置。留空即可使用网盘首页。','vru-help');
-      const targetActions=row(common);
-      button(targetActions,'保存网盘上传位置',async()=>{
+      ele(common,'h4','百度网盘同步空间共享目录');
+      const sourceField=ele(common,'label',null,'vru-setting');
+      ele(sourceField,'span','配置来源（选择后仍需明确保存）');
+      const source=ele(sourceField,'select');source.className='vru-directory-source';
+      const drafts=[];
+      let current=null;
+      try{current=VR527UI.savedDirectory(p.data);}catch(e){ele(common,'p',e.message,'vru-warning');}
+      if(current)drafts.push(['current','本版已明确保存',current]);
+      const oldSync=VR527UI.legacySync(p.data);
+      if(oldSync)drafts.push(['sync','旧同步空间配置（类型明确）',oldSync]);
+      const oldUpload=p.data.ackUploadTarget;
+      if(p.data.groupId && oldUpload?.groupId===p.data.groupId){
+        drafts.push(['upload','旧上传配置（类型未记录，请确认）',{space:'main',path:oldUpload.path||''}]);
+      }
+      drafts.push(['new','手动填写新目录',{space:'synchronization',path:''}]);
+      for(const [value,label] of drafts){const option=ele(source,'option',label);option.value=value;}
+      const typeField=ele(common,'label',null,'vru-setting');
+      ele(typeField,'span','目录所在位置');
+      const type=ele(typeField,'select');type.className='vru-directory-space';
+      for(const [value,label] of [['synchronization','同步空间'],['main','普通网盘']]){
+        const option=ele(type,'option',label);option.value=value;
+      }
+      const field=ele(common,'label',null,'vru-setting');
+      ele(field,'span','百度网盘同步空间共享目录');
+      const input=ele(field,'input');input.type='text';input.className='vru-cloud-directory';
+      input.placeholder='例如 /示例目录/共享区，或粘贴官方目录网址';
+      const loadDraft=()=>{
+        const target=drafts.find(x=>x[0]===source.value)[2];
+        type.value=target.space;input.value=VR527UI.visibleDirectory(target);
+      };
+      source.value=drafts[0][0];loadDraft();source.addEventListener('change',loadDraft);
+      const status=ele(common,'p',current?'当前使用：本版已明确保存的'+(current.space==='synchronization'?'同步空间':'普通网盘')+'目录。':
+        '尚未统一保存：上传继续使用旧上传配置（没有则打开首页）；浏览继续使用匹配群组的旧同步空间配置。选择来源或编辑不会改变现有入口。',
+        'vru-meta vru-directory-status vr527-keep-full');
+      if(!current && oldSync && oldUpload?.groupId===p.data.groupId)
+        ele(common,'p','检测到两份旧配置：浏览与上传可能指向不同位置。请选择正确来源并确认；保存后两个操作才统一使用此目录。','vru-warning');
+      ele(common,'p','同步空间只填页面可见目录即可；也支持历史完整路径。粘贴官方目录网址会显示识别结果，再点击保存。普通网盘保持原目录。','vru-help');
+      const preview=ele(common,'p','尚未识别新输入；保存后生效。','vru-meta vru-directory-preview');
+      const identify=()=>{
         try{
-          if(!p.data.groupId)throw Error('请先创建或加入群组');
-          const path=VR527UI.normalizeCloudPath(target.value);
-          p.data.ackUploadTarget={groupId:p.data.groupId,path};
-          await p.persistTransport();
-          target.value=path;targetStatus.textContent=path?'已保存的云端上传位置：'+path:
-            '尚未设置；打开上传入口时进入网盘首页。';
-          await p.log('网盘上传位置已保存',path?path+'；只保存导航位置，未上传文件':
-            '已清空可选云端路径；上传入口将打开网盘首页');
-          new Notice('网盘上传位置已保存',4500);
+          const parsed=VR527UI.directoryTarget(input.value,type.value);
+          type.value=parsed.space;
+          preview.textContent='识别结果：'+(parsed.space==='synchronization'?'同步空间':'普通网盘')+' · '+VR527UI.visibleDirectory(parsed)+'；尚未保存。';
+        }catch(e){preview.textContent='未识别：'+String(e.message||e);}
+      };
+      input.addEventListener('change',identify);type.addEventListener('change',identify);
+      const actions=row(common);
+      button(actions,'保存百度网盘同步空间共享目录',async()=>{
+        try{
+          const saved=await p.saveCloudDirectoryTarget(input.value,type.value);
+          type.value=saved.space;input.value=VR527UI.visibleDirectory(saved);
+          status.textContent='当前使用：本版已明确保存的'+(saved.space==='synchronization'?'同步空间':'普通网盘')+'目录 · '+input.value+'。浏览与上传使用同一目录。';
+          preview.textContent='已保存；旧配置原值保留，当前入口使用本版明确选择。';
+          new Notice('百度网盘同步空间共享目录已保存；仅用于网页导航',5000);
         }catch(e){new Notice('未保存：'+String(e.message||e),7500);}
-      });
-      button(targetActions,'打开百度网盘上传位置',()=>this.openUploadBrowser());
-      const syncField=ele(common,'label',null,'vru-setting');
-      ele(syncField,'span','同步空间目录网址／完整路径（可选，独立入口）');
-      const syncInput=ele(syncField,'input');syncInput.type='text';syncInput.className='vru-sync-space-target';
-      const syncSaved=p.data.syncSpaceTarget;
-      syncInput.value=syncSaved?.groupId===p.data.groupId?syncSaved.path||'':'';
-      syncInput.placeholder='从同步空间地址栏复制网址，或 /_pcs_.workspace/…';
-      const syncStatus=ele(common,'p',syncInput.value?'同步空间位置：'+syncInput.value:
-        '尚未设置同步空间；原上传入口和群组分享链接继续使用原配置。','vru-meta vru-sync-space-status');
-      ele(common,'p','普通网盘和同步空间使用不同入口。请粘贴已核实的同步空间目录网址，不按同名文件夹猜路径。此设置只新增网页导航，不移动文件、不建立同步关系；能否上传或下载原文件须在网盘中确认。','vru-help');
-      const syncActions=row(common);
-      button(syncActions,'保存同步空间位置',async()=>{
-        try{
-          const saved=await p.saveSyncSpaceTarget(syncInput.value);
-          syncInput.value=saved?.path||'';
-          syncStatus.textContent=saved?'同步空间位置：'+saved.path:'已清空同步空间位置；原入口不变。';
-          new Notice('同步空间位置已保存；仅用于网页导航',5000);
-        }catch(e){new Notice('未保存同步空间：'+String(e.message||e),7500);}
-      });
-      button(syncActions,'打开同步空间目录',()=>this.openSyncSpaceBrowser());
+      },true);
+      button(actions,'浏览目录',()=>this.openSyncSpaceBrowser());
+      button(actions,'上传原 ZIP / ACK',()=>this.openUploadBrowser());
+      ele(common,'p','浏览与上传分别打开系统浏览器页面；上传时选择原文件。目录设置不建立百度同步关系，实际云端上传、Windows 到达和插件接收需分别核对。','vru-help');
       const connection=section(set,Platform.isDesktopApp?'② Windows 专用设置':
         Platform.isAndroidApp?'② 移动端专用设置 · Android':'② 移动端专用设置 · iOS / iPadOS');
       if(Platform.isDesktopApp){
@@ -3158,7 +3204,7 @@ function createUnifiedPanel() {
         const direct=button(download,'② 打开百度网盘（移动端专用 · 下载）',()=>this.openShareBrowser(false),true);
         direct.disabled=!groupReady;
       }
-      button(download,'同步空间目录（浏览 ZIP / ACK）',()=>this.openSyncSpaceBrowser()).disabled=!groupReady;
+      button(download,'浏览目录（ZIP / ACK）',()=>this.openSyncSpaceBrowser()).disabled=!groupReady;
       const audit=row(transfer);
       const reviewNow=button(audit,Platform.isIosApp?'③ 选择已下载 ZIP / ACK 并审核':'③ 核对与确认导入（自动搜索已下载文件）',()=>{
         if(Platform.isIosApp)return this.pickMobileTransferFiles();
@@ -3255,7 +3301,6 @@ function createUnifiedPanel() {
       const navigation=row(ack);navigation.className+=' vru-ack-navigation';
       button(navigation,'② 上传 ACK（打开百度网盘上传入口）',()=>this.openUploadBrowser());
       button(navigation,'③ 下载 ACK（打开百度群组分享页）',()=>this.openShareBrowser(false));
-      button(navigation,'同步空间目录（浏览／上传原 ACK）',()=>this.openSyncSpaceBrowser());
       button(ack,'④ 重新核对 ACK 状态',()=>this.run('ACK 状态核对',()=>p.recheckAckStatus()),true);
       const state=p.engine?.state;
       ele(ack,'p','待确认发送 ZIP：'+p.data.bundleRecords.filter(x=>x.status==='pending').length+
@@ -10538,6 +10583,16 @@ class VaultRelayV4 extends UnifiedBase {
       s.groupId=value;s.seq=0;s.messageSeq=0;
       for(const key of ['processed','seenInfo','seenAck','acks','publishedAckIds','receivedAcks'])s[key]={};
     }
+  }
+  async saveCloudDirectoryTarget(value,space){
+    if(!this.data.groupId)throw Error('请先创建或加入群组');
+    const target={groupId:this.data.groupId,...VR527UI.directoryTarget(value,space)};
+    const had=Object.prototype.hasOwnProperty.call(this.data,'cloudDirectoryTarget');
+    const previous=this.data.cloudDirectoryTarget;
+    this.data.cloudDirectoryTarget=target;
+    try{await this.persistTransport();}
+    catch(e){if(had)this.data.cloudDirectoryTarget=previous;else delete this.data.cloudDirectoryTarget;throw e;}
+    return target;
   }
   async saveSyncSpaceTarget(value){
     if(!this.data.groupId)throw Error('请先创建或加入群组');
