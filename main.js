@@ -1,5 +1,5 @@
 'use strict';
-/* Vault Relay V5.2.10 TEST | ACK workflow, readable diagnostics and durable operation results. */
+/* Vault Relay V5.2.11 TEST | Optional synchronization-space navigation; existing transport preserved. */
 const VR527UI=(()=>{
   function expandable(el){
     if(!el || el.dataset?.vr527Expandable ||
@@ -51,6 +51,31 @@ const VR527UI=(()=>{
     const path=normalizeCloudPath(value);
     return 'https://pan.baidu.com/disk/main#/index?category=all'+(path?'&path='+encodeURIComponent(path):'');
   }
+  function syncSpaceTarget(value){
+    const raw=String(value||'').trim();
+    if(!raw || /[\x00-\x1f\x7f\\]/.test(raw))
+      throw Error('请粘贴同步空间目录网址，或包含 /_pcs_.workspace 的完整云端路径');
+    let path=raw;
+    if(!raw.startsWith('/')){
+      let url;
+      try{url=new URL(raw);}catch(_){throw Error('同步空间网址无效');}
+      if(url.protocol!=='https:' || url.hostname!=='pan.baidu.com' || url.port ||
+         url.username || url.password || url.pathname!=='/disk/synchronization' ||
+         url.search || !url.hash.startsWith('#/index?'))
+        throw Error('只接受百度网盘官方 HTTPS 同步空间目录网址，不接受分享页或普通网盘网址');
+      const params=new URL('https://pan.baidu.com/?'+url.hash.slice(8)).searchParams;
+      if(params.getAll('path').length!==1)throw Error('同步空间网址必须包含唯一完整目录路径');
+      path=params.get('path');
+    }
+    path=normalizeCloudPath(path);
+    if(!(path==='/_pcs_.workspace' || path.startsWith('/_pcs_.workspace/')) || /%[0-9a-f]{2}/i.test(path))
+      throw Error('请使用同步空间的真实完整路径（以 /_pcs_.workspace 开头），不会自动补前缀');
+    return {space:'synchronization',path};
+  }
+  function syncSpaceUrl(value){
+    const target=syncSpaceTarget(value);
+    return 'https://pan.baidu.com/disk/synchronization#/index?category=all&path='+encodeURIComponent(target.path);
+  }
   function ackRows(state){
     const labels={applied:'已正式导入',same:'内容相同，无需重复写入',equivalent:'内容等效',
       conflict:'存在冲突，尚未完成',rejected:'已拒绝导入'};
@@ -72,7 +97,7 @@ const VR527UI=(()=>{
     const date=new Date(value);
     return Number.isFinite(date.getTime())?date.toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false})+'（北京时间）':String(value);
   }
-  return {expandable,enhance,observe,normalizeCloudPath,uploadUrl,ackRows,formatTime};
+  return {expandable,enhance,observe,normalizeCloudPath,uploadUrl,syncSpaceTarget,syncSpaceUrl,ackRows,formatTime};
 })();
 function loadBridge(){
 const module={exports:{}};
@@ -2520,7 +2545,7 @@ function createUnifiedPanel() {
       button(controls,'复制 ZIP 文件名',()=>this.panel.copy(name));
       button(controls,'复制 ZIP 完整路径',()=>this.panel.copy(filePath));
       const result=ele(line,'p','准备分享前会重新读取 ZIP 并核对 SHA；不会生成新包、上传文件或确认云端备份。','vru-help');
-      const prepare=button(controls,'复核 ZIP 并准备分享',async()=>{
+      const prepare=button(controls,'复核 ZIP 并准备导出',async()=>{
         prepare.disabled=true;ready.replaceChildren();
         try{
           if(record.status!=='pending' || p.data.groupId!==record.groupId ||
@@ -2534,7 +2559,7 @@ function createUnifiedPanel() {
              p.engine?.state?.deviceId!==record.senderId || p.data.latest!==filePath ||
              record.stored.path!==filePath)throw Error('复核期间待传记录变化，请重新打开上传入口');
           result.textContent='ZIP SHA 复核通过。点击下方按钮打开系统分享；上传后仍需在百度云端核对同名文件。';
-          button(ready,'分享此 ZIP 到百度网盘',()=>{
+          button(ready,'导出原 ZIP／系统分享',()=>{
             if(record.status!=='pending' || p.data.groupId!==record.groupId ||
                p.engine?.state?.deviceId!==record.senderId || p.data.latest!==filePath ||
                record.stored.path!==filePath){new Notice('待传记录已变化，请重新复核 ZIP',7000);return;}
@@ -2734,6 +2759,17 @@ function createUnifiedPanel() {
           '已尝试打开百度网盘首页；请进入自己的上传文件夹',6500);
       }catch(e){new Notice('无法打开网盘：'+String(e.message||e),7500);}
     }
+    openSyncSpaceBrowser(){
+      try{
+        const saved=this.plugin.data.syncSpaceTarget;
+        if(!saved || saved.groupId!==this.plugin.data.groupId || saved.space!=='synchronization')
+          throw Error('请在「设置与连接检查 → 百度网盘连接」保存当前群组的同步空间目录网址');
+        const url=VR527UI.syncSpaceUrl(saved.path);
+        // Direct click only: never await, carry a file or mutate transport state.
+        window.open(url,'_blank','noopener,noreferrer');
+        new Notice('已尝试打开同步空间：'+saved.path+'；请核对群组目录。打开页面不代表上传、下载或对端接收完成。',8500);
+      }catch(e){new Notice('无法打开同步空间：'+String(e.message||e),8500);}
+    }
     renderPreparedAck(parent,filePath){
       const p=this.plugin,own=p.engine?.state?.deviceId,group=p.data.groupId;
       if(!/^VaultRelay-Transfer\/(?:temporary|outgoing)\/ack-[^/\\]+\.json$/.test(filePath))return;
@@ -2746,7 +2782,7 @@ function createUnifiedPanel() {
       const ready=row(line);
       const valid=()=>p.data.groupId===group && p.engine?.state?.deviceId===own &&
         (p.data.lastPreparedAckFiles?.paths||[]).includes(filePath);
-      const prepare=button(tools,'复核 ACK 并准备分享',async()=>{
+      const prepare=button(tools,'复核 ACK 并准备导出',async()=>{
         prepare.disabled=true;ready.replaceChildren();
         try{
           if(!valid())throw Error('群组、设备或 ACK 列表已变化，请重新打开管理区');
@@ -2754,7 +2790,7 @@ function createUnifiedPanel() {
           const ack=await p.constructor.__testing.tools.validateRawAck(raw,name,group);
           if(ack.device!==own)throw Error('不是本机生成的 ACK');
           if(!valid())throw Error('复核期间配置变化，请重新打开管理区');
-          button(ready,'分享此 ACK 到百度网盘',()=>{
+          button(ready,'导出原 ACK／系统分享',()=>{
             if(!valid()){new Notice('ACK 配置已变化，请重新复核',6500);return;}
             this.sharePreparedFile({path:filePath,content:raw},'application/json','上传独立 ACK');
           },true);
@@ -2967,7 +3003,7 @@ function createUnifiedPanel() {
           '默认模式：任意一台其他设备对同一包内全部正式版本提供有效 ACK 即满足 ACK 条件，无需预填 Device ID。')+
           ' ACK 不证明云端当前仍可下载；百度同步目录的 ZIP 不会自动删除。','vru-help');
       }
-      const cloudCommon=ele(common,'h4','百度网盘连接（公共）');
+      const cloudCommon=ele(common,'h4','百度网盘连接');
         const linkSetting=ele(common,'label',null,'vru-share-setting');
         ele(linkSetting,'span','百度网盘群组长期分享链接');
         const urlInput=ele(linkSetting,'input');urlInput.type='text';
@@ -2988,7 +3024,7 @@ function createUnifiedPanel() {
         ele(common,'p','首次测试：保存 → ① 复制 → ② 打开浏览器 → 自己粘贴链接并回车。浏览器能否由系统拉起，须实机核实。','vru-meta');
 
       const targetField=ele(common,'label',null,'vru-setting');
-      ele(targetField,'span','百度网盘上传文件夹（可选）');
+      ele(targetField,'span','普通网盘上传文件夹（原入口，可选）');
       const target=ele(targetField,'input');target.type='text';
       const savedTarget=p.data.ackUploadTarget;
       target.value=savedTarget?.groupId===p.data.groupId?savedTarget.path||'':'';
@@ -3012,10 +3048,29 @@ function createUnifiedPanel() {
         }catch(e){new Notice('未保存：'+String(e.message||e),7500);}
       });
       button(targetActions,'打开百度网盘上传位置',()=>this.openUploadBrowser());
+      const syncField=ele(common,'label',null,'vru-setting');
+      ele(syncField,'span','同步空间目录网址／完整路径（可选，独立入口）');
+      const syncInput=ele(syncField,'input');syncInput.type='text';syncInput.className='vru-sync-space-target';
+      const syncSaved=p.data.syncSpaceTarget;
+      syncInput.value=syncSaved?.groupId===p.data.groupId?syncSaved.path||'':'';
+      syncInput.placeholder='从同步空间地址栏复制网址，或 /_pcs_.workspace/…';
+      const syncStatus=ele(common,'p',syncInput.value?'同步空间位置：'+syncInput.value:
+        '尚未设置同步空间；原上传入口和群组分享链接继续使用原配置。','vru-meta vru-sync-space-status');
+      ele(common,'p','普通网盘和同步空间使用不同入口。请粘贴已核实的同步空间目录网址，不按同名文件夹猜路径。此设置只新增网页导航，不移动文件、不建立同步关系；能否上传或下载原文件须在网盘中确认。','vru-help');
+      const syncActions=row(common);
+      button(syncActions,'保存同步空间位置',async()=>{
+        try{
+          const saved=await p.saveSyncSpaceTarget(syncInput.value);
+          syncInput.value=saved?.path||'';
+          syncStatus.textContent=saved?'同步空间位置：'+saved.path:'已清空同步空间位置；原入口不变。';
+          new Notice('同步空间位置已保存；仅用于网页导航',5000);
+        }catch(e){new Notice('未保存同步空间：'+String(e.message||e),7500);}
+      });
+      button(syncActions,'打开同步空间目录',()=>this.openSyncSpaceBrowser());
       const connection=section(set,Platform.isDesktopApp?'② Windows 专用设置':
         Platform.isAndroidApp?'② 移动端专用设置 · Android':'② 移动端专用设置 · iOS / iPadOS');
       if(Platform.isDesktopApp){
-        this.settings(connection,'Windows 百度网盘已同步的本地文件夹',
+        this.settings(connection,'Windows 专用 · Windows 百度网盘已同步的本地文件夹',
           'windowsCloudDir','例如：你的百度网盘本地同步目录（完整路径）');
         ele(connection,'p','用户指定已由百度客户端同步的文件夹。文件夹名与位置均不绑定 GroupID；首次验证后写入 VaultRelay-Space.json 身份文件，改名或移动时它随文件夹一起移动。','vru-meta');
         const wc=row(connection);
@@ -3103,6 +3158,7 @@ function createUnifiedPanel() {
         const direct=button(download,'② 打开百度网盘（移动端专用 · 下载）',()=>this.openShareBrowser(false),true);
         direct.disabled=!groupReady;
       }
+      button(download,'同步空间目录（浏览 ZIP / ACK）',()=>this.openSyncSpaceBrowser()).disabled=!groupReady;
       const audit=row(transfer);
       const reviewNow=button(audit,Platform.isIosApp?'③ 选择已下载 ZIP / ACK 并审核':'③ 核对与确认导入（自动搜索已下载文件）',()=>{
         if(Platform.isIosApp)return this.pickMobileTransferFiles();
@@ -3199,6 +3255,7 @@ function createUnifiedPanel() {
       const navigation=row(ack);navigation.className+=' vru-ack-navigation';
       button(navigation,'② 上传 ACK（打开百度网盘上传入口）',()=>this.openUploadBrowser());
       button(navigation,'③ 下载 ACK（打开百度群组分享页）',()=>this.openShareBrowser(false));
+      button(navigation,'同步空间目录（浏览／上传原 ACK）',()=>this.openSyncSpaceBrowser());
       button(ack,'④ 重新核对 ACK 状态',()=>this.run('ACK 状态核对',()=>p.recheckAckStatus()),true);
       const state=p.engine?.state;
       ele(ack,'p','待确认发送 ZIP：'+p.data.bundleRecords.filter(x=>x.status==='pending').length+
@@ -10482,9 +10539,18 @@ class VaultRelayV4 extends UnifiedBase {
       for(const key of ['processed','seenInfo','seenAck','acks','publishedAckIds','receivedAcks'])s[key]={};
     }
   }
+  async saveSyncSpaceTarget(value){
+    if(!this.data.groupId)throw Error('请先创建或加入群组');
+    const parsed=String(value||'').trim()?VR527UI.syncSpaceTarget(value):null;
+    const target=parsed?{groupId:this.data.groupId,...parsed}:null;
+    const had=Object.prototype.hasOwnProperty.call(this.data,'syncSpaceTarget');
+    const previous=this.data.syncSpaceTarget;
+    this.data.syncSpaceTarget=target;
+    try{await this.persistTransport();}
+    catch(e){if(had)this.data.syncSpaceTarget=previous;else delete this.data.syncSpaceTarget;throw e;}
+    return target;
+  }
   async saveGroupShare(raw,rawCode=''){
-    if(!OBS.Platform.isAndroidApp && !OBS.Platform.isIosApp)
-      throw Error('群组分享链接只供移动端手动收发使用');
     const pasted=String(raw||'').trim();
     // Baidu often copies a combined text that includes the URL and the code.
     // Extract the official HTTPS link, never store extra page/share prose.

@@ -1,40 +1,38 @@
-# Vault Relay
+# Vault Relay 5.2.11 TEST
 
-Transfer notes and acknowledgements using user-managed ZIP files and Baidu Netdisk, with explicit review before formal note changes.
+GitHub 发布的 TEST 测试版，可通过 BRAT 获取；5.2.11 尚未完成真机验收。
 
-## 5.2.10 — Shared console and adaptive lists TEST
+本版为百度网盘「同步空间」增加独立、可选的目录入口。原普通网盘上传入口、群组分享下载入口、Android 下载目录扫描、系统分享和文件接收实现继续保留。不自动迁移旧路径、不自动添加 workspace 前缀、不修改已有传输文件。
 
-Common settings and operations use the same names, grouping and responsibilities on Windows, Android and iPad/iOS. Platform settings remain separate: **Windows 专用设置** contains the local Baidu sync folder and automatic transport controls; **移动端专用设置** describes Android scanning or Apple's Files picker.
+## 改动
 
-Baidu share link, extraction code and the optional **百度网盘上传文件夹** belong to **设置与连接检查 → ① 公共设置**. The upload folder is a cloud navigation path, not a local ZIP destination. An unset field explicitly says 尚未设置 and upload navigation opens your own netdisk homepage. Baidu login or app redirects may require manually locating the folder.
+- 在「设置与连接检查 → ① 公共设置 → 百度网盘连接」保存同步空间实际目录网址或完整云端路径；按当前 GroupID 单独保存。
+- 在增量收发区及 ACK 高级管理区打开该目录，采用 `/disk/synchronization` 和以 `/_pcs_.workspace` 开头的完整路径。
+- 拒绝普通网盘地址、群组分享地址、非官方网址及越界路径。清空新设置仅移除新入口的目的地，原配置保留。
+- Windows 可以实际保存群组分享链接及提取码。其自动收发继续使用既有百度本地同步目录。
+- 逐文件操作改名为「复核并准备导出」「导出原 ZIP／ACK／系统分享」；保留原有 SHA／协议复核和原始文件名、原始字节保护。
 
-Every upload navigation button opens Baidu directly, without an intermediate plugin dialog. Download navigation opens the group share page. Generated ZIP results appear inline beside the ZIP controls; independent ACK files and sharing actions appear only in ACK 高级管理. Empty lists are hidden, small lists fit their content, and large lists scroll within a height limit. Truncated labels remain expandable by tap or keyboard.
+## 安装
 
-## Install and use
+安装包：`VaultRelay-V5.2.11-PluginOnly-TEST.zip`，仅包含 `vault-relay-v4/main.js`、`manifest.json`、`styles.css` 三个文件。
 
-Install BRAT from Obsidian's community plugins, then add **ab11158/vault-relay**. Enable Vault Relay and check for **5.2.10**. For an existing BRAT installation, check for updates or change a pinned version to 5.2.10. See the [Apple guide](APPLE-INSTALL.md).
+先在测试库使用。关闭／停用 Vault Relay，备份该库现有插件目录，然后将上述三个文件覆盖至该库的 `.obsidian/plugins/vault-relay-v4/`，重新启用并核对版本为 5.2.11。保留原 `data.json`；不要删除插件目录、重新创建群组或复制其他设备的配置。也可使用支持本地安装包的既有安装工具，只更新这三个插件文件。
 
-Use a test vault. Keep existing data.json, identities, pairing, ACK history and transfer folders when upgrading. A newly added device must have its own Device ID and join the existing GroupID; do not copy another device's data.json.
+本包不含设备配置、笔记、ACK 文件、分享密码或用户目录地址。使用 BRAT 时添加 `ab11158/vault-relay`，或检查已有插件更新并核对 5.2.11；如固定旧版，改选 5.2.11。
 
-Download ZIP/ACK files from your own sharing folder, save them to Files on Apple devices, then select them in Vault Relay. Receiving a ZIP only stages version data. Review and explicit confirmation are required before formal notes are written. Generate and upload ACK files afterward and verify their receipt on the sending computer.
+## 验证新入口
 
-This is a regular GitHub release for BRAT latest-version lookup, explicitly labeled TEST. It is not an App Store release or an Obsidian community listing.
+1. 原流程正常的 Android 可先继续使用原按钮，不需要填写新设置。
+2. 需要访问同步空间时，从已确认正确目录的浏览器地址栏复制完整 HTTPS 网址。打开插件公共设置，粘贴到「同步空间目录网址／完整路径」，点「保存同步空间位置」。请勿把 `/s/` 分享链接粘贴到此字段。
+3. 点「打开同步空间目录」，确认实际目录及文件列表。登录、系统跳转或百度页面能力仍可能影响结果；插件没有独立内置浏览器，也不保证自动唤起百度 App。
+4. 上传／下载原 ZIP 或 ACK 后，分别核对云端文件、对端本地文件及插件正式接收记录。网页打开不携带文件，不是上传成功回执。iPad 原有「该文件已移动或删除」下载报错不在本版已解决范围内。
 
-## Validation and limitations
+## 验证范围
 
-29 regression checks, 7 simulated Apple compatibility checks and Android/iOS-mode browser UI checks pass. Browser checks cover direct navigation, common settings, ZIP/ACK validation, empty/single/overflowing lists, readable diagnostics, expandable labels, and Apple picker/share behavior using mocks. They do not prove actual Safari, OS sharing or Baidu navigation/upload behavior.
+29 项安全回归、7 项隔离 VM 中的苹果兼容测试通过；Android／iOS 平台模式下的浏览器界面检查通过。新增导航测试覆盖三平台实际保存方法、持久化与重载、群组隔离、无效／失败保存、原路径保留及 Windows 分享链接保存。代码对比验证原 Android 分享、文件选择、下载扫描及接收方法未改变。
 
-For the prior 5.2.9 version, an iPad installation, restart identity retention, small ZIP formal import, repeated selection with no new items, and independent ACK generation were verified on hardware. The iPad ACK cloud return to Windows is still pending. 5.2.10 requires device validation after upgrading.
+界面测试运行于 Edge，使用模拟 Obsidian 接口和拦截的网页打开操作，不等于 Safari、Android WebView 或百度云端真机验收。5.2.11 尚未完成真机上传、下载及端到端 ACK 回传验证。
 
-## Safety and service disclosures
+正式笔记仍须审核确认；冲突不覆盖。隔离至少 30 天，永久删除仍禁用；插件禁止删除百度同步盘／云端文件。本版没有新增 API 授权、付费功能或开发者云端存储。
 
-- No payment, trial enforcement or subscription activation is implemented in this build.
-- Uses your own Baidu Netdisk account/client or browser. No developer-hosted note storage is provided.
-- Apple access outside the vault is limited to files explicitly selected by the user; Android can probe readable download locations; Windows uses a configured local sync folder. Source files are preserved.
-- Opening a page or share sheet does not prove cloud delivery, mark cloud publication or create a successful import ACK.
-- Quarantine lasts at least 30 days. Permanent deletion is disabled, including after expiry. Cloud/sync-folder deletion is prohibited. Restore refuses to overwrite an existing destination.
-- See [privacy disclosures](PRIVACY.md) and [version comparison](VERSION-COMPARISON.md).
-
-## License
-
-Original Vault Relay code is available for free evaluation under [LICENSE](LICENSE), not a permissive open-source license. Bundled JSZip and dependencies retain their own licenses in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+许可见 LICENSE，捆绑组件许可见 THIRD_PARTY_LICENSES.md。

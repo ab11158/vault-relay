@@ -1,4 +1,4 @@
-# Privacy and data access — 5.2.9 TEST
+# Privacy and data access — 5.2.11 TEST
 
 This build does not add a developer account, payment integration, subscription server or analytics service. Notes are not sent to a developer-operated storage service.
 
@@ -11,3 +11,5 @@ On iOS/iPadOS the user selects external ZIP/ACK files in the system Files picker
 If installed using BRAT, BRAT contacts GitHub to retrieve plugin updates. This build does not introduce its own plugin updater. Adding payment or authorization later requires updated disclosures.
 
 This preparation does not publish any real vault data, device configuration, payment credentials or test artifacts.
+
+The optional synchronization-space destination is stored locally per group. Opening it uses the system HTTPS browser interface; no Baidu credentials, API tokens or cloud directory migration are added.
