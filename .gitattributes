@@ -1,0 +1,4 @@
+# Preserve the exact tested bytes of the three install assets.
+main.js -text
+manifest.json -text
+styles.css -text

@@ -834,3 +834,30 @@
 .vru-review-modal .vru-review-text,.vr2-scroll {
   height:auto;min-height:0;overflow-y:auto;
 }
+
+/* V5.2.13: same-level primary actions, subordinate details, local file tools. */
+.vru-panel .vru-transfer-step {padding:16px 0;border-bottom:1px solid var(--background-modifier-border);}
+.vru-panel .vru-transfer-step:last-child {border-bottom:0;}
+.vru-panel .vru-transfer-step h3 {font-size:18px;margin:0 0 12px;}
+.vru-panel .vru-transfer-step>.vru-row {display:flex;flex-direction:column;align-items:stretch;}
+.vru-panel .vru-transfer-step>.vru-row>.vru-button {width:100%;}
+.vru-panel .vru-prepared-zip,.vru-panel .vru-secondary-details {margin:14px 0 8px 16px;}
+.vru-panel .vru-prepared-zip>summary,.vru-panel .vru-secondary-details>summary {font-size:13px;font-weight:500;min-height:40px;padding:8px 0;}
+.vru-panel .vru-ack-navigation>.vru-button {text-align:center;}
+.vru-panel .vru-file-actions {min-width:0;margin:10px 0;padding:12px;background:var(--background-secondary);border:1px solid var(--background-modifier-border);border-radius:8px;}
+.vru-panel .vru-file-actions .vru-row {display:flex;flex-wrap:wrap;gap:8px;}
+.vru-panel .vru-file-actions .vru-button {width:auto;flex:1;min-width:100px;min-height:44px;font-size:13px;}
+.vru-panel .vru-log-toolbar {display:flex;justify-content:space-between;align-items:center;gap:12px;}
+.vru-panel .vru-log-toolbar h3 {margin:0;}
+.vru-panel .vru-log-toolbar .vru-button {width:auto;flex:none;min-width:64px;min-height:44px;}
+.vru-panel .vru-log-all {display:flex;align-items:center;gap:10px;min-height:44px;}
+.vru-panel .vru-log-all input,.vru-panel .vru-selectable-log>input {width:18px;height:18px;flex:none;accent-color:var(--interactive-accent);}
+.vru-panel .vru-selectable-log {display:flex;align-items:flex-start;gap:12px;min-height:60px;}
+.vru-panel .vru-selectable-log>input {margin-top:5px;}
+.vru-panel .vru-selectable-log>span {min-width:0;overflow-wrap:anywhere;}
+.vru-panel .vru-selectable-log:has(input:checked) {background:var(--background-modifier-hover);}
+.vru-panel .vru-platform-advanced {margin-top:16px;}
+.vru-panel .vru-platform-advanced>summary {font-size:13px;}
+.vru-panel .vru-legacy-resolution {margin:10px 0;}
+.vru-panel .vru-legacy-resolution select {width:100%;min-height:44px;}
+.vru-panel .vru-button.mod-cta {background:var(--interactive-accent);color:var(--text-on-accent);}

@@ -1,9 +1,9 @@
 {
   "id": "vault-relay-v4",
   "name": "Vault Relay",
-  "version": "5.2.12",
+  "version": "5.2.13",
   "minAppVersion": "1.5.0",
-  "description": "Unified Baidu cloud directory settings with explicit legacy selection and workspace navigation. Reviewed ZIP/ACK transfer; TEST build.",
+  "description": "Three-step ZIP/ACK console, simple Baidu settings, local download discovery and file/log tools. Manual review required; TEST build.",
   "author": "Vault Relay",
   "isDesktopOnly": false
 }
