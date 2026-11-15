@@ -1,5 +1,5 @@
 'use strict';
-/* Vault Relay V5.2.13 TEST | Three-step console, simple cloud settings, local download discovery and file/log tools. */
+/* Vault Relay V5.2.14 TEST | Unified desktop web upload entry; browser display mode remains browser-managed. */
 const VR527UI=(()=>{
   function expandable(el){
     if(!el || el.dataset?.vr527Expandable ||
@@ -2105,6 +2105,13 @@ function createUnifiedPanel() {
         '不要在多个不同的云端目录同时使用同一个 GroupID。已有 data.json、身份、版本历史和 ACK 记录在升级时必须保留。',
         'V5.2.3 新发送包默认采用“任意一台设备完整 ACK”：只要一台其他设备确认本包所有版本，即满足 ACK 条件；不需要填写接收设备 ID。严格模式才填写其他设备的完整 ID，要求全部确认；“仅人工清理”不因 ACK 清理。旧版本包沿用创建时的规则，Windows 百度同步目录 ZIP 不自动删除。'
       ]);
+      part("手机网页上传：默认使用电脑版",[
+        "手机网页上传采用电脑版页面。若左侧栏占用过多屏幕、右侧文件区难以操作，或看不到上传按钮，请先在浏览器菜单选择“访问电脑版”（部分浏览器称“桌面网站”）。",
+        "从插件②上传或“高级操作 → 手动上传”的②入口打开百度网页 → 在浏览器菜单启用访问电脑版 → 返回 Obsidian 后重新打开上传入口 → 核对路径末尾为目标目录（例如 test1）及原文件列表 → 点网页“上传”选择原 ZIP / ACK，等待网页显示上传完成。不要在网盘根目录误传。",
+        "插件打开电脑版上传网页地址，但不能强制设置外部浏览器的显示模式。浏览器是否记住电脑版选项取决于其自身设置；更换浏览器、清除网站设置或再次打开后，如布局恢复，请重新选择访问电脑版。设置区仍填写短路径，同步空间前缀由插件内部处理。",
+        "网页到百度 App 的手动入口未能稳定复现；“App 下载”本次进入的是客户端下载安装页，不能当作进入已安装 App 的按钮。网页上传流程不依赖该入口。",
+        "本次 Android 现场只确认：启用访问电脑版后，从插件重新打开，仍能看到 test1 和上传按钮。未执行实际上传；不代表所有浏览器、iPad 或网页到 App 的目录保留都已验证。"
+],[]);
       part("百度网盘设置：短路径、上传入口与下载入口",[
         "入口：设置与连接检查 → ② 百度网盘设置。①公共设置保留群组、设备与 ACK 策略；百度网盘内部①为上传目录，②为群组分享下载链接，Windows另有③本地目录与自动收发。",
         "已有正确配置不用每次重填。升级必须保留 data.json、原 GroupID、独立 Device ID、版本历史和 ACK 账本，不复制其他设备的配置。",
@@ -2115,7 +2122,7 @@ function createUnifiedPanel() {
         "也可粘贴百度官方 HTTPS 目录网址，离开输入框后检查识别结果。同步空间与普通网盘分别保留真实目标，不能把 /s/ 分享网址填进目录框。",
         "只有旧路径用途不明确时才会显示首次确认；选择同步空间或普通网盘，或使用已明确的旧同步空间目录。不要因为路径相同就认定云端对象相同。",
         "点击「保存百度网盘同步空间共享目录」才生效。保存失败保留旧值；旧字段原值也保留。",
-        "「打开百度网盘共享目录页入口（浏览器）」用于浏览；「查看上传的文件」打开同目标可上传网页。可复制网页地址；打开页面不代表实际上传完成。",
+        "「打开百度网盘共享目录页入口（浏览器）」、「查看上传的文件」和②上传均打开同一目标的电脑版上传网页；复制目录页地址也使用这一入口。打开页面不代表实际上传完成。",
         "在②保存群组长期分享链接，可粘贴包含提取码的百度分享文字；原提取码兼容保留。复制链接、打开分享页面与查看下载原件分开操作。",
         "不填写重复下载保存目录：实际位置由百度客户端、App或浏览器决定。Windows分批发现本地文件，Android沿用可读范围扫描，苹果用系统“文件”选原件。"
 ]);
@@ -2183,7 +2190,7 @@ function createUnifiedPanel() {
       ]);
       part("九、日常顺序与排错：只补未完成的一步",[
         "日常顺序：发送端预览并生成 ZIP → 导出原件并实际上传 → 接收端下载或等待百度同步 → 校验并人工确认正式笔记 → 回传 ACK → 原发送端核对对应反馈。",
-        "浏览与上传指向同一目录，但打开不同操作页面。网页能打开不代表有写入能力，上传成功也不代表对端本地已经到达；本地到达仍不等于插件登记。",
+        "上传区的设置入口、②上传、手动上传和“查看上传的文件”统一打开电脑版上传页；下载区仍保留浏览目录与群组分享入口。每次先核对实际目录。网页能打开不代表有写入能力，上传成功不代表对端本地已经到达；本地到达仍不等于插件登记。",
         "没有新 ZIP 时先看预览是否有新增内容；没有新 ACK 数量时先看该版本是否早已登记。不要通过删除旧包、清空账本或重建群组排错。",
         "iPad 下载后在百度 App 传输列表找不到条目时，先分清 Safari／系统“文件”与百度 App 下载通道；文件未实际可读前不反复导入。",
         "扫描不到时使用系统文件选择兜底；校验失败先保留原件及诊断，不能解压重打包来绕过错误。冲突、SHA／CRC、GroupID 或权限错误应先核对原因。",
@@ -2309,7 +2316,10 @@ function createUnifiedPanel() {
         "Q77：普通 Markdown 的目标文件夹留空，是否就自动找到原文件？ 答：不是。目标位置默认当前知识库根目录；系统文件选择器读取的是你主动选择的外部 .md，子文件夹是可选的知识库内部保存位置。",
         "Q78：导出后“打开文件所在文件夹”在 Android 没有跳转怎么办？ 答：Obsidian 移动端可能不开放文件管理器目录跳转；插件会给出或尝试复制知识库相对路径，文件原件不会丢失。",
         "Q79：Windows 点击打开文件夹没有响应怎么办？ 答：部分 Obsidian 宿主不开放 Electron 定位接口，插件会提示实际绝对路径并尝试复制；可用资源管理器手动定位，不能把弹窗关闭误当作已定位。",
-        "Q80：V5.2.3 的新功能已通过三台真实设备测试了吗？ 答：尚未。原有 Windows/红米选择性同步与 Markdown 导入曾实机通过，但新的移动重绑定、ACK 策略和宽度调节仍需逐项实机验收。"
+        "Q80：V5.2.3 的新功能已通过三台真实设备测试了吗？ 答：尚未。原有 Windows/红米选择性同步与 Markdown 导入曾实机通过，但新的移动重绑定、ACK 策略和宽度调节仍需逐项实机验收。",
+        "Q81：【手机网页上传注意事项】左侧栏太宽、文件区太窄或没有上传按钮怎么办？ 答：从插件②上传或手动上传入口打开百度网页，在浏览器菜单启用“访问电脑版”（或“桌面网站”），返回 Obsidian 后重新打开。核对目标目录（例如 test1）和文件列表，再点网页“上传”选择原 ZIP / ACK。不要在根目录误传；没有上传按钮时先核对是否误入同步空间浏览页。",
+        "Q82：插件打开电脑版网页，是否就替浏览器开启并永久保存了电脑版模式？ 答：不是。插件使用电脑版上传地址，显示模式仍由外部浏览器控制；是否记住取决于浏览器。换浏览器、清除网站设置或重新打开后布局恢复时，需要再次选择“访问电脑版”。看到目录和上传按钮不等于文件已经上传，应等网页明确显示上传完成。",
+        "Q83：网页没有“进入百度 App”按钮，或只看到“App 下载”，怎么办？ 答：网页到 App 的入口未稳定复现，跳转后保留同一目录也未验证。本次“App 下载”进入的是下载安装页。请直接使用电脑版网页上传；如自行打开百度 App，需在 App 内手动找到并核对目标目录，不能把打开 App 主页视为已进入 test1。"
       ]);
       const tail=ele(c,'div',null,'vru-manual-tail');
       button(tail,'我已阅读 · 关闭说明',()=>this.close(),true);
@@ -3050,7 +3060,8 @@ function createUnifiedPanel() {
       try{
         const target=VR527UI.navigationTarget(this.plugin.data,'upload');
         window.open(VR527UI.uploadUrl(target.path),'_blank','noopener,noreferrer');
-        new Notice('已尝试打开上传页面；请核对目录并选择原 ZIP / ACK。打开页面不代表上传完成。',7000);
+        new Notice(Platform.isMobileApp?'已尝试打开电脑版上传页；如布局不完整，请在浏览器菜单选择“访问电脑版”。核对目录后上传原 ZIP / ACK。':
+          '已尝试打开电脑版上传页；请核对目录并选择原 ZIP / ACK。打开页面不代表上传完成。',7000);
       }catch(e){new Notice('无法打开网盘：'+String(e.message||e),7500);}
     }
     openSyncSpaceBrowser(){
@@ -3325,9 +3336,11 @@ function createUnifiedPanel() {
       const actions=row(directory);
       button(actions,'保存百度网盘同步空间共享目录',async()=>{try{const t=parse();const saved=await p.saveCloudDirectoryTarget(t.path,t.space);targetSpace=saved.space;input.value=VR527UI.visibleDirectory(saved);status.textContent='已保存'+(saved.space==='synchronization'?'同步空间':'普通网盘')+'目录：'+input.value+'；浏览与上传使用同一目标。';if(resolve){resolve.value=saved.space;resolve.closest('details').open=false;}new Notice('目录已保存，旧配置原值保留。',4500);}catch(e){new Notice('未保存：'+e.message,7000);}},true);
       button(actions,'复制打开百度网盘共享目录页地址',()=>{try{const t=VR527UI.navigationTarget(p.data,'upload');return this.copy(VR527UI.uploadUrl(t.path));}catch(e){new Notice(e.message,6500);}});
-      button(actions,'打开百度网盘共享目录页入口（浏览器）',()=>this.openSyncSpaceBrowser());
+      button(actions,'打开百度网盘共享目录页入口（浏览器）',()=>this.openUploadBrowser());
       button(actions,'查看上传的文件',()=>this.openUploadBrowser());
       ele(directory,'p','查看上传的文件会打开对应目录的百度网页，可查看原 ZIP / ACK 并上传；不表示已完成云端上传。','vru-help');
+
+      if(Platform.isMobileApp)ele(directory,'p',"手机上传默认使用电脑版网页。若页面过窄或没有上传按钮，请在浏览器菜单选择“访问电脑版”；重新打开后核对目录，再选择原 ZIP / ACK 上传。",'vru-help vr527-keep-full');
 
       const downloadSettings=section(baidu,'② 百度网盘群组长期分享链接（下载入口）');
       const linkSetting=ele(downloadSettings,'label',null,'vru-share-setting');ele(linkSetting,'span','百度网盘群组长期分享链接');
@@ -3417,6 +3430,7 @@ function createUnifiedPanel() {
       const controls=row(sending);
       button(controls,'① 预览并生成增量 ZIP',()=>this.legacy('upload'),true).disabled=!groupReady;
       button(controls,'② 上传 ZIP / ACK（打开百度网盘入口）',()=>this.openUploadBrowser(),true).disabled=!groupReady;
+      if(Platform.isMobileApp)ele(sending,'p',"手机上传默认使用电脑版网页。若页面过窄或没有上传按钮，请在浏览器菜单选择“访问电脑版”；重新打开后核对目录，再选择原 ZIP / ACK 上传。",'vru-help vr527-keep-full');
       new VaultRelayPreparedZip(this).renderLatestZip(sending);
       if((p.data.lastPreparedAckFiles?.paths||[]).length){
         const generatedAck=ele(sending,'details',null,'vru-prepared-zip vru-secondary-details');

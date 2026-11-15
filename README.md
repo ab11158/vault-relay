@@ -1,24 +1,28 @@
-# Vault Relay 5.2.13 TEST
+# Vault Relay 5.2.14 TEST
 
-本版实现三步传输控制台、百度设置分组、文件操作与日志选择。插件 ID 继续为 `vault-relay-v4`，支持 Windows、Android、iOS／iPadOS。本版为 TEST 测试版，新增功能尚需真机验收。
+本版修正设置区上传入口，统一电脑版网页上传，并补充手机操作说明与 FAQ Q81–Q83。插件 ID 继续为 `vault-relay-v4`，支持 Windows、Android、iOS／iPadOS。本版为 TEST 测试版，新增功能尚需真机验收。
 
-安装包：`VaultRelay-V5.2.13-PluginOnly-TEST.zip`，只含 `vault-relay-v4/main.js`、`manifest.json`、`styles.css`。不包含任何设备 data.json、群组配置、笔记、诊断或测试截图。
+安装包：`VaultRelay-V5.2.14-PluginOnly-TEST.zip`，只含 `vault-relay-v4/main.js`、`manifest.json`、`styles.css`。不包含任何设备 data.json、群组配置、笔记、诊断或测试截图。
 
 ## GitHub 与 BRAT
 
-在 BRAT 添加 `ab11158/vault-relay`，已有安装检查更新并核对 5.2.13；固定版本可选择 5.2.13。手动安装从 [5.2.13 Release](https://github.com/ab11158/vault-relay/releases/tag/5.2.13) 下载插件 ZIP。旧 5.2.12 发布保留。
+在 BRAT 添加 `ab11158/vault-relay`，已有安装检查更新并核对 5.2.14；固定版本可选择 5.2.14。手动安装从 [5.2.14 Release](https://github.com/ab11158/vault-relay/releases/tag/5.2.14) 下载插件 ZIP。旧 5.2.13 及更早发布保留。
 
 ## 升级
 
 1. 备份当前知识库与 `.obsidian/plugins/vault-relay-v4/data.json`。
 2. 暂停插件，解压本包，将三个插件文件替换到当前知识库 `.obsidian/plugins/vault-relay-v4/`。不要把目录重复嵌套，不删除原 data.json。
-3. 重新启用插件或重启 Obsidian，核对控制台显示 5.2.13。
+3. 重新启用插件或重启 Obsidian，核对控制台显示 5.2.14。
 4. 身份、群组、ACK 与版本历史沿用原配置。原自动收发开关保持，不重新建群组或复制其他设备配置。
 5. 已明确保存的同步空间显示短路径；仅在历史路径类型不明确或两份旧目标不同时，首次保存需确认用途。
 
 完整步骤见 `USER-GUIDE.md`，插件控制台「使用说明」同步包含这些步骤。
 
-## 本版范围
+## 本次修正
+
+设置区打开上传入口、②上传、手动上传和“查看上传的文件”使用同一目录的电脑版上传页。手机浏览器需自行启用“访问电脑版”（或“桌面网站”）；插件不能强制设置外部浏览器，是否记住该选项取决于浏览器。网页到 App 不作为依赖。“App 下载”本次进入客户端下载安装页。
+
+## 沿用功能
 
 - ①生成、②上传、③下载入口确认、④审核导入分属三步；同级编号主按钮全部高亮。辅助动作灰色。
 - 设置分公共设置与百度网盘设置。同步空间路径显示短路径，网页完整路径内部补前缀一次。Windows本地同步绑定和自动收发保留。
@@ -38,6 +42,6 @@ Windows磁盘枚举依赖系统PowerShell/CIM，原文件剪贴板依赖Windows 
 
 ## 验证与发布材料
 
-29项安全回归、7项苹果分支兼容、7项本地下载发现、三端界面及导航和内置说明检查通过。详见 [TEST-STATUS.md](TEST-STATUS.md)。自动检查不代表真机百度运输已经验收。
+本次三端上传入口、导航、实际界面与内置说明检查通过；此前安全、苹果兼容及下载发现结论保留，不冒充本次重新执行。详见 [TEST-STATUS.md](TEST-STATUS.md)。自动检查不代表真机百度运输已经验收。
 
 安装包严格只含三个插件文件，附件 SHA256SUMS.txt 可核对发布文件。没有私人 data.json、笔记、设备快照或实际分享链接。许可见 LICENSE 与 THIRD_PARTY_LICENSES.md。

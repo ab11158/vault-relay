@@ -1,9 +1,9 @@
 {
   "id": "vault-relay-v4",
   "name": "Vault Relay",
-  "version": "5.2.13",
+  "version": "5.2.14",
   "minAppVersion": "1.5.0",
-  "description": "Three-step ZIP/ACK console, simple Baidu settings, local download discovery and file/log tools. Manual review required; TEST build.",
+  "description": "Unified Baidu desktop web upload entry. Mobile browser desktop display mode remains browser-managed. Manual review required; TEST build.",
   "author": "Vault Relay",
   "isDesktopOnly": false
 }
