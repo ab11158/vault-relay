@@ -1,5 +1,5 @@
 'use strict';
-/* Vault Relay V5.2.15 TEST | Two directory routes, unified file lists and explicit cross-vault copies. */
+/* Vault Relay V5.2.16 TEST | Three-step mobile transfer and explicit scan progress. */
 const VR527UI=(()=>{
   function expandable(el){
     if(!el || el.dataset?.vr527Expandable ||
@@ -2094,15 +2094,15 @@ function createUnifiedPanel() {
         for(const p of paragraphs||[])ele(s,'p',p);
         if(steps?.length){const ol=ele(s,'ol');for(const t of steps)ele(ol,'li',t);}
       }
-      part("一、升级与安全规则",["5.2.15 TEST 适用 Windows、Android、iOS / iPadOS。升级只替换 main.js、manifest.json、styles.css；保留本机 data.json、GroupID、独立 Device ID、版本历史、ACK 与自动运输开关，不复制其他设备的身份配置。", "三步控制台：第一步生成与上传（①②）；第二步下载（③）；第三步审核与确认导入（④）。①②③④为同等级高亮按钮，辅助手段为灰色按钮。", "打开网页、下载原件、安全接收与正式导入是不同阶段。自动接收只校验交换文件并准备审核；正文新增、更新、冲突处理及删除须人工确认。ACK 校验通过后登记反馈。", "保留旧分享链接字段，但新版目录上传下载流程不使用分享链接。无明确用途的旧上传路径仍要求一次确认，不静默改换空间；独立下载目录按当前群组隔离。"],[]);
-      part("二、百度设置：只填短路径，两种目录入口",["①公共设置保持原功能。②百度网盘设置分为①上传目录、②同步空间下载目录；Windows 另有③专用自动收发设置。安卓和苹果的高级接收设置保留。", "上传和下载都填 /示例目录/共享区 这样的短路径，内部统一补齐一次 /_pcs_.workspace；这是同步空间标识，三端通用，不能当作苹果专用前缀。不要填写 Windows 本地盘路径到网盘目录框。", "上传路由为 https://pan.baidu.com/disk/main#/index?category=all&path=…；下载路由为 https://pan.baidu.com/disk/synchronization#/index?category=all&path=…。两者可以指向同一同步空间文件夹，也可分别保存；ZIP 和 ACK 都遵循这两种入口。", "没有独立保存下载目录时，使用当前群组已明确的同步空间上传目录，或旧同步空间目录。普通网盘路径不自动转换为同步空间；旧 /s/ 分享链接不转换。", "输入框编辑不立即保存。保存失败回滚；上传目录与下载目录独立保存，不修改群组和账本。下载目录如不正确，先明确保存，再打开网页核对。"],["在①上传目录填短路径并保存。旧无类型路径首次保存时明确选同步空间；原普通网盘配置需自己核对后更改。", "上传区两个重复入口合并为“打开/查看百度网盘同步空间入口（浏览器电脑版）”；复制地址仍复制上传页地址。", "在②“百度网盘同步空间（下载入口）”填下载短路径并保存。需要时复制下载地址或打开下载入口核对目录。", "Windows 专用本地同步目录与网页地址分开配置；保留既有自动运输设置。下载保存位置由百度 App／浏览器指定，本插件的网页目录不改变其下载位置。"]);
+      part("一、升级与安全规则",["5.2.16 TEST 适用 Windows、Android、iOS / iPadOS。升级只替换 main.js、manifest.json、styles.css；保留本机 data.json、GroupID、独立 Device ID、版本历史、ACK 与自动运输开关，不复制其他设备的身份配置。", "三步控制台：第一步生成与上传（①②）；第二步下载（③）；第三步审核与确认导入（④）。①②③④为同等级高亮按钮，辅助手段为灰色按钮。", "打开网页、下载原件、安全接收与正式导入是不同阶段。自动接收只校验交换文件并准备审核；正文新增、更新、冲突处理及删除须人工确认。ACK 校验通过后登记反馈。", "保留旧分享链接字段，但新版目录上传下载流程不使用分享链接。无明确用途的旧上传路径仍要求一次确认，不静默改换空间；独立下载目录按当前群组隔离。"],[]);
+      part("二、百度设置：只填短路径，两种目录入口",["①公共设置保持原功能。②百度网盘设置分为①上传目录、②同步空间下载目录；Windows 另有③专用自动收发设置。安卓与 iOS / iPadOS 的备用接收设置移到下载设置中的“找不到下载文件？”折叠入口，默认收起。", "上传和下载都填 /示例目录/共享区 这样的短路径，内部统一补齐一次 /_pcs_.workspace；这是同步空间标识，三端通用，不能当作苹果专用前缀。不要填写 Windows 本地盘路径到网盘目录框。", "上传路由为 https://pan.baidu.com/disk/main#/index?category=all&path=…；下载路由为 https://pan.baidu.com/disk/synchronization#/index?category=all&path=…。两者可以指向同一同步空间文件夹，也可分别保存；ZIP 和 ACK 都遵循这两种入口。", "没有独立保存下载目录时，使用当前群组已明确的同步空间上传目录，或旧同步空间目录。普通网盘路径不自动转换为同步空间；旧 /s/ 分享链接不转换。", "输入框编辑不立即保存。保存失败回滚；上传目录与下载目录独立保存，不修改群组和账本。下载目录如不正确，先明确保存，再打开网页核对。"],["在①上传目录填短路径并保存。旧无类型路径首次保存时明确选同步空间；原普通网盘配置需自己核对后更改。", "上传区两个重复入口合并为“打开/查看百度网盘同步空间入口（浏览器电脑版）”；复制地址仍复制上传页地址。", "在②“百度网盘同步空间（下载入口）”填下载短路径并保存。需要时复制下载地址或打开下载入口核对目录。", "Windows 专用本地同步目录与网页地址分开配置；保留既有自动运输设置。下载保存位置由百度 App／浏览器指定，本插件的网页目录不改变其下载位置。"]);
       part("三、第一步：生成与上传 ZIP / ACK",["有正文增量时，ZIP 可包含待回传 ACK；只有 ACK 时使用独立 JSON。原 ZIP / ACK 不改名、不重打包作为同步原件。", "网页入口需自己核对目标目录和权限。Windows 已自动同步上传同一原件时无需重复手动上传。"],["点①预览并生成增量 ZIP，核对待发布文件后明确确认生成。", "展开“查看已生成的增量zip/ack”或独立 ACK 明细，找到原件。可打开、复制或导出原文件。", "点②上传 ZIP / ACK（浏览器电脑版），或手动上传／ACK 上传入口。手机如页面过窄、无上传按钮，在浏览器菜单选择“访问电脑版／桌面网站”，返回插件后重新打开。", "核对目录末尾与文件列表，使用网页上传按钮选择原 ZIP / ACK，等待网页明确完成；不要误传到根目录。"]);
-      part("四、第二步：从同步空间下载原件",["③“确认需要下载的文件”目前是下载入口确认提示，不是云端文件清单。百度云端列表与自动下载 API 尚未接入；进入下载页后在百度页面选择所需 ZIP / ACK。", "确认打开时插件关闭自己的提示和控制台，回到 Obsidian 主页面；外部浏览器仍由系统管理，网页下载完成后需要手动切回 Obsidian。打开网页不代表下载成功。", "若下载页没有按钮，先核对 /disk/synchronization 和目标目录，再尝试浏览器适用的网页显示模式、登录与权限。本次目录页流程不需要 /s/ 分享链接，也不依赖网页跳转百度 App。"],["点③，确认打开同步空间下载页；在百度页面核对目录与文件名，下载原 ZIP / ACK。", "回到 Obsidian，查看第二步“查看下载的文件”。安卓在系统允许读取的共享存储里查找，Windows 分批查找本地可读位置。", "iOS 必要时先在百度 App 点“存储到文件”，再在统一文件列表点“添加外部 ZIP / ACK”，授权系统选择器访问原件。选择后回到列表，不立即导入。", "未找到、权限不足或扫描未完成时，第三步“手动选择审核与确认文件”可直接选择原件进入安全接收与审核；不要反复下载同一份原件。"]);
-      part("五、第三步：审核与确认导入",["第三步标题与④之间为“手动选择审核与确认文件”；原重复手动选择入口合并。④准备待处理内容的只读审核，正式写入仍要在审核窗口确认。", "读到新有效 ZIP 后提示“审核与确认…进行中”；这表示准备审核，不能当作已导入。ACK 单独登记反馈，可能没有正文可导入。"],["在第二步文件列表勾选所需原件，点右上“审核与确认导入”；或使用第三步手动选择入口。", "若未弹出审核，点④。Windows／Android 会按既有规则检查可读原件；iOS 对尚未授权的外部文件仍需手动选择。", "核对每项状态、正文与版本关系。正式新增、更新及删除在审核中明确确认；冲突不静默覆盖。", "完成后点“查看导入的文件”，只查看确已写入、仍存在且有导入记录的正文与附件。接收区的 ZIP、staging 和本机生成包不算正式导入。"]);
-      part("六、统一文件列表与笔记附件",["三端“查看下载的文件”统一使用插件列表。每项勾选框、全选、已选数量；桌面 Shift 连选、Ctrl / ⌘ + A 全选，Esc 关闭；触屏逐项或全选。右上“复制到…”与“审核与确认导入”。查看和勾选不会接收或导入。", "安卓包含可读外部下载候选和本库 temporary，不局限临时目录。扫描有目录数、条目数、深度和时间限制，显示已查、不可读和待查范围，不宣称全盘扫描完成。iOS 系统选择器属于系统界面，授权后才可在插件列表显示所选文件；关闭列表后需重新授权。", "“查看导入的文件”按本机完成写入记录列出；旧版未保留逐文件正式写入记录的历史不能凭空补全。已回退记录不作为当前导入结果。列表可展开 MD 笔记组，显示实际引用的附件、共享附件和缺失／未解析引用；不凭相似文件名猜测。", "整组复选可同时选择笔记和附件，也可单选。共同引用的附件按真实路径去重；不属于笔记组的文件单独列出。源正文已修改导致 SHA 不一致时，复制会停止，需重新核对源内容。"],[]);
+      part("四、第二步：从同步空间下载原件",["③“打开百度网盘同步空间”目前是下载入口确认提示，不是云端文件清单。百度云端列表与自动下载 API 尚未接入；进入下载页后在百度页面选择所需 ZIP / ACK。", "确认打开时插件关闭自己的提示和控制台，回到 Obsidian 主页面；外部浏览器仍由系统管理，网页下载完成后需要手动切回 Obsidian。打开网页不代表下载成功。", "若下载页没有按钮，先核对 /disk/synchronization 和目标目录，再尝试浏览器适用的网页显示模式、登录与权限。本次目录页流程不需要 /s/ 分享链接，也不依赖网页跳转百度 App。"],["点③，确认打开同步空间下载页；在百度页面核对目录与文件名，下载原 ZIP / ACK。", "回到 Obsidian，查看第二步“查看下载的文件”。安卓在系统允许读取的共享存储里查找，Windows 分批查找本地可读位置。", "iOS 必要时先在百度 App 点“存储到文件”，再在统一文件列表点“添加外部 ZIP / ACK”，授权系统选择器访问原件。选择后回到列表，不立即导入。", "未找到、权限不足或扫描未完成时，第三步“手动选择 ZIP / ACK（备用）”可直接选择原件进入安全接收与审核；不要反复下载同一份原件。"]);
+      part("五、第三步：审核与确认导入",["第三步标题下的手动选择入口为灰色备用按钮，不带③编号；iOS 显示“手动从‘文件’选择 ZIP / ACK（备用）”。列表中没有原件时，iOS 仍需系统文件授权。④准备待处理内容的只读审核，正式写入仍要在审核窗口确认。", "读到新有效 ZIP 后提示“审核与确认…进行中”；这表示准备审核，不能当作已导入。ACK 单独登记反馈，可能没有正文可导入。", "高级操作中的手动传输也采用三步布局：第一步①生成②上传，第二步③打开同步空间及查看下载文件，第三步灰色手动选择、④审核确认及查看导入文件。"],["在第二步文件列表勾选所需原件，点右上“审核与确认导入”；或使用第三步手动选择入口。", "若未弹出审核，点④。Windows／Android 会按既有规则检查可读原件；iOS 对尚未授权的外部文件仍需手动选择。", "核对每项状态、正文与版本关系。正式新增、更新及删除在审核中明确确认；冲突不静默覆盖。", "完成后点“查看导入的文件”，只查看确已写入、仍存在且有导入记录的正文与附件。接收区的 ZIP、staging 和本机生成包不算正式导入。"]);
+      part("六、统一文件列表与笔记附件",["三端“查看下载的文件”统一使用插件列表。每项勾选框、全选、已选数量；桌面 Shift 连选、Ctrl / ⌘ + A 全选，Esc 关闭；触屏逐项或全选。右上“复制到…”与“审核与确认导入”。查看和勾选不会接收或导入。", "安卓包含可读外部下载候选和本库 temporary，不局限临时目录。扫描有目录数、条目数、深度和时间限制，显示已查、不可读和待查范围，不宣称全盘扫描完成。iOS 系统选择器属于系统界面，授权后才可在插件列表显示所选文件；关闭列表后需重新授权。", "“查看导入的文件”按本机完成写入记录列出；旧版未保留逐文件正式写入记录的历史不能凭空补全。已回退记录不作为当前导入结果。列表可展开 MD 笔记组，显示实际引用的附件、共享附件和缺失／未解析引用；不凭相似文件名猜测。", "整组复选可同时选择笔记和附件，也可单选。共同引用的附件按真实路径去重；不属于笔记组的文件单独列出。源正文已修改导致 SHA 不一致时，复制会停止，需重新核对源内容。", "安卓手动扫描与手动审核触发的共享存储搜索显示进度弹窗，可停止本次扫描；关闭弹窗不停止。后台常规搜索不自动弹窗。停止后已安全复制的原件保留，当前读写可能完成后才停，本次不继续接收或自动打开审核。iOS 不显示全范围扫描或扫描停止按钮，系统文件选择器使用系统取消。"],[]);
       part("七、复制到…与新知识库入口",["复制保留源文件，不同步身份／账本，不静默覆盖同名不同内容。复制 MD 时建议选整组；只选 MD 会提示未勾选附件或缺失引用。保持相对路径可保留库内附件关系；外部绝对链接、未选中的其他笔记引用不自动补齐。", "Windows 可从已注册知识库列表选择，或填目标知识库的绝对路径（必须含 .obsidian），进入目标目录预览。拒绝路径穿越、系统隐藏目录和符号链接。", "Android／iOS 不能直接遍历另一个知识库私有目录，因此使用 VR-Copy 复制包：目标知识库内运行同版插件来接收。此复制包不是同步增量包，不要上传为原始增量或交给③④当增量导入。", "复制包 SHA 校验、500 项／64 MiB 限额；不能带传输工作区或插件身份配置。复制下载的 ZIP／ACK 原件会放在“原始传输文件”子目录，接收复制包不会自动执行这些原件，仍需在目标库手动选择并走正常群组校验。", "目标目录预览会列出新增、相同跳过、冲突；有冲突需更换目录后重做预览。确认前重新检查内容和目标状态。复制中发生错误会停止并报告已成功数量，不声称整批原子回滚；成功部分保留、源文件不删除。"],["在文件列表选择文件／整组，点右上“复制到…”。", "Windows：选另一个知识库 → 进入复制预览 → 填目标目录 → 点预览目标文件 → 核对新增／相同／冲突 → 确认复制。", "手机：生成跨知识库复制包 → 导出复制包／系统分享 → 存到系统“文件”或共享存储。", "切换到新的目标知识库 → 打开 Vault Relay → 查看导入的文件 → 新知识库入口：接收复制包 → 选择 VR-Copy ZIP → 填目标目录 → 预览 → 确认复制。该入口在下载列表底部也可用。", "确认完成数量，打开目标笔记检查附件；源文件和已导出的复制包保留，按需自行清理。"]);
       part("八、ACK、诊断与操作记录",["接收方正式处理完成后生成 ACK；有新正文增量时可随 ZIP 合并，否则上传原独立 JSON。ACK 上传用 /disk/main（浏览器电脑版），原发送方下载 ACK 用 /disk/synchronization。核对反馈后再按既有清理策略操作；不把打开入口当作 ACK 已收到。", "诊断文件、最近传输状态中的已知文件可打开或复制；移动端系统分享需先准备原件，再在实际点击中分享。诊断内容可能含路径，分享前自行查看。操作结果记录可逐条／全选／Shift 连选，在右上复制选中记录。", "Windows 自动运输只操作已配置交换目录，手动下载可能保存在其他地方。返回后分批发现或手动选原件兜底，不保证瞬间找到所有本地文件。"],[]);
-      part("九、注意事项与常见问题",["Q81：手机上传网页太窄、没有上传按钮怎么办？答：核对上传路由为 /disk/main，浏览器菜单启用“访问电脑版／桌面网站”，返回 Obsidian 再打开②；缩放后核对目录及上传按钮。插件不能强制设置浏览器显示模式，也不能隐藏百度网页侧栏。", "Q82：下载也必须开电脑版吗？答：下载用同步空间 /disk/synchronization 目录页，显示模式由浏览器和百度页面决定；出现下载按钮后核对目录和文件。不能把安卓的网页模式现象当作 Windows、iOS 的统一规则。", "Q83：要从网页跳转 App 吗？答：本流程不依赖跳转。网页的“App 下载”可能是下载安装包，不能视为打开已安装 App 或保留目标目录。", "Q84：三个系统都要填 /_pcs_.workspace 吗？答：设置只填短路径。插件为同步空间内部补齐一次，三端相同；它不是苹果专属前缀。", "Q85：为什么不用群组分享链接？答：上传和下载已改为同一同步空间目录的两种页面入口；旧分享链接及提取码保留但本流程不用，不能把它自动迁移成目录。", "Q86：填下载目录能改变百度 App 的保存位置吗？答：不能。这里填的是云端目录；本地保存位置由百度 App／浏览器控制。列表扫描只读取系统授权位置，不绕过私有目录权限。", "Q87：下载完为什么没有弹审核？答：可能原件还未稳定、未返回、已处理、目录无权限或扫描未覆盖。先看本机列表和状态；iOS 外部文件先添加授权。仍找不到就点第三步“手动选择审核与确认文件”，必要时再点④；不要把没有弹窗当作下载失败。", "Q88：查看下载文件会立即导入吗？答：不会。添加授权文件也只加入本次列表。勾选后点“审核与确认导入”才校验接收，正文仍须审核确认。第三步手动选择入口则直接执行安全接收并准备审核。", "Q89：查看导入的文件为什么不显示旧包？答：此处显示有正式写入记录且仍存在的正文／附件，不显示接收原 ZIP 和 staging。旧版没有记录的导入无法精确追溯；回退、缺失或源内容变化也会提示或排除。", "Q90：MD 和附件怎么一起复制？答：展开笔记组，选整组；附件按正文实际引用解析，共享附件按路径去重。缺失、未解析或未勾选附件会提示，插件不猜测文件。相对引用可保留，外部绝对链接及未选中的笔记不自动补全。", "Q91：手机如何选新知识库？答：系统沙箱不保证能直接写入别的库。先导出 VR-Copy 包，切换到目标库的同版插件，通过“新知识库入口：接收复制包”选包、选目标目录、预览再确认。Windows 可直接指定已存在的知识库目录。", "Q92：复制失败会删除源文件或覆盖目标吗？答：源文件保留，冲突不覆盖；预览后目标变化会停止。若复制途中发生 I/O 故障，报告成功部分和失败项，成功部分保留；修复问题后重新预览，相同内容会跳过。", "Q93：新版已经在所有真机完整验证了吗？答：本版通过隔离逻辑与三端模拟宿主界面验证，不等于新版在所有真机上的外链、系统分享和权限均已验证。网页可见按钮由用户此前逐端确认；本版不重复旧 ZIP 真机导入、取消及去重测试。"],[]);
+      part("九、注意事项与常见问题",["Q81：手机上传网页太窄、没有上传按钮怎么办？答：核对上传路由为 /disk/main，浏览器菜单启用“访问电脑版／桌面网站”，返回 Obsidian 再打开②；缩放后核对目录及上传按钮。插件不能强制设置浏览器显示模式，也不能隐藏百度网页侧栏。", "Q82：下载也必须开电脑版吗？答：下载用同步空间 /disk/synchronization 目录页，显示模式由浏览器和百度页面决定；出现下载按钮后核对目录和文件。不能把安卓的网页模式现象当作 Windows、iOS 的统一规则。", "Q83：要从网页跳转 App 吗？答：本流程不依赖跳转。网页的“App 下载”可能是下载安装包，不能视为打开已安装 App 或保留目标目录。", "Q84：三个系统都要填 /_pcs_.workspace 吗？答：设置只填短路径。插件为同步空间内部补齐一次，三端相同；它不是苹果专属前缀。", "Q85：为什么不用群组分享链接？答：上传和下载已改为同一同步空间目录的两种页面入口；旧分享链接及提取码保留但本流程不用，不能把它自动迁移成目录。", "Q86：填下载目录能改变百度 App 的保存位置吗？答：不能。这里填的是云端目录；本地保存位置由百度 App／浏览器控制。列表扫描只读取系统授权位置，不绕过私有目录权限。", "Q87：下载完为什么没有弹审核？答：可能原件还未稳定、未返回、已处理、目录无权限或扫描未覆盖。先看本机列表和状态；iOS 外部文件先添加授权。仍找不到就点第三步“手动选择 ZIP / ACK（备用）”，必要时再点④；不要把没有弹窗当作下载失败。", "Q88：查看下载文件会立即导入吗？答：不会。添加授权文件也只加入本次列表。勾选后点“审核与确认导入”才校验接收，正文仍须审核确认。第三步手动选择入口则直接执行安全接收并准备审核。", "Q89：查看导入的文件为什么不显示旧包？答：此处显示有正式写入记录且仍存在的正文／附件，不显示接收原 ZIP 和 staging。旧版没有记录的导入无法精确追溯；回退、缺失或源内容变化也会提示或排除。", "Q90：MD 和附件怎么一起复制？答：展开笔记组，选整组；附件按正文实际引用解析，共享附件按路径去重。缺失、未解析或未勾选附件会提示，插件不猜测文件。相对引用可保留，外部绝对链接及未选中的笔记不自动补全。", "Q91：手机如何选新知识库？答：系统沙箱不保证能直接写入别的库。先导出 VR-Copy 包，切换到目标库的同版插件，通过“新知识库入口：接收复制包”选包、选目标目录、预览再确认。Windows 可直接指定已存在的知识库目录。", "Q92：复制失败会删除源文件或覆盖目标吗？答：源文件保留，冲突不覆盖；预览后目标变化会停止。若复制途中发生 I/O 故障，报告成功部分和失败项，成功部分保留；修复问题后重新预览，相同内容会跳过。", "Q93：新版已经在所有真机完整验证了吗？答：本版通过隔离逻辑与三端模拟宿主界面验证，不等于新版在所有真机上的外链、系统分享和权限均已验证。网页可见按钮由用户此前逐端确认；本版不重复旧 ZIP 真机导入、取消及去重测试。", "Q94：灰色手动选文件是否不可用？答：仍可点击，只是备用入口。安卓通常先查找下载原件；iOS 列表没有原件时，必须先从系统“文件”添加授权，也可用第三步手动选择直接准备审核。", "Q95：停止扫描会删除文件或撤销导入吗？答：不会。只停止本次外部目录搜索与后续候选复制，已安全复制原件保留，不撤销既有接收或已完成导入。当前读写可能完成后才停。关闭进度弹窗不会停止扫描，后台后续轮次仍按原设置运行。"],[]);
 
       part("十、知识库比对：导出 → 导入 → 比对",[
         "入口为「高级操作 → 知识库比对」，不在日常主按钮中。用于检测两台设备的正式知识库文件是否不同，不会更改任何笔记。两台设备清单生成时间不同，结果仅代表两个快照。",
@@ -3160,8 +3160,8 @@ function createUnifiedPanel() {
       button(shareActions,'查看导入的文件',()=>this.showImportedFiles());
       ele(downloadSettings,'p','上传、下载可分别保存目录；只填写短路径，前缀由插件补齐一次。本流程不用群组分享链接。下载位置由百度 App／浏览器决定，插件不改变它。','vru-meta vr527-keep-full');
       const connection=Platform.isDesktopApp?section(baidu,'③ Windows 专用 · 自动收发增量文件'):
-        ele(baidu,'details',null,'vru-platform-advanced');
-      if(!Platform.isDesktopApp)ele(connection,'summary',Platform.isAndroidApp?'高级 · Android 文件扫描':'高级 · iOS / iPadOS 文件接收');
+        ele(downloadSettings,'details',null,'vru-platform-advanced vru-reception-help');
+      if(!Platform.isDesktopApp)ele(connection,'summary','找不到下载文件？');
       if(Platform.isDesktopApp){
         this.settings(connection,'Windows 专用 · Windows 百度网盘已同步的本地文件夹',
           'windowsCloudDir','例如：你的百度网盘本地同步目录（完整路径）');
@@ -3173,9 +3173,9 @@ function createUnifiedPanel() {
         }));
         if(p.data.windowsCloudDir)ele(connection,'p','当前 Windows 同步位置：'+p.data.windowsCloudDir,'vru-path');
       }else{
-        ele(connection,'p','首次在百度网盘为唯一群组文件夹创建长期分享链接和提取码。日常「下载增量包」使用保存的分享网址。','vru-meta');
+        ele(connection,'p','先查看第二步的下载文件列表；未找到时使用第三步灰色手动选择入口。本流程使用同步空间目录，不需要群组分享链接。','vru-meta');
         if(Platform.isAndroidApp){
-          this.settings(connection,'Android 优先扫描目录（不限制全范围扫描）',
+          this.settings(connection,'Android 优先查找目录（备用设置）',
             'mobileSourcePath','/storage/emulated/0/Download/BaiduNetdisk/');
           const extra=ele(connection,'label',null,'vru-setting');
           ele(extra,'span','补充优先目录（每行一条，最多 20 条）');
@@ -3184,9 +3184,9 @@ function createUnifiedPanel() {
           extInput.placeholder='/storage/emulated/0/Documents/';
           button(connection,'保存补充扫描目录',()=>this.run('保存扫描目录',()=>
             p.updateSetting('mobileExtraSources',extInput.value)));
-          ele(connection,'p','进入「④ 审核与确认导入」将尝试检查系统允许读取的共享存储范围及子目录，并优先检查已知和新增下载目录；增量索引避免重复读文件。受 Android 权限和本轮扫描上限影响时会明确显示未覆盖数量，不声称扫描完整。外部原件不删除。','vru-meta');
+          ele(connection,'p','通常无需修改这些备用目录。仍未找到原件时可从高级操作手动扫描可读取共享存储；扫描弹窗显示进度，可停止本次搜索。受权限与本轮上限限制，不保证覆盖全部目录。','vru-meta');
         }else{
-          ele(connection,'p','iOS / iPadOS 使用“从‘文件’选择 ZIP / ACK”将已下载文件安全复制到 temporary；也可使用日常步骤④。','vru-meta');
+          ele(connection,'p','iOS / iPadOS 无法遍历其他 App 的私有下载目录。先将原件存储到系统“文件”，再在下载列表点“添加外部 ZIP / ACK”授权，返回列表后明确接收；也可用第三步灰色手动选择入口直接准备审核。系统选择器可取消，正式写入仍需确认。','vru-meta');
         }
       }
       ele(connection,'p','平台：'+device()+'。仅显示当前系统可用的配置。','vru-meta');
@@ -3244,12 +3244,13 @@ function createUnifiedPanel() {
         for(const path of [...new Set(p.data.lastPreparedAckFiles.paths)].slice(-35).reverse())this.renderFileActions(generatedAck,path);
       }
       const downloading=ele(transfer,'section',null,'vru-transfer-step');ele(downloading,'h3','第二步 · 增量包下载');
-      button(downloading,'③ 确认需要下载的文件',()=>this.showDownloadEntry(),true).disabled=!groupReady;
+      button(downloading,'③ 打开百度网盘同步空间',()=>this.showDownloadEntry(),true).disabled=!groupReady;
       ele(downloading,'p','在同步空间网页核对并下载原 ZIP / ACK；失败时重新打开下载入口。下载后可查看本机文件列表。','vru-help vr527-keep-full');
       button(downloading,'查看下载的文件',()=>this.showLocalFiles()).disabled=!groupReady;
       ele(downloading,'p','百度云端清单与自动下载接口尚未接入；③打开同步空间目录页。插件不会把打开网页视为下载完成。','vru-meta vr527-keep-full');
       const audit=ele(transfer,'section',null,'vru-transfer-step');ele(audit,'h3','第三步 · 审核与确认导入');
-      button(audit,'手动选择审核与确认文件',()=>this.pickTransferFiles()).disabled=!groupReady;
+      button(audit,Platform.isIosApp?'手动从“文件”选择 ZIP / ACK（备用）':'手动选择 ZIP / ACK（备用）',()=>this.pickTransferFiles()).disabled=!groupReady;
+      if(Platform.isIosApp)ele(audit,'p','列表中没有文件时，先从系统“文件”添加授权；灰色入口仍可点击。','vru-meta vr527-keep-full');
       button(audit,'④ 审核与确认导入',()=>{
         return this.run('只读审核与扫描',async()=>{
           if(Platform.isDesktopApp)await p.v5213Discover({receive:true,manual:true});
@@ -3266,68 +3267,38 @@ function createUnifiedPanel() {
 
       const advanced=mainSection('高级操作','advanced');
       advanced.className+=' vru-advanced-root';
-      const more=ele(advanced,'details',null,'vru-settings vru-advanced');
-      ele(more,'summary','手动上传');
-      if(this._advOpen?.upload)more.open=true;
-      more.addEventListener('toggle',()=>{(this._advOpen||={}).upload=more.open;});
-      ele(more,'p','先预览并确认生成 ZIP，再打开百度网盘上传入口，手动选择文件上传。接收方正式导入后回传 ACK；打开网盘或系统分享均不代表云端上传完成。','vru-help');
-      const step=row(more);
-      button(step,'① 预览并生成增量 ZIP',()=>this.legacy('upload'),true).disabled=!groupReady;
-      button(step,'② 打开百度网盘上传入口（ZIP / ACK，浏览器电脑版）',()=>this.openUploadBrowser(),true).disabled=!groupReady;
-      if(!Platform.isDesktopApp)button(step,'撤销确定未上传的本机草稿（移动端专用）',()=>this.legacy('withdraw'));
-
-      const manualDownload=ele(advanced,'details',null,'vru-settings vru-advanced');
-      ele(manualDownload,'summary','手动下载');
-      if(this._advOpen?.download)manualDownload.open=true;
-      manualDownload.addEventListener('toggle',()=>{(this._advOpen||={}).download=manualDownload.open;});
-      ele(manualDownload,'p',Platform.isDesktopApp?
-        '③ 从系统文件夹选择 ZIP/ACK 并安全接收，随后自动进入 ④ 审核及确认。Windows 自动收发和立即安全扫描在「设置与连接检查 → 百度网盘设置 → Windows 专用设置」。':
-        Platform.isIosApp?'iOS / iPadOS 不会扫描其他应用的下载目录。请先将下载文件存储到“文件”，再通过下方按钮选择 ZIP / ACK；取消选择不会导入。':
-        '扫描尽量覆盖可访问的公共存储目录（含子目录），并优先检测常用和自设目录；如有权限限制、数量上限或中途退出，请采用系统选文件兜底。','vru-help');
-      if(!Platform.isDesktopApp)
-        button(manualDownload,'打开百度网盘同步空间（下载 ZIP / ACK）',()=>this.openShareBrowser(false)).disabled=!groupReady;
-      const receiveTools=row(manualDownload);
-      if(Platform.isDesktopApp){
-        const chooser=ele(manualDownload,'input');chooser.type='file';
-        chooser.accept='.zip,.json,application/zip,application/json';
-        chooser.multiple=true;chooser.className='vru-hidden';
-        chooser.addEventListener('change',()=>{
-          const files=Array.from(chooser.files||[]);chooser.value='';
-          this.receiveTransferFiles(files);
-        });
-        const choose=button(receiveTools,'③ 从系统文件夹选择增量包',()=>chooser.click(),true);
-        choose.disabled=!groupReady;
-      }else{
-        if(Platform.isAndroidApp){
-          button(receiveTools,'全范围智能扫描并安全接收',()=>{
-            if(!p.mobileCapacitorFilesystem() &&
-               (typeof window==='undefined'||typeof window.resolveLocalFileSystemURL!=='function')){
-              new Notice('没有可用的目录读取接口，请从系统文件夹选取下载文件',5000);
-              return this.pickMobileTransferFiles();
-            }
-            return (async()=>{const received=await this.run('① 移动端下载目录安全接收',async()=>{
-              const result=await p.scanMobileReception({reason:'manual',notify:true});
-              if(['access-denied','source-error','not-configured','partial','no-native-api'].includes(result.source.state))
-                new Notice('自动读取未成功，请使用“从系统文件夹选择 ZIP / ACK”',6000);
-              return result;
-            });await p.reviewMobileScanResult(received);
-            })().catch(e=>new Notice('审核未完成：'+String(e.message||e),7000));
-          });
-        }
-        const choose=button(receiveTools,Platform.isIosApp?'③ 从“文件”选择 ZIP / ACK':'③ 从系统文件夹选择 ZIP / ACK',()=>this.pickMobileTransferFiles(),true);
-        choose.disabled=!groupReady;
-        if(Platform.isAndroidApp)
-          button(receiveTools,'取消正在进行的扫描',()=>{
-            p.cancelMobileDownloadScan();new Notice('已请求取消；已经安全复制的文件保留',4500);
-          });
+      const more=ele(advanced,'details',null,'vru-settings vru-advanced vru-manual-transfer');
+      ele(more,'summary','手动传输（生成、上传、下载与审核）');
+      if(this._advOpen?.upload||this._advOpen?.download)more.open=true;
+      more.addEventListener('toggle',()=>{(this._advOpen||={}).upload=more.open;this._advOpen.download=more.open;});
+      const manualSending=ele(more,'section',null,'vru-transfer-step vru-manual-step');
+      ele(manualSending,'h3','第一步 · 增量包生成与上传');
+      button(manualSending,'① 预览并生成增量 ZIP',()=>this.legacy('upload'),true).disabled=!groupReady;
+      button(manualSending,'② 打开百度网盘上传入口（ZIP / ACK，浏览器电脑版）',()=>this.openUploadBrowser(),true).disabled=!groupReady;
+      ele(manualSending,'p','先预览并确认生成原 ZIP，再到同步空间网页上传。打开网页不代表上传完成。','vru-help');
+      if(!Platform.isDesktopApp)button(manualSending,'撤销确定未上传的本机草稿（移动端专用）',()=>this.legacy('withdraw'));
+      const manualDownloading=ele(more,'section',null,'vru-transfer-step vru-manual-step');
+      ele(manualDownloading,'h3','第二步 · 增量包下载');
+      button(manualDownloading,'③ 打开百度网盘同步空间',()=>this.showDownloadEntry(),true).disabled=!groupReady;
+      button(manualDownloading,'查看下载的文件',()=>this.showLocalFiles()).disabled=!groupReady;
+      ele(manualDownloading,'p','在同步空间网页核对并下载原 ZIP / ACK，再返回查看本机文件列表。云端清单与自动下载尚未接入。','vru-help');
+      const manualAudit=ele(more,'section',null,'vru-transfer-step vru-manual-step');
+      ele(manualAudit,'h3','第三步 · 审核与确认导入');
+      button(manualAudit,Platform.isIosApp?'手动从“文件”选择 ZIP / ACK（备用）':'手动选择 ZIP / ACK（备用）',()=>this.pickTransferFiles()).disabled=!groupReady;
+      ele(manualAudit,'p',Platform.isIosApp?'列表中没有文件时，先从系统“文件”添加授权；灰色入口仍可点击。':
+        '通常返回后会查找已下载原件；列表没有文件或目录不可读时，再使用灰色手动选择入口。','vru-help');
+      button(manualAudit,'④ 审核与确认导入',()=>this.run('手动打开只读审核',()=>p.showReviewAfterReceive({reason:'manual-review',forceOpen:true})),true).disabled=!groupReady;
+      button(manualAudit,'查看导入的文件',()=>this.showImportedFiles()).disabled=!groupReady;
+      if(Platform.isAndroidApp){
+        const searchHelp=ele(manualAudit,'details',null,'vru-secondary-details');
+        ele(searchHelp,'summary','仍找不到下载文件？');
+        button(searchHelp,'扫描可读取共享存储（备用）',()=>this.run('安卓下载文件搜索',async()=>{
+          const received=await p.scanMobileReception({reason:'manual',notify:true});
+          if(!received.source?.cancelled)await p.reviewMobileScanResult(received);
+          return received;
+        })).disabled=!groupReady;
+        button(searchHelp,'查看扫描状态',()=>p.showMobileScanProgress());
       }
-      const openAudit=button(receiveTools,'④ 核对并确认正式导入',
-        ()=>this.run('手动打开只读审核',()=>p.showReviewAfterReceive({
-          reason:'manual-review',forceOpen:true
-        })),true);
-      openAudit.disabled=!groupReady;
-
-
 
       const ack=ele(advanced,'details',null,'vru-settings vru-advanced');
       ele(ack,'summary','ACK 高级管理');
@@ -10119,7 +10090,10 @@ class VaultRelayV4 extends UnifiedBase {
   async scanMobileDownloadSource({reason='manual'}={}){
     if(!OBS.Platform.isAndroidApp)
       return {state:'not-applicable',copied:0,direct:0,paths:[]};
-    if(this._mobileSourcePromise)return this._mobileSourcePromise;
+    if(this._mobileSourcePromise){
+      if(['manual','review','full'].includes(reason))this.showMobileScanProgress?.();
+      return this._mobileSourcePromise;
+    }
     const full=['review','manual','full'].includes(reason);
     const task=async()=>{
       const result={state:'ok',scope:full?'all-accessible':'priority',
@@ -10158,11 +10132,13 @@ class VaultRelayV4 extends UnifiedBase {
       const candidates=[],dirCap=full?600:16,entryCap=full?12000:1000;
       const started=Date.now(),maxMs=full?14000:2800,seenItems=new Set();
       let listed=0;
-      this._mobileScanCancelled=false;
+      const progress=()=>this.reportMobileScanProgress?.({...result,running:true,cancelRequested:this._mobileScanCancelled});
+      progress();
       // Iterate native directories in small chunks. On Android scoped storage
       // inaccessible roots/subdirectories are reported, never bypassed.
       while(queue.length && result.scannedDirs<dirCap && listed<entryCap &&
             Date.now()-started<maxMs && !this._mobileScanCancelled){
+        result.pendingDirs=queue.length;progress();
         const current=queue.shift();
         let entries;
         try{entries=await this.getMobileDownloadEntries(current.path);}
@@ -10198,7 +10174,7 @@ class VaultRelayV4 extends UnifiedBase {
         }
         if(result.scannedDirs%8===0)await new Promise(resolve=>setTimeout(resolve,0));
       }
-      result.candidateFiles=candidates.length;
+      result.candidateFiles=candidates.length;progress();
       result.pendingDirs=queue.length;
       if(full){
         this.data.mobilePendingScanDirs=queue.slice(0,500).map(x=>({path:x.path,depth:x.depth}));
@@ -10209,6 +10185,7 @@ class VaultRelayV4 extends UnifiedBase {
       // No file contents read just for discovery. Only candidate ZIP/ACKs that
       // are new/changed by size+mtime are opened, and still require CRC/SHA.
       for(const row of candidates){
+        if(this._mobileScanCancelled){result.state='partial';break;}
         try{
           const meta=await this.readMobileDownloadEntry(row.entry);
           if(meta.pending){result.pending++;continue;}
@@ -10263,7 +10240,7 @@ class VaultRelayV4 extends UnifiedBase {
               mtime:meta.mtime,at:Date.now()};result.skipped++;continue;
           }
           const stored=await this.copyMobileInputToTemporary(chosen,bytes,sha);
-          result.paths.push(stored.path);result.copied++;
+          result.paths.push(stored.path);result.copied++;progress();
           ledger[key]={sha256:sha,status:'copied',size:meta.size,
             mtime:meta.mtime,at:Date.now()};
           this.data.mobileRecentDirs=[dir,...(this.data.mobileRecentDirs||[]).filter(x=>x!==dir)].slice(0,24);
@@ -10287,6 +10264,7 @@ class VaultRelayV4 extends UnifiedBase {
         const ordered=Object.entries(ledger).sort((a,b)=>(a[1]?.at||0)-(b[1]?.at||0));
         for(const [key] of ordered.slice(0,ordered.length-3000))delete ledger[key];
       }
+      result.cancelled=!!this._mobileScanCancelled;
       this.data.mobileLastSource={at:Date.now(),state:result.state,
         scope:result.scope,scannedDirs:result.scannedDirs,
         unreadableDirs:result.unreadableDirs,pendingDirs:result.pendingDirs,
@@ -10296,11 +10274,26 @@ class VaultRelayV4 extends UnifiedBase {
       await this.persistTransport();
       return result;
     };
-    this._mobileSourcePromise=task();
-    try{return await this._mobileSourcePromise;}
-    finally{this._mobileSourcePromise=null;}
+    const foreground=['manual','review','full'].includes(reason);
+    this._mobileScanCancelled=false;
+    this._v5216ScanProgress={running:true,scannedDirs:0,pendingDirs:0,candidateFiles:0,copied:0};
+    const operation=Promise.resolve().then(task);
+    this._mobileSourcePromise=operation;
+    if(foreground)this.showMobileScanProgress?.();
+    let finalResult;
+    try{finalResult=await operation;return finalResult;}
+    catch(error){finalResult={state:'failed'};throw error;}
+    finally{
+      this._mobileSourcePromise=null;
+      this.reportMobileScanProgress?.({...finalResult,running:false,cancelled:!!this._mobileScanCancelled});
+    }
   }
-  cancelMobileDownloadScan(){this._mobileScanCancelled=true;}
+  cancelMobileDownloadScan(){
+    if(!this._mobileSourcePromise)return false;
+    this._mobileScanCancelled=true;
+    this.reportMobileScanProgress?.({...this._v5216ScanProgress,running:true,cancelRequested:true});
+    return true;
+  }
   async recheckAckStatus(){
     if(!this.engine)throw Error('请先创建或加入群组');
     if(!OBS.Platform.isDesktopApp){
@@ -10331,6 +10324,7 @@ class VaultRelayV4 extends UnifiedBase {
     const awaiting=!!this._mobileAwaitingDownloadAt &&
       Date.now()-this._mobileAwaitingDownloadAt<6*3600000;
     const source=await this.scanMobileDownloadSource({reason});
+    if(source.cancelled)return {source,local:{zip:0,ack:0},summary:'已停止本次搜索；已安全复制的原件保留，未继续接收或打开审核。'};
     const local=await this.scanMobileTemporary({
       reason,notify:false,verifiedPaths:source.paths||[]});
     const missing=['no-native-api','access-denied','source-error','not-configured','partial']
@@ -10794,6 +10788,7 @@ class VaultRelayV4 extends UnifiedBase {
         if(OBS.Platform.isAndroidApp)
           new OBS.Notice('正在搜索系统允许访问的存储目录，并执行增量文件检查…',4500);
         const check=await this.scanMobileReception({reason:'review',notify:false});
+        if(check.source?.cancelled)return null;
         if(OBS.Platform.isAndroidApp && check.source?.state==='partial')
           new OBS.Notice('本轮已扫描 '+(check.source.scannedDirs||0)+
             ' 个目录，仍有不可读或待处理项；可再次扫描或手动选择 ZIP/ACK',8000);
@@ -12119,6 +12114,44 @@ const VR5215=(()=>{
   }
   return {install,safePath,selection,importedRecords,references,groups,downloadTarget,androidList};
 })();
+
+// UI-only progress observers; all configuration and identity remain on the host.
+VaultRelayV4.prototype.reportMobileScanProgress=function(value){
+  this._v5216ScanProgress={...this._v5216ScanProgress,...value};
+  this._v5216ScanModal?.refresh();
+};
+VaultRelayV4.prototype.showMobileScanProgress=function(){
+  if(!OBS.Platform.isAndroidApp)return null;
+  if(this._v5216ScanModal)return this._v5216ScanModal;
+  const plugin=this;
+  class ScanProgress extends OBS.Modal{
+    onOpen(){
+      this.modalEl.classList.add('vru-scan-progress');
+      this.contentEl.createEl('h2',{text:'安卓下载文件搜索'});
+      this.status=this.contentEl.createEl('p',{attr:{'aria-live':'polite'}});
+      this.counts=this.contentEl.createEl('p');
+      this.contentEl.createEl('p',{text:'只检查系统允许读取的共享存储，不代表全盘覆盖。停止时当前文件读写可能完成后才停；已安全复制的原件保留，不撤销已有接收结果。'});
+      const actions=this.contentEl.createDiv({cls:'vru-scan-actions'});
+      this.stop=actions.createEl('button',{text:'停止本次扫描'});
+      this.stop.addEventListener('click',()=>{plugin.cancelMobileDownloadScan();this.refresh();});
+      const close=actions.createEl('button',{text:'关闭'});
+      close.addEventListener('click',()=>this.close());
+      this.contentEl.createEl('p',{text:'关闭弹窗不会停止扫描；需要停止时请点“停止本次扫描”。正式笔记仍须人工审核确认。'});
+      this.refresh();
+    }
+    refresh(){
+      if(!this.status)return;
+      const s=plugin._v5216ScanProgress||{};
+      const running=!!plugin._mobileSourcePromise;
+      this.status.textContent=running?(s.cancelRequested?'正在停止，等待当前读写完成…':'正在搜索可读取的下载目录…'):
+        s.cancelled?'已停止本次搜索；已安全复制的原件保留。':s.state==='no-native-api'?'宿主未提供目录读取接口，请手动选择原件。':s.state==='failed'?'搜索未完成，请手动选择原件。':s.state?'本轮搜索已结束；请核对未覆盖范围。':'当前没有扫描任务。';
+      this.counts.textContent='已查目录 '+(s.scannedDirs||0)+' · 不可读 '+(s.unreadableDirs||0)+' · 待查 '+(s.pendingDirs||0)+' · 找到候选 '+(s.candidateFiles||0)+' · 已安全复制 '+(s.copied||0);
+      this.stop.disabled=!running||!!s.cancelRequested;
+    }
+    onClose(){if(plugin._v5216ScanModal===this)plugin._v5216ScanModal=null;}
+  }
+  const modal=new ScanProgress(this.app);this._v5216ScanModal=modal;modal.open();return modal;
+};
 
 VR5213.install(VaultRelayV4,{Platform:OBS.Platform,Notice:OBS.Notice,Bridge,ImportManager});
 const v5215Runtime=VR5215.install(VaultRelayV4,{Panel:UnifiedBase.__testing.panel,Modal:OBS.Modal,Platform:OBS.Platform,Notice:OBS.Notice,tools:Bridge.__testing,Zip:UnifiedBase.__testing.zip});

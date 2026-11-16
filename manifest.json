@@ -1,9 +1,9 @@
 {
   "id": "vault-relay-v4",
   "name": "Vault Relay",
-  "version": "5.2.15",
+  "version": "5.2.16",
   "minAppVersion": "1.5.0",
-  "description": "Unified directory upload/download, selectable received/imported file lists and explicit cross-vault copy. Manual review required; TEST build.",
+  "description": "Consistent three-step transfer on desktop and mobile, optional file reception helpers and cancellable Android search progress. TEST build.",
   "author": "Vault Relay",
   "isDesktopOnly": false
 }

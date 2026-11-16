@@ -878,3 +878,11 @@
 .vru-files-dialog .vru-files-status{font-size:.86em;overflow-wrap:anywhere}
 .vru-control-modal .vru-log-toolbar{flex-direction:row!important;justify-content:space-between;align-items:center}
 .vru-control-modal .vru-log-toolbar button{margin-left:auto}
+
+/* 5.2.16 optional reception and live Android search status. */
+.vru-control-modal .vru-manual-transfer .vru-transfer-step{margin:14px 0;padding:12px;border:1px solid var(--background-modifier-border);border-radius:10px}
+.vru-reception-help{margin-top:12px}
+.vru-scan-progress{max-width:540px!important;width:calc(100vw - 32px)!important}
+.vru-scan-progress p{white-space:normal;overflow-wrap:anywhere}
+.vru-scan-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.vru-scan-actions button{max-width:100%;white-space:normal;overflow-wrap:anywhere}
