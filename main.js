@@ -1,5 +1,5 @@
 'use strict';
-/* Vault Relay V5.2.16 TEST | Three-step mobile transfer and explicit scan progress. */
+/* Vault Relay V5.2.17 TEST | Three-step mobile transfer and explicit scan progress. */
 const VR527UI=(()=>{
   function expandable(el){
     if(!el || el.dataset?.vr527Expandable ||
@@ -243,7 +243,7 @@ const VR5213 = (()=>{
         const bytes=await service.read(item.path,Bridge.__testing.MAX_BUNDLE_BYTES);const sha=await Bridge.__testing.sha256(bytes);
         if(old?.sha256===sha){ledger[item.path]={...old,signature};return {status:old.status,error:old.error};}
         if(old?.status==='received'&&old.sha256!==sha)throw Error('已接收的同名文件内容变化，拒绝替换');
-        const file={name:item.name,size:bytes.length,arrayBuffer:async()=>Bridge.__testing.buffer(bytes)};
+        const file={name:item.name,size:bytes.length,arrayBuffer:async()=>Bridge.__testing.buffer(bytes),_vr5217Source:{kind:'desktop',path:item.path}};
         let status='received';
         if(/\.zip$/i.test(item.name)){
           const report=await ImportManager.inspect(file,{app:this.app,plugin:this,desktop:true});
@@ -2094,15 +2094,15 @@ function createUnifiedPanel() {
         for(const p of paragraphs||[])ele(s,'p',p);
         if(steps?.length){const ol=ele(s,'ol');for(const t of steps)ele(ol,'li',t);}
       }
-      part("一、升级与安全规则",["5.2.16 TEST 适用 Windows、Android、iOS / iPadOS。升级只替换 main.js、manifest.json、styles.css；保留本机 data.json、GroupID、独立 Device ID、版本历史、ACK 与自动运输开关，不复制其他设备的身份配置。", "三步控制台：第一步生成与上传（①②）；第二步下载（③）；第三步审核与确认导入（④）。①②③④为同等级高亮按钮，辅助手段为灰色按钮。", "打开网页、下载原件、安全接收与正式导入是不同阶段。自动接收只校验交换文件并准备审核；正文新增、更新、冲突处理及删除须人工确认。ACK 校验通过后登记反馈。", "保留旧分享链接字段，但新版目录上传下载流程不使用分享链接。无明确用途的旧上传路径仍要求一次确认，不静默改换空间；独立下载目录按当前群组隔离。"],[]);
-      part("二、百度设置：只填短路径，两种目录入口",["①公共设置保持原功能。②百度网盘设置分为①上传目录、②同步空间下载目录；Windows 另有③专用自动收发设置。安卓与 iOS / iPadOS 的备用接收设置移到下载设置中的“找不到下载文件？”折叠入口，默认收起。", "上传和下载都填 /示例目录/共享区 这样的短路径，内部统一补齐一次 /_pcs_.workspace；这是同步空间标识，三端通用，不能当作苹果专用前缀。不要填写 Windows 本地盘路径到网盘目录框。", "上传路由为 https://pan.baidu.com/disk/main#/index?category=all&path=…；下载路由为 https://pan.baidu.com/disk/synchronization#/index?category=all&path=…。两者可以指向同一同步空间文件夹，也可分别保存；ZIP 和 ACK 都遵循这两种入口。", "没有独立保存下载目录时，使用当前群组已明确的同步空间上传目录，或旧同步空间目录。普通网盘路径不自动转换为同步空间；旧 /s/ 分享链接不转换。", "输入框编辑不立即保存。保存失败回滚；上传目录与下载目录独立保存，不修改群组和账本。下载目录如不正确，先明确保存，再打开网页核对。"],["在①上传目录填短路径并保存。旧无类型路径首次保存时明确选同步空间；原普通网盘配置需自己核对后更改。", "上传区两个重复入口合并为“打开/查看百度网盘同步空间入口（浏览器电脑版）”；复制地址仍复制上传页地址。", "在②“百度网盘同步空间（下载入口）”填下载短路径并保存。需要时复制下载地址或打开下载入口核对目录。", "Windows 专用本地同步目录与网页地址分开配置；保留既有自动运输设置。下载保存位置由百度 App／浏览器指定，本插件的网页目录不改变其下载位置。"]);
-      part("三、第一步：生成与上传 ZIP / ACK",["有正文增量时，ZIP 可包含待回传 ACK；只有 ACK 时使用独立 JSON。原 ZIP / ACK 不改名、不重打包作为同步原件。", "网页入口需自己核对目标目录和权限。Windows 已自动同步上传同一原件时无需重复手动上传。"],["点①预览并生成增量 ZIP，核对待发布文件后明确确认生成。", "展开“查看已生成的增量zip/ack”或独立 ACK 明细，找到原件。可打开、复制或导出原文件。", "点②上传 ZIP / ACK（浏览器电脑版），或手动上传／ACK 上传入口。手机如页面过窄、无上传按钮，在浏览器菜单选择“访问电脑版／桌面网站”，返回插件后重新打开。", "核对目录末尾与文件列表，使用网页上传按钮选择原 ZIP / ACK，等待网页明确完成；不要误传到根目录。"]);
-      part("四、第二步：从同步空间下载原件",["③“打开百度网盘同步空间”目前是下载入口确认提示，不是云端文件清单。百度云端列表与自动下载 API 尚未接入；进入下载页后在百度页面选择所需 ZIP / ACK。", "确认打开时插件关闭自己的提示和控制台，回到 Obsidian 主页面；外部浏览器仍由系统管理，网页下载完成后需要手动切回 Obsidian。打开网页不代表下载成功。", "若下载页没有按钮，先核对 /disk/synchronization 和目标目录，再尝试浏览器适用的网页显示模式、登录与权限。本次目录页流程不需要 /s/ 分享链接，也不依赖网页跳转百度 App。"],["点③，确认打开同步空间下载页；在百度页面核对目录与文件名，下载原 ZIP / ACK。", "回到 Obsidian，查看第二步“查看下载的文件”。安卓在系统允许读取的共享存储里查找，Windows 分批查找本地可读位置。", "iOS 必要时先在百度 App 点“存储到文件”，再在统一文件列表点“添加外部 ZIP / ACK”，授权系统选择器访问原件。选择后回到列表，不立即导入。", "未找到、权限不足或扫描未完成时，第三步“手动选择 ZIP / ACK（备用）”可直接选择原件进入安全接收与审核；不要反复下载同一份原件。"]);
-      part("五、第三步：审核与确认导入",["第三步标题下的手动选择入口为灰色备用按钮，不带③编号；iOS 显示“手动从‘文件’选择 ZIP / ACK（备用）”。列表中没有原件时，iOS 仍需系统文件授权。④准备待处理内容的只读审核，正式写入仍要在审核窗口确认。", "读到新有效 ZIP 后提示“审核与确认…进行中”；这表示准备审核，不能当作已导入。ACK 单独登记反馈，可能没有正文可导入。", "高级操作中的手动传输也采用三步布局：第一步①生成②上传，第二步③打开同步空间及查看下载文件，第三步灰色手动选择、④审核确认及查看导入文件。"],["在第二步文件列表勾选所需原件，点右上“审核与确认导入”；或使用第三步手动选择入口。", "若未弹出审核，点④。Windows／Android 会按既有规则检查可读原件；iOS 对尚未授权的外部文件仍需手动选择。", "核对每项状态、正文与版本关系。正式新增、更新及删除在审核中明确确认；冲突不静默覆盖。", "完成后点“查看导入的文件”，只查看确已写入、仍存在且有导入记录的正文与附件。接收区的 ZIP、staging 和本机生成包不算正式导入。"]);
-      part("六、统一文件列表与笔记附件",["三端“查看下载的文件”统一使用插件列表。每项勾选框、全选、已选数量；桌面 Shift 连选、Ctrl / ⌘ + A 全选，Esc 关闭；触屏逐项或全选。右上“复制到…”与“审核与确认导入”。查看和勾选不会接收或导入。", "安卓包含可读外部下载候选和本库 temporary，不局限临时目录。扫描有目录数、条目数、深度和时间限制，显示已查、不可读和待查范围，不宣称全盘扫描完成。iOS 系统选择器属于系统界面，授权后才可在插件列表显示所选文件；关闭列表后需重新授权。", "“查看导入的文件”按本机完成写入记录列出；旧版未保留逐文件正式写入记录的历史不能凭空补全。已回退记录不作为当前导入结果。列表可展开 MD 笔记组，显示实际引用的附件、共享附件和缺失／未解析引用；不凭相似文件名猜测。", "整组复选可同时选择笔记和附件，也可单选。共同引用的附件按真实路径去重；不属于笔记组的文件单独列出。源正文已修改导致 SHA 不一致时，复制会停止，需重新核对源内容。", "安卓手动扫描与手动审核触发的共享存储搜索显示进度弹窗，可停止本次扫描；关闭弹窗不停止。后台常规搜索不自动弹窗。停止后已安全复制的原件保留，当前读写可能完成后才停，本次不继续接收或自动打开审核。iOS 不显示全范围扫描或扫描停止按钮，系统文件选择器使用系统取消。"],[]);
-      part("七、复制到…与新知识库入口",["复制保留源文件，不同步身份／账本，不静默覆盖同名不同内容。复制 MD 时建议选整组；只选 MD 会提示未勾选附件或缺失引用。保持相对路径可保留库内附件关系；外部绝对链接、未选中的其他笔记引用不自动补齐。", "Windows 可从已注册知识库列表选择，或填目标知识库的绝对路径（必须含 .obsidian），进入目标目录预览。拒绝路径穿越、系统隐藏目录和符号链接。", "Android／iOS 不能直接遍历另一个知识库私有目录，因此使用 VR-Copy 复制包：目标知识库内运行同版插件来接收。此复制包不是同步增量包，不要上传为原始增量或交给③④当增量导入。", "复制包 SHA 校验、500 项／64 MiB 限额；不能带传输工作区或插件身份配置。复制下载的 ZIP／ACK 原件会放在“原始传输文件”子目录，接收复制包不会自动执行这些原件，仍需在目标库手动选择并走正常群组校验。", "目标目录预览会列出新增、相同跳过、冲突；有冲突需更换目录后重做预览。确认前重新检查内容和目标状态。复制中发生错误会停止并报告已成功数量，不声称整批原子回滚；成功部分保留、源文件不删除。"],["在文件列表选择文件／整组，点右上“复制到…”。", "Windows：选另一个知识库 → 进入复制预览 → 填目标目录 → 点预览目标文件 → 核对新增／相同／冲突 → 确认复制。", "手机：生成跨知识库复制包 → 导出复制包／系统分享 → 存到系统“文件”或共享存储。", "切换到新的目标知识库 → 打开 Vault Relay → 查看导入的文件 → 新知识库入口：接收复制包 → 选择 VR-Copy ZIP → 填目标目录 → 预览 → 确认复制。该入口在下载列表底部也可用。", "确认完成数量，打开目标笔记检查附件；源文件和已导出的复制包保留，按需自行清理。"]);
+      part("一、升级与安全规则",["5.2.17 TEST 适用 Windows、Android、iOS / iPadOS。升级只替换 main.js、manifest.json、styles.css；保留本机 data.json、GroupID、独立 Device ID、版本历史、ACK 与自动运输开关，不复制其他设备的身份配置。", "三步控制台：第一步生成与上传（①②）；第二步下载（③）；第三步审核与确认导入（④）。①②③④为同等级高亮按钮，辅助手段为灰色按钮。", "打开网页、下载原件、安全接收与正式导入是不同阶段。自动接收只校验交换文件并准备审核；正文新增、更新、冲突处理及删除须人工确认。ACK 校验通过后登记反馈。", "保留旧分享链接字段，但新版目录上传下载流程不使用分享链接。无明确用途的旧上传路径仍要求一次确认，不静默改换空间；独立下载目录按当前群组隔离。", "本机生成的 ZIP 和待回传 ACK 统一保存到 VaultRelay-Transfer/outgoing；下载的 ZIP／MD 和收到的 ACK 统一归集到 VaultRelay-Transfer/incoming。内部 inbox／outbox／staging 为同步核心工作区，不是手动上传入口。"],[]);
+      part("二、百度设置：只填短路径，两种目录入口",["百度设置保留上传与下载短路径，Windows 保留专用自动收发开关。手机高级下载目录设置暂时隐藏，原配置保留；手动选择文件入口仍可用。", "上传和下载都填 /示例目录/共享区 这样的短路径，内部统一补齐一次 /_pcs_.workspace；这是同步空间标识，三端通用，不能当作苹果专用前缀。不要填写 Windows 本地盘路径到网盘目录框。", "上传路由为 https://pan.baidu.com/disk/main#/index?category=all&path=…；下载路由为 https://pan.baidu.com/disk/synchronization#/index?category=all&path=…。两者可以指向同一同步空间文件夹，也可分别保存；ZIP 和 ACK 都遵循这两种入口。", "没有独立保存下载目录时，使用当前群组已明确的同步空间上传目录，或旧同步空间目录。普通网盘路径不自动转换为同步空间；旧 /s/ 分享链接不转换。", "输入框编辑不立即保存。保存失败回滚；上传目录与下载目录独立保存，不修改群组和账本。下载目录如不正确，先明确保存，再打开网页核对。"],["在①上传目录填短路径并保存。旧无类型路径首次保存时明确选同步空间；原普通网盘配置需自己核对后更改。", "上传区两个重复入口合并为“打开/查看百度网盘同步空间入口（浏览器电脑版）”；复制地址仍复制上传页地址。", "在②“百度网盘同步空间（下载入口）”填下载短路径并保存。需要时复制下载地址或打开下载入口核对目录。", "Windows 专用本地同步目录与网页地址分开配置；保留既有自动运输设置。下载保存位置由百度 App／浏览器指定，本插件的网页目录不改变其下载位置。"]);
+      part("三、第一步：生成与上传 ZIP / ACK",["预览并确认生成本机增量包后，从 outgoing 选择原 ZIP 上传。独立 ACK 同样放在 outgoing，三端一致。Windows 自动运输开启时会另写入百度本地同步目录，手动上传入口仍定位本机 outgoing 原件。", "打开上传网页不代表云端上传完成。浏览器电脑版由用户自行启用，插件不能强制切换网页模式。"],["点①预览并生成增量 ZIP，核对待发布文件后明确确认生成。", "展开“查看已生成的增量zip/ack”或独立 ACK 明细，找到原件。可打开、复制或导出原文件。", "点②上传 ZIP / ACK（浏览器电脑版），或手动上传／ACK 上传入口。手机如页面过窄、无上传按钮，在浏览器菜单选择“访问电脑版／桌面网站”，返回插件后重新打开。", "核对目录末尾与文件列表，使用网页上传按钮选择原 ZIP / ACK，等待网页明确完成；不要误传到根目录。"]);
+      part("四、第二步：从同步空间下载原件",["③直接打开已配置的合法下载目录，不再显示重复的下载确认弹窗。云端清单与自动下载尚未接入，仍须在网盘网页选取原件下载。", "下载原件先安全归集到 incoming。验证适用性、复制并回读 SHA、持久保存来源与目标记录后，才尝试删除本地下载源文件。移动完成后原下载目录不留该文件；不能先删除来源再写目标。", "系统未授权删除或原件发生变化时，保留源文件和可靠的 incoming 副本，并显示原下载文件未移除。iOS 及系统文件选择器的读取授权不等于父目录删除授权，不保证可移走其他 App 的原件。Windows 百度同步目录不会作为可删除的下载源；默认只自动移除系统 Downloads 内的授权原件。"],["在同步空间下载所需 ZIP／ACK，再返回 Obsidian。", "后台有限范围扫描会续查上一轮尚未访问的目录；未发现原件时点④进行完整范围检查，或使用灰色手动选择入口。", "在“查看下载的文件”核对 incoming 与原下载文件保留状态；查看列表本身不会接收、导入或删除文件。"]);
+      part("五、第三步：审核与确认导入",["沿用现有只读审核和一次人工确认，不增加导入后二次验收按钮，也不要求逐文件点阅。正文、附件正式写入仍须确认，冲突不覆盖。", "全部正文与附件写入成功、版本与 SHA 匹配、处理结果及所需 ACK 持久保存后，自动清除 incoming 中对应的已完整处理 ZIP／MD。未确认、失败、部分导入、未解决冲突或不能证明整包完成时，原包继续保留。只有 ACK 的下载文件登记后仍保留在 incoming。", "当前自动清源对可精确核对的 upsert 正文版本包启用；含独立 info 或尚未确认的删除版本等不能证明整包处理完成的包保留。正式笔记和附件不在清源范围。普通 MD 经单独预览确认后，核对正式目标内容再清理 incoming 源副本。"],["打开④或勾选下载文件进入只读审核。", "核对待写入路径和数量，通过现有确认按钮执行导入。", "完成后在“查看导入的文件”核对正文、附件及共享附件，并回传本次新 ACK。"]);
+      part("六、统一文件列表与笔记附件",["三端“查看下载的文件”统一使用插件列表。每项勾选框、全选、已选数量；桌面 Shift 连选、Ctrl / ⌘ + A 全选，Esc 关闭；触屏逐项或全选。右上“复制到…”与“审核与确认导入”。查看和勾选不会接收或导入。", "安卓包含可读外部下载候选和本库 temporary，不局限临时目录。扫描有目录数、条目数、深度和时间限制，显示已查、不可读和待查范围，不宣称全盘扫描完成。iOS 系统选择器属于系统界面，授权后才可在插件列表显示所选文件；关闭列表后需重新授权。", "“查看导入的文件”按本机完成写入记录列出；旧版未保留逐文件正式写入记录的历史不能凭空补全。已回退记录不作为当前导入结果。列表可展开 MD 笔记组，显示实际引用的附件、共享附件和缺失／未解析引用；不凭相似文件名猜测。", "整组复选可同时选择笔记和附件，也可单选。共同引用的附件按真实路径去重；不属于笔记组的文件单独列出。源正文已修改导致 SHA 不一致时，复制会停止，需重新核对源内容。", "安卓手动扫描与手动审核触发的共享存储搜索显示进度弹窗，可停止本次扫描；关闭弹窗不停止。后台常规搜索不自动弹窗。停止后已安全复制的原件保留，当前读写可能完成后才停，本次不继续接收或自动打开审核。iOS 不显示全范围扫描或扫描停止按钮，系统文件选择器使用系统取消。", "下载列表每项增加“打开文件所在目录”和“复制路径”。原下载文件移除失败时，另显示“打开原下载目录”和来源状态，即使 incoming 原件已清理，未完成来源记录仍可访问。用户可在系统文件管理器自行删除并刷新核对。", "手机系统若不支持打开该目录，会提供路径或文件名作为备用，不能把已请求系统打开视为目录已经成功显示。文件选择器未提供实际父目录时如实说明。打开目录不会触发插件内删除。"],[]);
+      part("七、复制到…与新知识库入口",["复制保留源文件，不同步身份／账本，不静默覆盖同名不同内容。复制 MD 时建议选整组；只选 MD 会提示未勾选附件或缺失引用。保持相对路径可保留库内附件关系；外部绝对链接、未选中的其他笔记引用不自动补齐。", "Windows 可从已注册知识库列表选择，或填目标知识库的绝对路径（必须含 .obsidian），进入目标目录预览。拒绝路径穿越、系统隐藏目录和符号链接。", "Android／iOS 不能直接遍历另一个知识库私有目录，因此使用 VR-Copy 复制包：目标知识库内运行同版插件来接收。此复制包不是同步增量包，不要上传为原始增量或交给③④当增量导入。", "复制包 SHA 校验、500 项／64 MiB 限额；不能带传输工作区或插件身份配置。复制下载的 ZIP／ACK 原件会放在“原始传输文件”子目录，接收复制包不会自动执行这些原件，仍需在目标库手动选择并走正常群组校验。", "目标目录预览会列出新增、相同跳过、冲突；有冲突需更换目录后重做预览。确认前重新检查内容和目标状态。复制中发生错误会停止并报告已成功数量，不声称整批原子回滚；成功部分保留、源文件不删除。", "发送包清理与下载原件清源是两个流程。“启动清理”仅按本机发送包自身的有效远端 ACK 和冻结策略检查隔离资格，保留30天隔离和禁止自动永久删除的保护。下载收到的 ACK 保留在 incoming，待回传 ACK 位于 outgoing；ACK 专门清理通道不在本版启用。"],["在文件列表选择文件／整组，点右上“复制到…”。", "Windows：选另一个知识库 → 进入复制预览 → 填目标目录 → 点预览目标文件 → 核对新增／相同／冲突 → 确认复制。", "手机：生成跨知识库复制包 → 导出复制包／系统分享 → 存到系统“文件”或共享存储。", "切换到新的目标知识库 → 打开 Vault Relay → 查看导入的文件 → 新知识库入口：接收复制包 → 选择 VR-Copy ZIP → 填目标目录 → 预览 → 确认复制。该入口在下载列表底部也可用。", "确认完成数量，打开目标笔记检查附件；源文件和已导出的复制包保留，按需自行清理。"]);
       part("八、ACK、诊断与操作记录",["接收方正式处理完成后生成 ACK；有新正文增量时可随 ZIP 合并，否则上传原独立 JSON。ACK 上传用 /disk/main（浏览器电脑版），原发送方下载 ACK 用 /disk/synchronization。核对反馈后再按既有清理策略操作；不把打开入口当作 ACK 已收到。", "诊断文件、最近传输状态中的已知文件可打开或复制；移动端系统分享需先准备原件，再在实际点击中分享。诊断内容可能含路径，分享前自行查看。操作结果记录可逐条／全选／Shift 连选，在右上复制选中记录。", "Windows 自动运输只操作已配置交换目录，手动下载可能保存在其他地方。返回后分批发现或手动选原件兜底，不保证瞬间找到所有本地文件。"],[]);
-      part("九、注意事项与常见问题",["Q81：手机上传网页太窄、没有上传按钮怎么办？答：核对上传路由为 /disk/main，浏览器菜单启用“访问电脑版／桌面网站”，返回 Obsidian 再打开②；缩放后核对目录及上传按钮。插件不能强制设置浏览器显示模式，也不能隐藏百度网页侧栏。", "Q82：下载也必须开电脑版吗？答：下载用同步空间 /disk/synchronization 目录页，显示模式由浏览器和百度页面决定；出现下载按钮后核对目录和文件。不能把安卓的网页模式现象当作 Windows、iOS 的统一规则。", "Q83：要从网页跳转 App 吗？答：本流程不依赖跳转。网页的“App 下载”可能是下载安装包，不能视为打开已安装 App 或保留目标目录。", "Q84：三个系统都要填 /_pcs_.workspace 吗？答：设置只填短路径。插件为同步空间内部补齐一次，三端相同；它不是苹果专属前缀。", "Q85：为什么不用群组分享链接？答：上传和下载已改为同一同步空间目录的两种页面入口；旧分享链接及提取码保留但本流程不用，不能把它自动迁移成目录。", "Q86：填下载目录能改变百度 App 的保存位置吗？答：不能。这里填的是云端目录；本地保存位置由百度 App／浏览器控制。列表扫描只读取系统授权位置，不绕过私有目录权限。", "Q87：下载完为什么没有弹审核？答：可能原件还未稳定、未返回、已处理、目录无权限或扫描未覆盖。先看本机列表和状态；iOS 外部文件先添加授权。仍找不到就点第三步“手动选择 ZIP / ACK（备用）”，必要时再点④；不要把没有弹窗当作下载失败。", "Q88：查看下载文件会立即导入吗？答：不会。添加授权文件也只加入本次列表。勾选后点“审核与确认导入”才校验接收，正文仍须审核确认。第三步手动选择入口则直接执行安全接收并准备审核。", "Q89：查看导入的文件为什么不显示旧包？答：此处显示有正式写入记录且仍存在的正文／附件，不显示接收原 ZIP 和 staging。旧版没有记录的导入无法精确追溯；回退、缺失或源内容变化也会提示或排除。", "Q90：MD 和附件怎么一起复制？答：展开笔记组，选整组；附件按正文实际引用解析，共享附件按路径去重。缺失、未解析或未勾选附件会提示，插件不猜测文件。相对引用可保留，外部绝对链接及未选中的笔记不自动补全。", "Q91：手机如何选新知识库？答：系统沙箱不保证能直接写入别的库。先导出 VR-Copy 包，切换到目标库的同版插件，通过“新知识库入口：接收复制包”选包、选目标目录、预览再确认。Windows 可直接指定已存在的知识库目录。", "Q92：复制失败会删除源文件或覆盖目标吗？答：源文件保留，冲突不覆盖；预览后目标变化会停止。若复制途中发生 I/O 故障，报告成功部分和失败项，成功部分保留；修复问题后重新预览，相同内容会跳过。", "Q93：新版已经在所有真机完整验证了吗？答：本版通过隔离逻辑与三端模拟宿主界面验证，不等于新版在所有真机上的外链、系统分享和权限均已验证。网页可见按钮由用户此前逐端确认；本版不重复旧 ZIP 真机导入、取消及去重测试。", "Q94：灰色手动选文件是否不可用？答：仍可点击，只是备用入口。安卓通常先查找下载原件；iOS 列表没有原件时，必须先从系统“文件”添加授权，也可用第三步手动选择直接准备审核。", "Q95：停止扫描会删除文件或撤销导入吗？答：不会。只停止本次外部目录搜索与后续候选复制，已安全复制原件保留，不撤销既有接收或已完成导入。当前读写可能完成后才停。关闭进度弹窗不会停止扫描，后台后续轮次仍按原设置运行。"],[]);
+      part("九、注意事项与常见问题",["Q81：手机上传网页太窄、没有上传按钮怎么办？答：核对上传路由为 /disk/main，浏览器菜单启用“访问电脑版／桌面网站”，返回 Obsidian 再打开②；缩放后核对目录及上传按钮。插件不能强制设置浏览器显示模式，也不能隐藏百度网页侧栏。", "Q82：下载也必须开电脑版吗？答：下载用同步空间 /disk/synchronization 目录页，显示模式由浏览器和百度页面决定；出现下载按钮后核对目录和文件。不能把安卓的网页模式现象当作 Windows、iOS 的统一规则。", "Q83：要从网页跳转 App 吗？答：本流程不依赖跳转。网页的“App 下载”可能是下载安装包，不能视为打开已安装 App 或保留目标目录。", "Q84：三个系统都要填 /_pcs_.workspace 吗？答：设置只填短路径。插件为同步空间内部补齐一次，三端相同；它不是苹果专属前缀。", "Q85：为什么不用群组分享链接？答：上传和下载已改为同一同步空间目录的两种页面入口；旧分享链接及提取码保留但本流程不用，不能把它自动迁移成目录。", "Q86：填下载目录能改变百度 App 的保存位置吗？答：不能。这里填的是云端目录；本地保存位置由百度 App／浏览器控制。列表扫描只读取系统授权位置，不绕过私有目录权限。", "Q87：下载完为什么没有弹审核？答：可能原件还未稳定、未返回、已处理、目录无权限或扫描未覆盖。先看本机列表和状态；iOS 外部文件先添加授权。仍找不到就点第三步“手动选择 ZIP / ACK（备用）”，必要时再点④；不要把没有弹窗当作下载失败。", "Q88：查看下载文件会立即导入吗？答：不会。添加授权文件也只加入本次列表。勾选后点“审核与确认导入”才校验接收，正文仍须审核确认。第三步手动选择入口则直接执行安全接收并准备审核。", "Q89：查看导入的文件为什么不显示旧包？答：此处显示有正式写入记录且仍存在的正文／附件，不显示接收原 ZIP 和 staging。旧版没有记录的导入无法精确追溯；回退、缺失或源内容变化也会提示或排除。", "Q90：MD 和附件怎么一起复制？答：展开笔记组，选整组；附件按正文实际引用解析，共享附件按路径去重。缺失、未解析或未勾选附件会提示，插件不猜测文件。相对引用可保留，外部绝对链接及未选中的笔记不自动补全。", "Q91：手机如何选新知识库？答：系统沙箱不保证能直接写入别的库。先导出 VR-Copy 包，切换到目标库的同版插件，通过“新知识库入口：接收复制包”选包、选目标目录、预览再确认。Windows 可直接指定已存在的知识库目录。", "Q92：复制失败会删除源文件或覆盖目标吗？答：源文件保留，冲突不覆盖；预览后目标变化会停止。若复制途中发生 I/O 故障，报告成功部分和失败项，成功部分保留；修复问题后重新预览，相同内容会跳过。", "Q94：灰色手动选文件是否不可用？答：仍可点击，只是备用入口。安卓通常先查找下载原件；iOS 列表没有原件时，必须先从系统“文件”添加授权，也可用第三步手动选择直接准备审核。", "Q93：本版真机链路验证了吗？答：本版先完成隔离逻辑、故障恢复、三端模拟界面和打包检查，随后再进行新 ZIP／MD／ACK 真机闭环；自动验证不等于系统授权或网盘收发实测通过。", "Q95：停止搜索会删除原件吗？答：停止未来目录搜索及候选处理，当前文件的安全归集可能完成后才停；已归集 incoming 原件保留，本次不继续接收与自动审核，既有正式导入不回滚。关闭进度弹窗不停止任务。", "Q96：为什么原始下载目录还有文件？答：可能系统未授权删除、源文件变化或移除失败。请在下载列表打开原下载目录人工处理；不能把仅复制当作移动完成。"],[]);
 
       part("十、知识库比对：导出 → 导入 → 比对",[
         "入口为「高级操作 → 知识库比对」，不在日常主按钮中。用于检测两台设备的正式知识库文件是否不同，不会更改任何笔记。两台设备清单生成时间不同，结果仅代表两个快照。",
@@ -3367,6 +3367,7 @@ function createUnifiedPanel() {
           (file,mime,title)=>this.sharePreparedFile(file,mime,title),
           ()=>this.render()).open());
       button(tools,'导入普通 Markdown（先预览）',()=>new VaultRelayMarkdownImportModal(this.app,p).open());
+      this.v5217OpenMarkdown=files=>{const modal=new VaultRelayMarkdownImportModal(this.app,p);modal.files=files;modal.open();void modal.refresh();return modal;};
       const ordinary=ele(base,'input');ordinary.type='file';ordinary.accept='.zip';ordinary.className='vru-hidden';
       ordinary.addEventListener('change',()=>this.reviewImport(ordinary.files?.[0]));
       button(tools,'导入知识库（先预览）',()=>ordinary.click());
@@ -3601,8 +3602,7 @@ function createUnifiedPlugin(Bridge, createDesktopAgent, JSZip, importer, Lifecy
     assertGroup(){this.assertVault();if(!isValidGroup(this.data.groupId))throw Error('先从同步核心核对并填写完整 GroupID');const g=this.currentLegacyGroup();if(g&&g!==this.data.groupId)throw Error('同步核心与统一版 GroupID 不一致，已停止');return this.data.groupId;}
     async ensureLayout(){
       this.assertVault();
-      const parts=Platform.isDesktopApp?['outgoing','temporary','staging','inbox','outbox']:
-        ['temporary','staging','inbox','outbox'];
+      const parts=['outgoing','incoming','temporary','staging','inbox','outbox'];
       for(const part of [ROOT,...parts.map(x=>ROOT+'/'+x)])
         await T.ensureVaultFolder(this.app.vault.adapter,part);
       // The older outgoing/temporary folders are preserved during upgrades.
@@ -3822,10 +3822,9 @@ function createUnifiedPlugin(Bridge, createDesktopAgent, JSZip, importer, Lifecy
           throw Error('待补发文件大小或 SHA 发生变化：'+name+'；未发布');
         const saved=await promoteToCloud(this,name,raw);
         const record=(this.data.bundleRecords||[]).find(x=>x.name===name && x.sha256===entry.sha256);
-        if(record){record.stored={kind:'cloud',path:saved.path};}
-        if(this.data.latest===entry.path)this.data.latest=saved.path;
-        if((this.data.lastPreparedAckFiles?.paths||[]).includes(entry.path))
-          this.data.lastPreparedAckFiles.paths=this.data.lastPreparedAckFiles.paths.map(x=>x===entry.path?saved.path:x);
+        if(record){record.cloudStored={kind:'cloud',path:saved.path};}
+        if(this.data.latest===entry.path)this.data.latestCloudFile=saved.path;
+        // ACK upload controls retain the outgoing original.
         delete queue[name];
         if(saved.created)published++;else duplicates++;
         await this.persistTransport();
@@ -3995,7 +3994,7 @@ function createUnifiedPlugin(Bridge, createDesktopAgent, JSZip, importer, Lifecy
         await this.persistTransport();
       }
       await this.log('移动端待上传','请在百度网盘中从当前知识库/'+location+
-        ' 手动选择 ZIP 与 ACK 上传。当前临时区为 temporary；按钮不代表云端上传成功。');
+        ' 手动选择 ZIP 与 ACK 上传。本机生成文件位于 outgoing，下载文件位于 incoming；按钮不代表云端上传成功。');
       return {manual:true,path:location};
     }
     async migrateLegacyOutgoing(){
@@ -4129,7 +4128,7 @@ function createUnifiedPlugin(Bridge, createDesktopAgent, JSZip, importer, Lifecy
       this.data.lastPreparedAckFiles={at:Date.now(),paths:result.slice(-80)};
       await this.persistTransport();
       await this.log('独立 ACK 已准备',result.length+' 个 JSON 已保存到'+
-        (Platform.isDesktopApp?(this.data.desktopTransportEnabled?' Windows 百度本地同步文件夹':' Windows 本地待发送区'):' 知识库 temporary；请从百度网盘 App 手动选择上传')+
+        (Platform.isDesktopApp?(this.data.desktopTransportEnabled?' Windows 百度本地同步文件夹':' Windows 本地待发送区'):' 知识库 outgoing；请从百度网盘 App 手动选择上传')+
         '；没有新正文时直接使用 ACK JSON');
       return result;
     }
@@ -4140,9 +4139,7 @@ function createUnifiedPlugin(Bridge, createDesktopAgent, JSZip, importer, Lifecy
       if(report.kind!=='incremental')throw Error('当前下载入口只接受外层增量 ZIP');
       const bytes=toBytes(await file.arrayBuffer());
       if(await hex(bytes)!==report.hash)throw Error('下载文件检查后 SHA 已改变');
-      const temporary=externalSource && !Platform.isDesktopApp?
-        {path:externalSource,kind:'external'}:
-        await writeChecked(this.app.vault.adapter,ROOT+'/temporary/'+file.name,bytes);
+      const temporary=await this.v5217Stage(file,bytes,{source:externalSource||file._vr5217Source||null});
       // Before restoring any exchange file, preserve verified contents in staging.
       const bundleId=report.bundleId;
       if(!/^br-[A-Za-z0-9_-]{10,80}$/.test(bundleId))throw Error('bundleId 不合法');
@@ -9209,7 +9206,7 @@ class V525LiveService {
       code:'DOWNLOAD_CLEANUP_DISABLED',
       reason:rec.kind==='cloud'?'百度同步目录入站原件保护，不删除':
         rec.kind==='external'?'系统公共下载原件归其他应用管理，禁止删除':
-        '移动端临时下载副本清理尚需独立 ACK 回传实机确认；本测试版保留文件'}));
+        '下载正文原件由导入完成流程单独校验清理，不使用发送包隔离按钮；收到的 ACK 保留'}));
     return {outgoing,inbound,records,blocked:[...outgoing,...inbound].filter(x=>!x.eligible),
       eligible:outgoing.filter(x=>x.eligible),retentionDays:30,automaticPurge:false,
       incidents:await this.quarantine.inspectIntents()};
@@ -9480,6 +9477,8 @@ class VaultRelayV4 extends UnifiedBase {
     // then loaded into this same plugin's data.json (one plugin, one state).
     await UnifiedBase.prototype.onload.call(this);
     this._v525=new V525.V525LiveService(this,{Platform:OBS.Platform,Bridge,Lifecycle,Zip});
+    await this.v5217Migrate();
+    this.v5217WrapEngine();
     VR527UI.observe(this);
     this.assertVault();
     this._vrRuntimeErrors=[];
@@ -9835,7 +9834,7 @@ class VaultRelayV4 extends UnifiedBase {
     return {status:'incoming',sha};
   }
   async copyMobileInputToTemporary(file,bytes,sha){
-    const target='VaultRelay-Transfer/temporary/'+file.name;
+    const target='VaultRelay-Transfer/incoming/'+file.name;
     const adapter=this.app.vault.adapter;
     await this.ensureLayout();
     if(await adapter.exists(target)){
@@ -9847,7 +9846,7 @@ class VaultRelayV4 extends UnifiedBase {
     await adapter.writeBinary(target,Bridge.__testing.buffer(bytes));
     const check=new Uint8Array(await adapter.readBinary(target));
     if(await Bridge.__testing.sha256(check)!==sha)
-      throw Error('temporary 复制后 SHA 回读失败；不删除源文件');
+      throw Error('incoming 复制后 SHA 回读失败；不删除源文件');
     return {path:target,created:true};
   }
   async importMobileChosenFiles(chosen){
@@ -9874,12 +9873,13 @@ class VaultRelayV4 extends UnifiedBase {
         // but do NOT let a historical receipt pre-empt the copy stage.
         const check=await this.validateMobileInput(snapshot,bytes,{stageFirst:true});
         if(check.status!=='incoming'){result.skipped++;continue;}
+        snapshot._vr5217Source=file._vr5217Source||null;
         const saved=await this.copyMobileInputToTemporary(snapshot,bytes,check.sha);
         result.paths.push(saved.path);
         result.copied++;
         await this.log('文件选择器 · 安全转入',file.name+
           (saved.created?' 已安全复制':' 已有相同 SHA 的安全副本')+
-          '到 temporary；下载原件未删除');
+          '到 incoming；下载原件未删除');
       }catch(e){
         result.errors++;
         await this.log('文件选择器 · 转入失败',
@@ -9894,7 +9894,7 @@ class VaultRelayV4 extends UnifiedBase {
     await this.log('手动选取文件处理完成',
       '复制/核对 temporary '+result.copied+'、跳过 '+result.skipped+
       '、转入失败 '+result.errors+
-      '；统一 temporary 新接收 ZIP '+after.zip+'、ACK '+after.ack+
+      '；统一 incoming 新接收 ZIP '+after.zip+'、ACK '+after.ack+
       '；正式笔记仍需人工确认');
     new OBS.Notice('系统选文件：转入 '+result.copied+'，失败 '+
       result.errors+'；新接收 ZIP '+after.zip+
@@ -10113,14 +10113,16 @@ class VaultRelayV4 extends UnifiedBase {
       };
       // Priority order is intentional: previous successful folders first,
       // configured folders next, then broad shared-storage roots.
-      for(const dir of (this.data.mobileRecentDirs||[]).slice(0,24))add(dir);
-      add(this.data.mobileSourcePath||'/storage/emulated/0/Download/BaiduNetdisk/');
-      for(const dir of (this.data.mobileExtraSources||[]).slice(0,20))add(dir);
+      const carry=!full?(this.data.v5217PendingDirs||[]):[];
+      for(const dir of carry.slice(0,500))add(dir.path,dir.depth);
+      if(!carry.length||full)for(const dir of (this.data.mobileRecentDirs||[]).slice(0,24))add(dir);
+      if(!carry.length||full)add(this.data.mobileSourcePath||'/storage/emulated/0/Download/BaiduNetdisk/');
+      if(!carry.length||full)for(const dir of (this.data.mobileExtraSources||[]).slice(0,20))add(dir);
       if(full)for(const dir of (this.data.mobilePendingScanDirs||[]).slice(0,500)){
         if(typeof dir==='string')add(dir);
         else if(dir && typeof dir==='object')add(dir.path,Math.min(9,Math.max(0,Number(dir.depth)||0)));
       }
-      for(const dir of ['/storage/emulated/0/Download/BaiduNetdisk/',
+      if(!carry.length||full)for(const dir of ['/storage/emulated/0/Download/DLManager/','/storage/emulated/0/Download/BaiduNetdisk/',
         '/storage/emulated/0/Download/','/storage/emulated/0/Documents/'])add(dir);
       if(full){
         // Some Android hosts grant access to the entire public shared volume;
@@ -10176,6 +10178,7 @@ class VaultRelayV4 extends UnifiedBase {
       }
       result.candidateFiles=candidates.length;progress();
       result.pendingDirs=queue.length;
+      if(!full)this.data.v5217PendingDirs=queue.slice(0,500).map(x=>({path:x.path,depth:x.depth}));
       if(full){
         this.data.mobilePendingScanDirs=queue.slice(0,500).map(x=>({path:x.path,depth:x.depth}));
       }
@@ -10239,13 +10242,14 @@ class VaultRelayV4 extends UnifiedBase {
             ledger[key]={sha256:sha,status:check.status,size:meta.size,
               mtime:meta.mtime,at:Date.now()};result.skipped++;continue;
           }
+          chosen._vr5217Source={kind:'android',path:key};
           const stored=await this.copyMobileInputToTemporary(chosen,bytes,sha);
           result.paths.push(stored.path);result.copied++;progress();
           ledger[key]={sha256:sha,status:'copied',size:meta.size,
             mtime:meta.mtime,at:Date.now()};
           this.data.mobileRecentDirs=[dir,...(this.data.mobileRecentDirs||[]).filter(x=>x!==dir)].slice(0,24);
           await this.log('Android 多目录安全转入',dir+entry.name+
-            ' → '+stored.path+'；已回读校验 SHA，原下载文件保留');
+            ' → '+stored.path+'；已回读校验 SHA，下载源移动结果请查看文件列表');
         }catch(err){
           result.errors++;
           if(hashed)ledger[key]={sha256:hashed,status:'rejected',size:meta.size,
@@ -10354,9 +10358,9 @@ class VaultRelayV4 extends UnifiedBase {
     }
     const run=async()=>{
       await this.ensureLayout();
-      const prefix='VaultRelay-Transfer/temporary/';
+      const prefix='VaultRelay-Transfer/incoming/';
       const adapter=this.app.vault.adapter;
-      const listing=await adapter.list('VaultRelay-Transfer/temporary');
+      const listing=await adapter.list('VaultRelay-Transfer/incoming');
       const all=(listing.files||[]).filter(x=>typeof x==='string'&&x.startsWith(prefix)&&
         !x.slice(prefix.length).includes('/'));
       if(all.length>600)throw Error('temporary 文件超过 600 个，已停止自动扫描；请检查临时区');
@@ -10970,14 +10974,14 @@ class VaultRelayV4 extends UnifiedBase {
         (rec.versions||[]).some(v=>v.packId===draft.packId));
       if(envelopes.some(rec=>rec.status!=='pending'||
          rec.stored?.kind!=='vault' ||
-         !String(rec.stored?.path||'').startsWith('VaultRelay-Transfer/temporary/')||
+         !String(rec.stored?.path||'').startsWith('VaultRelay-Transfer/outgoing/')||
          (rec.versions||[]).some(v=>v.packId!==draft.packId))){
         deny('外层包已发布/状态不明，或混有其他内容包，不能单独撤销');continue;
       }
       let safe=true;
       for(const rec of envelopes){
         try{
-          if(!await adapter.exists(rec.stored.path))throw Error('外层增量 ZIP 已离开 temporary');
+          if(!await adapter.exists(rec.stored.path))throw Error('外层增量 ZIP 已离开 outgoing');
           const envBytes=new Uint8Array(await adapter.readBinary(rec.stored.path));
           if(await Bridge.__testing.sha256(envBytes)!==rec.sha256)
             throw Error('外层包 SHA 与待发送记录不符');
@@ -11933,12 +11937,7 @@ const VR5215=(()=>{
     };
     // Old internal callers, if any, also use the saved directory; never shareUrl.
     Panel.prototype.openShareBrowser=function(){return this.openSyncSpaceBrowser();};
-    Panel.prototype.showDownloadEntry=function(){
-      const m=dialog(this.app,'确认需要下载的文件');
-      el(m.contentEl,'p','插件未接入百度云端清单。请到同步空间目录页核对并下载原 ZIP / ACK；这里不能预先列出云端文件。','vr527-keep-full');
-      btn(m.contentEl,'确认：打开下载页并返回 Obsidian 主页面',()=>{if(this.openSyncSpaceBrowser()){m.close();this.close();}},true);
-      btn(m.contentEl,'取消',()=>m.close());m.open();
-    };
+    Panel.prototype.showDownloadEntry=function(){if(this.openSyncSpaceBrowser())this.close();};
     Panel.prototype.showImportedFiles=function(){return this.v5215FileList(true);};
     Panel.prototype.showLocalFiles=function(){return this.v5215FileList(false);};
     Panel.prototype.v5215FileList=function(imported){
@@ -11951,13 +11950,15 @@ const VR5215=(()=>{
       if(!imported)review=btn(actions,'审核与确认导入',async()=>{
         const selected=chosen();if(!selected.length)return;review.disabled=true;
         try{
-          const received=[];let failures=[];
+          const received=[],markdown=[];let failures=[];
           for(const item of selected){try{
             if(item.source==='desktop'){const r=await p.v5213ReceiveDiscovered(item);if(!r||r.busy||r.error)throw Error(r?.error||'接收忙，请重试');if(r.status==='received')received.push(item.name);}
-            else {const raw=await readItem(p,item),file={name:item.name,size:raw.length,arrayBuffer:async()=>tools.buffer(raw)};
+            else {const raw=await readItem(p,item),file={name:item.name,size:raw.length,arrayBuffer:async()=>tools.buffer(raw),_vr5217Source:item.source==='android'?{kind:'android',path:item.path}:item.source==='desktop'?{kind:'desktop',path:item.path}:null};
+              if(/\.md$/i.test(file.name)){markdown.push(file);continue;}
               if(Platform.isDesktopApp){if(/\.json$/i.test(file.name))await p.importRawAckFile(file);else await p.applyDownloaded(await p.storeDownloadedZip(file));received.push(item.name);}
               else {const result=await p.importMobileChosenFiles([file]);if(result?.errors)throw Error('原件未通过接收校验，请查看操作记录');if(result&&(result.copied||result.direct))received.push(item.name);}}
           }catch(e){failures.push(item.name+'：'+e.message);}}
+          if(markdown.length)panel.v5217OpenMarkdown(markdown);
           if(failures.length)el(m.contentEl,'p','未完成：'+failures.join('；'),'vru-danger vr527-keep-full');
           if(received.length){new Notice('审核与确认…进行中；正在准备只读审核，正式写入仍需确认。',6500);await p.showReviewAfterReceive({reason:'download-and-import',forceOpen:true});}
           else if(!failures.length)new Notice('所选原件已处理或无需重复接收；可在第三步检查待审核内容。',6500);
@@ -11974,7 +11975,8 @@ const VR5215=(()=>{
       m.modalEl.addEventListener('keydown',e=>{const editing=e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT'&&!['checkbox','radio','button'].includes(e.target.type);if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='a'&&!editing){e.preventDefault();model.all(true);sync();}if(e.key==='Escape')m.close();});
       const addRow=(parent,item)=>{const i=rows.length;rows.push(item);const label=el(parent,'label',null,'vru-selectable-file'),check=el(label,'input');check.type='checkbox';check.setAttribute('aria-label',item.path);inputs.push(check);
         el(label,'span',item.path+(item.shared?' · 共享附件':item.attachment?' · 附件':''),'vru-file-path');
-        check.addEventListener('click',e=>{model.toggle(i,check.checked,e.shiftKey);sync();});return i;};
+        check.addEventListener('click',e=>{model.toggle(i,check.checked,e.shiftKey);sync();});
+        if(!imported)p.v5217RenderLocation(parent,item);return i;};
       const render=async items=>{list.replaceChildren();rows=[];inputs=[];lastGroups=[];model=selection(0);
         if(imported){const grouped=await groups(p,items);if(closed)return;
           for(const g of grouped){if(g.children.length>1||g.missing.length){const d=el(list,'details',null,'vru-note-group'),summary=el(d,'summary'),check=el(summary,'input');check.type='checkbox';el(summary,'span',g.title+' · '+(g.children.length-1)+' 个附件');
@@ -11984,17 +11986,17 @@ const VR5215=(()=>{
         }else for(const item of items)addRow(list,item);
         model=selection(rows.length);if(!rows.length)el(list,'p',imported?'暂无可追溯的正式导入文件；接收包和生成包不计入。':'尚未找到可读取原件。可添加外部文件；未发现不代表没有下载。');sync();};
       const picked=new Map();
-      const picker=el(m.modalEl,'input',null,'vru-document-picker');picker.type='file';picker.accept='.zip,.json';picker.multiple=true;
-      picker.addEventListener('change',()=>{for(const f of Array.from(picker.files||[])){if(!/\.(zip|json)$/i.test(f.name))continue;const id='已授权文件 / '+f.name+' ['+f.size+']';picked.set(id,{path:id,name:f.name,file:f,source:'picker'});}picker.value='';void load();});
+      const picker=el(m.modalEl,'input',null,'vru-document-picker');picker.type='file';picker.accept='.zip,.json,.md';picker.multiple=true;
+      picker.addEventListener('change',()=>{for(const f of Array.from(picker.files||[])){if(!/\.(zip|json|md)$/i.test(f.name))continue;const id='已授权文件 / '+f.name+' ['+f.size+']';picked.set(id,{path:id,name:f.name,file:f,source:'picker'});}picker.value='';void load();});
       const load=async()=>{if(loading)return;loading=true;sync();try{
         let files=[],details=[];
         if(imported){for(const item of importedRecords(p.data)){if(await p.app.vault.adapter.exists(item.path))files.push(item);else details.push('已缺失：'+item.path);}status.textContent='列出有正式写入记录且仍存在的文件。'+details.slice(0,10).join('；');}
         else{
           if(Platform.isDesktopApp){const scan=await p.v5213Discover({receive:false});files=(scan.files||[]).map(x=>({...x,source:'desktop'}));details.push('本地发现：'+scan.state+' · 已查 '+scan.scannedDirs+' · 不可读 '+scan.unreadableDirs+' · 待查 '+scan.pendingDirs);}
           if(Platform.isAndroidApp){const scan=await androidList(p,()=>closed);files.push(...scan.files);details.push(scan.status);}
-          try{const listing=await p.app.vault.adapter.list('VaultRelay-Transfer/temporary');files.push(...(listing.files||[]).filter(x=>p.mobileDownloadLooksLikeExchange(x.split('/').pop())).map(path=>({path,name:path.split('/').pop(),source:'vault'})));}catch(_){details.push('本库临时目录暂不可读或未建立');}
+          try{const listing=await p.app.vault.adapter.list('VaultRelay-Transfer/incoming');files.push(...(listing.files||[]).filter(x=>p.mobileDownloadLooksLikeExchange(x.split('/').pop())||/\.md$/i.test(x)).map(path=>({path,name:path.split('/').pop(),source:'vault'})));}catch(_){details.push('本库临时目录暂不可读或未建立');}
           if(Platform.isIosApp)details.push('iOS 不支持遍历其他 App 的下载目录；点“添加外部 ZIP / ACK”授权原件，先列出，再审核。');
-          files.push(...picked.values());status.textContent=details.join('；');
+          files.push(...picked.values());await p.v5217RefreshSources();status.textContent=details.join('；');p.v5217RenderUnmovedSources(status);
         }
         if(closed)return;
         const unique=[...new Map(files.map(x=>[x.path,x])).values()];
@@ -12002,7 +12004,7 @@ const VR5215=(()=>{
         await render(unique.slice(0,MAX_FILES));
       }catch(e){status.textContent='列表读取未完成：'+e.message+'。可手动添加文件。';}finally{loading=false;sync();}};
       const footer=el(m.contentEl,'div',null,'vru-files-footer');btn(footer,'刷新列表',load);
-      if(!imported)btn(footer,'添加外部 ZIP / ACK',()=>{picker.value='';picker.click();});
+      if(!imported)btn(footer,'添加外部 ZIP / MD / ACK',()=>{picker.value='';picker.click();});
       btn(footer,'新知识库入口：接收复制包',()=>panel.v5215ReceiveCopy());btn(footer,'关闭',()=>m.close());m.open();void load();return m;
     };
     async function prepare(p,selected){
@@ -12155,6 +12157,333 @@ VaultRelayV4.prototype.showMobileScanProgress=function(){
 
 VR5213.install(VaultRelayV4,{Platform:OBS.Platform,Notice:OBS.Notice,Bridge,ImportManager});
 const v5215Runtime=VR5215.install(VaultRelayV4,{Panel:UnifiedBase.__testing.panel,Modal:OBS.Modal,Platform:OBS.Platform,Notice:OBS.Notice,tools:Bridge.__testing,Zip:UnifiedBase.__testing.zip});
+// 5.2.17: user-visible transfer originals, transactional source moves and cleanup.
+const VR5217=(()=>{
+  const ROOT='VaultRelay-Transfer',IN=ROOT+'/incoming/',OUT=ROOT+'/outgoing/';
+  const arr=x=>x instanceof Uint8Array?x:new Uint8Array(x);
+  const nameOK=n=>typeof n==='string'&&/^[^/\\:\x00-\x1f]{1,155}$/.test(n)&&!n.startsWith('.')&&!/[. ]$/.test(n);
+  function install(P,{Platform,Notice,tools,Zip,Panel,ImportManager}){
+    const hash=x=>tools.sha256(arr(x));
+    const book=p=>(p.data.v5217Transfers ||= {});
+    const own=p=>p.engine?.state?.deviceId||p.data.v2?.deviceId;
+    const key=(p,sha)=>p.data.groupId+':'+sha;
+    async function folder(p,path){await tools.ensureVaultFolder(p.app.vault.adapter,path);}
+    async function write(p,path,raw){
+      const prefix=path.startsWith(IN)?IN:path.startsWith(OUT)?OUT:null;
+      if(!prefix||!nameOK(path.slice(prefix.length)))throw Error('传输原件路径无效');
+      const locks=p._v5217PathLocks ||= new Map(),previous=locks.get(path)||Promise.resolve();
+      let release;const gate=new Promise(r=>release=r);locks.set(path,gate);await previous;
+      try{
+        const a=p.app.vault.adapter;await folder(p,path.slice(0,path.lastIndexOf('/')));
+        const sha=await hash(raw);
+        if(await a.exists(path)){if(await hash(await a.readBinary(path))!==sha)throw Error('同名不同内容，拒绝覆盖：'+path);}
+        else await a.writeBinary(path,tools.buffer(raw));
+        if(await hash(await a.readBinary(path))!==sha)throw Error('写入后 SHA 核对失败：'+path);
+        return {path,sha256:sha,kind:'vault'};
+      }finally{release();if(locks.get(path)===gate)locks.delete(path);}
+    }
+    function active(p,r){return r.groupId===p.data.groupId&&r.deviceId===own(p);}
+    function androidPath(p,path){
+      const u=new URL(path),decoded=decodeURIComponent(u.pathname);
+      if(u.protocol!=='file:'||u.host||!/^\/storage\/emulated\/0\/(Download|Documents)\//.test(decoded)||/[\\\x00-\x1f]/.test(decoded)||decoded.split('/').some(x=>x==='.'||x==='..')||decoded.includes('/VaultRelay-Transfer/'))throw Error('该来源不属于获准移动的本地下载目录');
+      const i=path.lastIndexOf('/');return {dir:path.slice(0,i+1),name:decodeURIComponent(path.slice(i+1)),raw:decoded};
+    }
+    async function desktopPath(p,path){
+      const fs=require('node:fs').promises,n=require('node:path'),os=require('node:os');
+      const abs=n.resolve(path),root=n.resolve(os.homedir(),'Downloads');
+      if(!abs.toLowerCase().startsWith((root+n.sep).toLowerCase()))throw Error('仅自动移动本机 Downloads 原件；其他位置保留');
+      if(p.data.windowsCloudDir&&abs.toLowerCase().startsWith(n.resolve(p.data.windowsCloudDir).toLowerCase()+n.sep))throw Error('百度同步目录不能移动删除');
+      let walk=n.parse(abs).root;
+      for(const part of abs.slice(walk.length).split(n.sep)){walk=n.join(walk,part);if((await fs.lstat(walk)).isSymbolicLink())throw Error('下载路径包含链接');}
+      return {fs,abs};
+    }
+    // Sources never come from an arbitrary clipboard path: they are attached by
+    // native discovery or remain unknown with no delete permission after a picker.
+    P.prototype.v5217SourceRead=async function(source){
+      if(source?.kind==='android'&&Platform.isAndroidApp){
+        const x=androidPath(this,source.path),fs=this.mobileCapacitorFilesystem();
+        if(!fs)throw Error('系统未提供源文件读取权限');
+        const stat=await this.mobileCapStat(fs,x.dir,x.name);
+        if(stat.size>tools.MAX_BUNDLE_BYTES)throw Error('源文件过大');
+        return arr(await this.mobileCapRead(fs,x.dir,x.name,stat.size));
+      }
+      if(source?.kind==='desktop'&&Platform.isDesktopApp){
+        const x=await desktopPath(this,source.path),st=await x.fs.lstat(x.abs);
+        if(!st.isFile()||st.size>tools.MAX_BUNDLE_BYTES)throw Error('源文件类型或体积不安全');
+        return arr(await x.fs.readFile(x.abs));
+      }
+      throw Error('系统仅授权读取所选文件，未提供原目录删除权限');
+    };
+    P.prototype.v5217SourceExists=async function(source){
+      if(source?.kind==='android'&&Platform.isAndroidApp){
+        const x=androidPath(this,source.path),entries=await this.getMobileDownloadEntries(x.dir);
+        if(entries.some(e=>e.unknownType))throw Error('原目录条目类型不完整，不能确认文件消失');
+        return entries.some(e=>e.name===x.name);
+      }
+      if(source?.kind==='desktop'&&Platform.isDesktopApp){
+        try{await desktopPath(this,source.path);return true;}catch(e){if(e.code==='ENOENT')return false;throw e;}
+      }
+      throw Error('没有原始目录核对权限');
+    };
+    P.prototype.v5217SourceDelete=async function(source){
+      if(source?.kind==='android'&&Platform.isAndroidApp){
+        const x=androidPath(this,source.path),fs=this.mobileCapacitorFilesystem();
+        if(typeof fs?.deleteFile!=='function')throw Error('系统未提供删除权限');
+        // A single acknowledged native delete; do not retry alternative paths
+        // after a timeout because the first request may already have completed.
+        const opts=this.mobileCapPathOptions(x.dir,x.name);
+        const option=opts.find(v=>v.path.startsWith('/storage/'))||opts[0];
+        await this.mobileCapCall(fs,'deleteFile',option);return;
+      }
+      if(source?.kind==='desktop'&&Platform.isDesktopApp){const x=await desktopPath(this,source.path);await x.fs.unlink(x.abs);return;}
+      throw Error('系统没有授权删除原下载文件');
+    };
+    async function moveSource(p,r,source){
+      if(!source)return;
+      if(typeof source==='string')source={kind:Platform.isDesktopApp?'desktop':'android',path:source};
+      if(source.kind==='desktop'&&Platform.isDesktopApp&&p.data.windowsCloudDir){
+        const n=require('node:path'),cloud=n.resolve(p.data.windowsCloudDir).toLowerCase(),candidate=n.resolve(source.path).toLowerCase();
+        if(candidate===cloud||candidate.startsWith(cloud+n.sep)){r.transportSource={path:source.path,state:'protected-transport'};await p.persistTransport();return;}
+      }
+      if(!source.path){
+        if(!(r.sources||[]).some(x=>x.kind==='picker'))(r.sources ||= []).push({kind:'picker',path:'',name:r.name,state:'retained',error:'系统文件选择仅授予读取权限，未取得父目录删除权限'});
+        await p.persistTransport();return;
+      }
+      const row=(r.sources ||= []).find(x=>x.kind===source.kind&&x.path===source.path);
+      const src=row||{...source,state:'pending',at:Date.now()};if(!row)r.sources.push(src);
+      // Durable ownership is a precondition for deleting even an external source.
+      await p.persistTransport();
+      try{
+        if(await p.v5217SourceExists(src)===false){src.state='removed';await p.persistTransport();return;}
+        if(await hash(await p.v5217SourceRead(src))!==r.sha256)throw Error('源文件已变化，保留原件');
+        const a=p.app.vault.adapter;
+        if(!await a.exists(r.path)||await hash(await a.readBinary(r.path))!==r.sha256)throw Error('incoming 原件未就绪，保留来源');
+        src.state='ready-to-remove';await p.persistTransport();
+        // Recheck after metadata persistence, immediately before the delete.
+        if(await hash(await p.v5217SourceRead(src))!==r.sha256)throw Error('源文件在移动期间变化');
+        await p.v5217SourceDelete(src);
+        if(await p.v5217SourceExists(src)!==false)throw Error('原下载文件仍存在');
+        src.state='removed';src.removedAt=Date.now();delete src.error;
+      }catch(e){src.state='retained';src.error=String(e.message||e).slice(0,220);}
+      await p.persistTransport();
+      if(src.state==='retained')new Notice('已安全归集到 incoming，原下载文件未移除；可在“查看下载的文件”打开原下载目录手动处理。',7000);
+    }
+    P.prototype.v5217Stage=async function(file,raw,{source=null,report=null,legacy=false}={}){
+      if(!nameOK(file?.name)||!(/\.(zip|md)$/i.test(file.name)||tools.validAckName(file.name)))throw Error('不支持的接收原件名称');
+      raw=arr(raw);if(raw.length>tools.MAX_BUNDLE_BYTES)throw Error('接收原件过大');
+      const sha=await hash(raw);let type;
+      if(/\.zip$/i.test(file.name)){
+        report ||= await ImportManager.inspect(file,{app:this.app,plugin:this,desktop:Platform.isDesktopApp});
+        if(report.kind!=='incremental'||!tools.validTransportDeviceId(report.transportDeviceId)||report.transportDeviceId===own(this))throw Error('不是其他设备的有效增量包');
+        type='zip';
+      }else if(/\.md$/i.test(file.name)){
+        if(raw.length>8*1024*1024)throw Error('Markdown 超过8MiB');
+        new TextDecoder('utf-8',{fatal:true}).decode(raw);type='md';
+      }else{
+        const ack=await tools.validateRawAck(raw,file.name,this.data.groupId);
+        if(ack.device===own(this)||!ack.entries.some(x=>x.toDeviceId===own(this)))throw Error('ACK 不属于本机接收');type='ack';
+      }
+      const stored=await write(this,IN+file.name,raw),records=book(this),id=key(this,sha);
+      let r=records[id];
+      if(r&&(!active(this,r)||r.path!==stored.path))throw Error('接收原件记录不一致');
+      if(!r){
+        r={id,groupId:this.data.groupId,deviceId:own(this),name:file.name,path:stored.path,sha256:sha,type,at:Date.now(),state:'staged',legacy,versions:[]};
+        if(type==='zip'){
+          for(const c of report.contents||[]){
+            if(!/^content\/[^/]+\.zip$/.test(c.path))continue;
+            const z=await Zip.loadAsync(c.data),entry=z.file('manifest.json');
+            if(!entry||entry._data?.uncompressedSize>512*1024)throw Error('正文包清单缺失或过大');
+            const mf=JSON.parse(await entry.async('text'));
+            if(mf.format!=='vaultrelay.content.v2'||mf.vaultGroupId!==this.data.groupId||!Array.isArray(mf.entries)||mf.entries.length>2000)throw Error('正文清单不匹配');
+            for(const e of mf.entries){
+              // Inspector/core validates the complete format; cleanup stores the
+              // exact immutable identities, never guesses by matching filenames.
+              this.v5SafePath(e.path);
+              r.versions.push({path:e.path,versionId:e.versionId,packId:mf.packId,originDeviceId:mf.originDeviceId,op:e.op,sha256:e.sha256});
+            }
+          }
+          r.hasUntrackedInfo=(report.contents||[]).some(c=>c.path.startsWith('info/'));
+        }
+        records[id]=r;
+      }
+      await this.persistTransport();
+      if(!legacy)await moveSource(this,r,source);
+      return {...stored,created:true,transfer:r};
+    };
+    P.prototype.copyMobileInputToTemporary=async function(file,raw,sha){
+      if(await hash(raw)!==sha)throw Error('归集前SHA变化');
+      return this.v5217Stage(file,raw,{source:file._vr5217Source||{kind:'picker',path:'',name:file.name}});
+    };
+    // Always retain the local outgoing original even when automatic transport
+    // also publishes a cloud copy. The queue still has the original strict path.
+    P.prototype.writeOutgoing=async function(name,raw){
+      if(!nameOK(name)||!(/\.zip$/i.test(name)||tools.validAckName(name)))throw Error('不安全的发送文件名');
+      const stored=await write(this,OUT+name,arr(raw));
+      const queue=this.data.pendingOutboundFiles ||= {},prior=queue[name];
+      if(prior&&prior.sha256!==stored.sha256)throw Error('发送队列同名SHA不一致');
+      queue[name]={name,path:stored.path,sha256:stored.sha256,at:Date.now()};await this.persistTransport();
+      if(Platform.isDesktopApp&&this.data.desktopTransportEnabled)await this.flushQueuedOutbound();
+      return {...stored,queued:!this.data.desktopTransportEnabled||!Platform.isDesktopApp};
+    };
+    const ackImport=P.prototype.importRawAckFile;
+    P.prototype.importRawAckFile=async function(file,options={}){
+      const raw=arr(await file.arrayBuffer()),ack=await tools.validateRawAck(raw,file.name,this.data.groupId);
+      if(ack.device!==own(this)&&ack.entries.some(x=>x.toDeviceId===own(this)))await this.v5217Stage(file,raw,{source:file._vr5217Source||null});
+      return ackImport.call(this,file,options);
+    };
+    const previewMD=P.prototype.previewMarkdownFiles;
+    P.prototype.previewMarkdownFiles=async function(files,folder=''){
+      for(const f of files){const raw=arr(await f.arrayBuffer());await this.v5217Stage(f,raw,{source:f._vr5217Source||{kind:'picker',path:'',name:f.name}});}
+      const preview=await previewMD.call(this,files,folder);
+      preview.v5217Sources=await Promise.all(files.map(async f=>key(this,await hash(await f.arrayBuffer()))));return preview;
+    };
+    const applyMD=P.prototype.applyMarkdownPreview;
+    P.prototype.applyMarkdownPreview=async function(preview){
+      const result=await applyMD.call(this,preview);
+      for(const [i,id] of (preview.v5217Sources||[]).entries()){
+        const r=book(this)[id],item=preview.items[i];
+        if(r&&active(this,r)&&['create','restore','same'].includes(item?.status)&&await hash(await this.app.vault.adapter.readBinary(item.path))===r.sha256){r.confirmed=true;r.mdTarget=item.path;}
+      }
+      await this.persistTransport();await this.v5217CleanupIncoming();return result;
+    };
+    P.prototype.v5217MarkConfirmed=async function(plan,result){
+      if(!result||result.errors?.length)return;
+      const allowed=new Map((plan?.items||[]).filter(x=>['create','safe-update','same'].includes(x.status)).map(x=>[x.version?.versionId,x]));
+      for(const r of Object.values(book(this))){
+        if(!active(this,r)||r.type!=='zip'||r.state==='cleaned'||!r.versions.length||r.hasUntrackedInfo)continue;
+        if(r.versions.every(e=>{const x=allowed.get(e.versionId);return e.op==='upsert'&&x?.path===e.path&&x.version.sha256===e.sha256;}))r.confirmed=true;
+      }
+      await this.persistTransport();
+    };
+    P.prototype.v5217WrapEngine=function(){
+      const engine=this.engine;if(!engine||engine._v5217Wrapped)return;engine._v5217Wrapped=true;
+      // Confirmation comes only from the existing human-confirmed UI entrypoint.
+      // Core application and undo journaling finish before cleanup is attempted.
+    };
+    const activate=P.prototype.activateNativeEngine;
+    if(activate)P.prototype.activateNativeEngine=async function(...args){
+      const result=await activate.apply(this,args);
+      try{await this.v5217CleanupIncoming();}catch(e){await this.log('incoming 清源待重试',String(e.message||e));}
+      return result;
+    };
+    const journal=P.prototype.registerUndoFromNative;
+    P.prototype.registerUndoFromNative=async function(result,plan,kind){
+      const id=await journal.call(this,result,plan,kind);
+      await this.v5217MarkConfirmed(plan,result);
+      if(this.engine?.publishAck){
+        await this.engine.publishAck(true);
+        for(const r of Object.values(book(this)))if(active(this,r)&&r.confirmed&&r.type==='zip')r.ackPrepared=true;
+      }
+      await this.persistTransport();await this.v5217CleanupIncoming();return id;
+    };
+    P.prototype.v5217CleanupIncoming=async function(){
+      if(this._v5217Cleaning)return;this._v5217Cleaning=true;
+      try{
+        for(const r of Object.values(book(this))){
+          if(!active(this,r)||!r.confirmed||r.type==='ack'||r.state==='cleaned'||!nameOK(r.name)||!r.path.startsWith(IN)||r.path!==IN+r.name)continue;
+          let ready=r.type==='md'&&r.mdTarget&&await this.app.vault.adapter.exists(r.mdTarget)&&await hash(await this.app.vault.adapter.readBinary(r.mdTarget))===r.sha256;
+          if(r.type==='zip'){
+            ready=!!r.versions.length&&!r.hasUntrackedInfo&&r.ackPrepared===true;
+            const acks=Object.values(this.engine?.state?.acks||{});
+            for(const e of r.versions){
+              const a=acks.find(a=>a.packId===e.packId&&a.versionId===e.versionId&&a.path===e.path&&a.toDeviceId===e.originDeviceId&&a.fromDeviceId===own(this)&&a.vaultGroupId===this.data.groupId&&['applied','same'].includes(a.outcome)&&a.contentSha256===e.sha256);
+              if(e.op!=='upsert'||!a||!await this.app.vault.adapter.exists(e.path)||await hash(await this.app.vault.adapter.readBinary(e.path))!==e.sha256){ready=false;break;}
+            }
+          }
+          if(!ready)continue;
+          const adapter=this.app.vault.adapter;
+          if(!await adapter.exists(r.path)){if(r.state==='cleanup-ready'){r.state='cleaned';await this.persistTransport();}continue;}
+          if(await hash(await adapter.readBinary(r.path))!==r.sha256){r.cleanupError='接收原件SHA已变化，保留';await this.persistTransport();continue;}
+          r.state='cleanup-ready';await this.persistTransport();
+          // Do not trust the pre-persistence read when another task could write.
+          if(await hash(await adapter.readBinary(r.path))!==r.sha256)throw Error('清理前原件变化');
+          try{await adapter.remove(r.path);if(await adapter.exists(r.path))throw Error('incoming 原件未删除');}
+          catch(e){r.cleanupError='清源未完成：'+String(e.message||e);await this.persistTransport();continue;}
+          r.state='cleaned';r.cleanedAt=Date.now();
+          const received=(this.data.inboundRecords||[]).find(x=>x.sha256===r.sha256&&x.path===r.path);if(received)received.status='cleaned';
+          await this.persistTransport();
+        }
+      }finally{this._v5217Cleaning=false;}
+    };
+    P.prototype.v5217Migrate=async function(){
+      const a=this.app.vault.adapter;await folder(this,IN.slice(0,-1));await folder(this,OUT.slice(0,-1));
+      if(!this.data.groupId||!own(this))return;
+      const remaps=[];
+      // Only plugin-owned legacy temporary files with durable role records are
+      // eligible. Unknown temporary files stay untouched for manual inspection.
+      for(const r of this.data.bundleRecords||[])if(r.stored?.path?.startsWith(ROOT+'/temporary/'))remaps.push({object:r.stored,key:'path',path:r.stored.path,dest:OUT+r.name,sha:r.sha256});
+      for(const path of this.data.lastPreparedAckFiles?.paths||[])if(path.startsWith(ROOT+'/temporary/'))remaps.push({path,dest:OUT+path.split('/').pop()});
+      for(const r of this.data.inboundRecords||[])if(r.path?.startsWith(ROOT+'/temporary/'))remaps.push({object:r,key:'path',path:r.path,dest:IN+r.name,sha:r.sha256,inbound:true});
+      for(const x of remaps){
+        if(!nameOK(x.path.slice((ROOT+'/temporary/').length)))throw Error('旧临时目录原件路径异常');
+        if(!await a.exists(x.path))continue;
+        const raw=arr(await a.readBinary(x.path)),sha=await hash(raw);if(x.sha&&x.sha!==sha)throw Error('旧目录迁移SHA不匹配：'+x.path);
+        await write(this,x.dest,raw);
+        if(x.object)x.object[x.key]=x.dest;
+        if(this.data.latest===x.path)this.data.latest=x.dest;
+        if(this.data.lastPreparedAckFiles)this.data.lastPreparedAckFiles.paths=this.data.lastPreparedAckFiles.paths.map(p=>p===x.path?x.dest:p);
+        for(const rec of Object.values(this.data.ackTransportLedger||{}))if(rec.storedPath===x.path)rec.storedPath=x.dest;
+        if(this.data.mobileInboxLedger?.[x.path])this.data.mobileInboxLedger[x.dest]={...this.data.mobileInboxLedger[x.path]};
+        for(const rec of Object.values(this.data.mobileSourceLedger||{}))if(rec.path===x.path)rec.path=x.dest;
+        await this.persistTransport();
+        if(await hash(await a.readBinary(x.path))===sha&&await hash(await a.readBinary(x.dest))===sha)await a.remove(x.path);
+      }
+      // Persisted incomplete moves remain recoverable; only new confirmations
+      // allow cleanups, never manufacture them from historical receipt status.
+      for(const r of Object.values(book(this)))if(active(this,r)&&await a.exists(r.path))for(const src of r.sources||[])if(src.state!=='removed')await moveSource(this,r,src);
+    };
+    P.prototype.v5217RefreshSources=async function(){
+      let changed=false;
+      for(const r of Object.values(book(this)))if(active(this,r))for(const src of r.sources||[])if(src.state!=='removed'&&src.path){
+        try{if(await this.v5217SourceExists(src)===false){src.state='removed';src.removedAt=Date.now();changed=true;}}catch(_){}
+      }
+      if(changed)await this.persistTransport();
+    };
+    P.prototype.v5217OpenLocation=async function(item,original=false){
+      let path=item.path;
+      if(original)path=item.originalPath||item.path;
+      if(!path||item.source==='picker'){new Notice('系统未提供原始目录；请在系统“文件”按文件名查找：'+item.name,7000);return;}
+      if(Platform.isDesktopApp){
+        const n=require('node:path'),shell=require('electron').shell;
+        const absolute=n.isAbsolute(path)?path:n.join(this.app.vault.adapter.getBasePath(),...path.split('/'));
+        shell.showItemInFolder(absolute);return;
+      }
+      let actual=path;
+      if(path.startsWith(ROOT+'/')){const base=this.app.vault.adapter.getBasePath?.();if(base)actual=String(base).replace(/\/$/,'')+'/'+path;else {new Notice('当前系统未提供可打开的知识库目录；可复制路径手动查找。',6500);return;}}
+      const directory=actual.slice(0,actual.lastIndexOf('/'));
+      if(Platform.isAndroidApp){
+        const decoded=decodeURIComponent(directory.replace(/^file:\/\//,''));
+        if(!decoded.startsWith('/storage/emulated/0/')){new Notice('该文件提供方不支持打开父目录；请复制路径手动查找。',6500);return;}
+        const document='primary:'+decoded.slice('/storage/emulated/0/'.length);
+        const uri='content://com.android.externalstorage.documents/document/'+encodeURIComponent(document);
+        if(typeof window!=='undefined')window.open(uri,'_system');
+        new Notice('已请求系统打开目录；若文件管理器未响应，请复制目录路径手动查找。',6500);return;
+      }
+      new Notice('iOS 文件授权不保证可打开父目录；请在系统“文件”按目录路径或文件名查找。',6500);
+    };
+    function button(parent,text,action){const b=parent.createEl('button',{text});b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();void Promise.resolve().then(action).catch(err=>new Notice(String(err.message||err),6500));});return b;}
+    P.prototype.v5217RenderLocation=function(parent,item){
+      const row=parent.createDiv({cls:'vru-location-actions'});
+      const r=Object.values(book(this)).find(r=>active(this,r)&&r.path===item.path);
+      if(r&&r.type!=='ack')parent.createEl('p',{text:r.cleanupError||(!r.confirmed?'待审核确认；原件保留':r.state==='cleaned'?'已完成并清除暂存原件':'整包尚未满足完整处理条件；原件保留')});
+      button(row,'打开文件所在目录',()=>this.v5217OpenLocation(item));
+      button(row,'复制路径',async()=>{const path=item.source==='picker'?item.name:item.path;await navigator.clipboard.writeText(path);new Notice('已复制路径／文件名：'+path,4000);});
+    };
+    P.prototype.v5217RenderUnmovedSources=function(parent){
+      for(const r of Object.values(book(this)))if(active(this,r))for(const src of r.sources||[])if(src.state!=='removed'){
+        const box=parent.createDiv({cls:'vru-source-pending'});
+        box.createEl('p',{text:r.name+' · 原下载文件未移除'+(src.error?'：'+src.error:'；系统仅提供文件读取授权')});
+        const item={path:src.path,originalPath:src.path,name:r.name,source:src.kind};
+        button(box,'打开原下载目录',()=>this.v5217OpenLocation(item,true));
+        button(box,'复制原路径／文件名',()=>navigator.clipboard.writeText(src.path||r.name));
+      }
+    };
+    return {write,moveSource,androidPath};
+  }
+  return {install,IN,OUT};
+})();
+
+VR5217.install(VaultRelayV4,{Platform:OBS.Platform,Notice:OBS.Notice,tools:Bridge.__testing,Zip:UnifiedBase.__testing.zip,Panel:UnifiedBase.__testing.panel,ImportManager});
 module.exports=VaultRelayV4;
 module.exports.__testing={...UnifiedBase.__testing,
   Native, NativeUi, createNative:()=>Native};
@@ -12164,3 +12493,5 @@ module.exports.__testing.ui527=VR527UI;
 module.exports.__testing.v5213=VR5213;
 
 module.exports.__testing.v5215={...VR5215,...v5215Runtime};
+
+module.exports.__testing.v5217=VR5217;

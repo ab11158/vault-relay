@@ -1,16 +1,11 @@
-# Vault Relay 5.2.16 TEST
+# Vault Relay 5.2.17 TEST
 
-Obsidian 的 Windows、Android、iOS / iPadOS 增量 ZIP／ACK 传输插件。正式笔记须人工审核确认。
+Obsidian 的 Windows、Android、iOS / iPadOS 增量 ZIP／ACK 传输插件，正式笔记须人工审核确认。
 
-本版统一三步手动传输、灰色备用文件选择和安卓扫描进度弹窗。百度入口使用同步空间短路径：上传打开 `/disk/main`，下载打开 `/disk/synchronization`，内部补齐一次 `/_pcs_.workspace`。上传使用浏览器电脑版；外部浏览器的显示模式仍需用户自行设置。本流程不用群组分享链接，旧配置字段保留。
+本版统一 outgoing／incoming，下载原件安全移动归集、导入全部完成后清理正文暂存包，并在下载列表提供原目录定位。③直接打开同步空间，手机备用目录设置暂时隐藏，Android 后台搜索支持续扫。失败和权限不足时保留可靠原件并显示状态。
 
-三步控制台包含下载候选列表、正式导入文件列表、笔记与附件分组、全选／Shift 和“复制到…”。Windows 可指定目标知识库；手机通过复制包导出，再在目标知识库接收、预览和确认。
+百度上传使用 `/disk/main`、下载使用 `/disk/synchronization`，短路径内部补齐一次 `/_pcs_.workspace`。浏览器电脑版仍须用户设置；没有云端清单与自动下载。
 
-安装：BRAT 添加 `ab11158/vault-relay`，或从 [5.2.16 Release](https://github.com/ab11158/vault-relay/releases/tag/5.2.16) 下载插件 ZIP。手动安装只替换 `main.js`、`manifest.json`、`styles.css`，保留原 `data.json` 和身份／账本。旧版发布保留。
+通过 BRAT 添加 `ab11158/vault-relay`，或从本版 Release 下载 PluginOnly ZIP。插件 ID 为 `vault-relay-v4`。升级只替换三个插件文件，保留本机 data.json、GroupID、独立 DeviceID、配对、历史、ACK及自动运输开关。
 
-- [使用说明](USER-GUIDE.md)：设置、三步传输、iOS 授权、复制到新知识库与 FAQ。
-- [注意事项](PRECAUTIONS.md)：电脑版模式、下载目录、扫描限制、复制冲突与失败处理。
-- [验证范围](TEST-STATUS.md)：隔离逻辑与三端模拟宿主测试，未冒充新版真机验收。
-- [版本变化](CHANGELOG.md)
-
-百度云端清单和自动下载尚未接入；网页打开不等于上传／下载完成。下载后仅在有效原件校验后准备审核，正式写入始终另需确认。
+使用说明见 USER-GUIDE.md；验证范围见 TEST-STATUS.md。本版尚待三端真机闭环验证。未知或未完成文件不强制清空，收到的 ACK 留在 incoming；发送包仍按有效 ACK 与原30天隔离保护处理。

@@ -886,3 +886,9 @@
 .vru-scan-progress p{white-space:normal;overflow-wrap:anywhere}
 .vru-scan-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
 .vru-scan-actions button{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+
+/* 5.2.17 reception location tools */
+.vru-panel .vru-reception-help{display:none!important}
+.vru-location-actions{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px}
+.vru-location-actions button{height:auto;min-height:32px;white-space:normal;overflow-wrap:anywhere;max-width:100%}
+.vru-source-pending{white-space:normal;overflow-wrap:anywhere;border-left:3px solid var(--color-orange);padding:8px}
