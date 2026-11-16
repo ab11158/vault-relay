@@ -1,9 +1,9 @@
 {
   "id": "vault-relay-v4",
   "name": "Vault Relay",
-  "version": "5.2.14",
+  "version": "5.2.15",
   "minAppVersion": "1.5.0",
-  "description": "Unified Baidu desktop web upload entry. Mobile browser desktop display mode remains browser-managed. Manual review required; TEST build.",
+  "description": "Unified directory upload/download, selectable received/imported file lists and explicit cross-vault copy. Manual review required; TEST build.",
   "author": "Vault Relay",
   "isDesktopOnly": false
 }

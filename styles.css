@@ -861,3 +861,20 @@
 .vru-panel .vru-legacy-resolution {margin:10px 0;}
 .vru-panel .vru-legacy-resolution select {width:100%;min-height:44px;}
 .vru-panel .vru-button.mod-cta {background:var(--interactive-accent);color:var(--text-on-accent);}
+
+/* 5.2.15 file lists: scoped to plugin dialogs. */
+.vru-files-dialog .vru-files-toolbar{display:flex!important;flex-direction:row!important;flex-wrap:wrap;align-items:center;gap:8px;justify-content:space-between}
+.vru-files-buttons{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+.vru-files-dialog .vru-files-list{max-height:55vh;overflow:auto;margin:12px 0}
+.vru-files-dialog .vru-selectable-file{display:flex;align-items:flex-start;gap:9px;padding:9px 4px;border-bottom:1px solid var(--background-modifier-border)}
+.vru-files-dialog .vru-file-path{overflow-wrap:anywhere;white-space:normal;font-size:.9em;min-width:0}
+.vru-files-dialog .vru-file-select-all{display:flex;gap:9px;align-items:center;margin-top:10px}
+.vru-files-dialog .vru-note-group{margin:8px 0;padding:8px;background:var(--background-secondary);border-radius:8px}
+.vru-files-dialog .vru-note-group summary{font-size:.95em;overflow-wrap:anywhere}
+.vru-files-dialog input[type=checkbox]{flex:none;margin:4px 6px 0 0}
+.vru-files-dialog input:not([type=checkbox]){width:100%;margin:8px 0;box-sizing:border-box}
+.vru-files-footer{display:flex;gap:8px;flex-wrap:wrap}
+.vru-files-dialog button{white-space:normal;overflow-wrap:anywhere;max-width:100%}
+.vru-files-dialog .vru-files-status{font-size:.86em;overflow-wrap:anywhere}
+.vru-control-modal .vru-log-toolbar{flex-direction:row!important;justify-content:space-between;align-items:center}
+.vru-control-modal .vru-log-toolbar button{margin-left:auto}
