@@ -892,3 +892,9 @@
 .vru-location-actions{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px}
 .vru-location-actions button{height:auto;min-height:32px;white-space:normal;overflow-wrap:anywhere;max-width:100%}
 .vru-source-pending{white-space:normal;overflow-wrap:anywhere;border-left:3px solid var(--color-orange);padding:8px}
+
+.vru-scan-progress .vru-scan-files {padding-left:1.4em;overflow-wrap:anywhere;}
+.vru-scan-progress .vru-scan-files li {margin:0 0 12px;}
+.vru-scan-progress .modal-content {overflow-wrap:anywhere;}
+.vru-package-manager .modal-content,.vru-sync-records .modal-content {overflow-wrap:anywhere;}
+.vru-package-row,.vru-sync-pair {padding:12px 0;border-bottom:1px solid var(--background-modifier-border);min-width:0;}

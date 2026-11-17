@@ -1,9 +1,9 @@
 {
   "id": "vault-relay-v4",
   "name": "Vault Relay",
-  "version": "5.2.17",
+  "version": "5.2.18",
   "minAppVersion": "1.5.0",
-  "description": "Unified outgoing/incoming transfer folders, verified download moves, confirmed import cleanup and source location tools. TEST build.",
+  "description": "Unified content ZIP, one-hop ACK receipts, scan selection and sync records. TEST build.",
   "author": "Vault Relay",
   "isDesktopOnly": false
 }
