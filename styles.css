@@ -898,3 +898,7 @@
 .vru-scan-progress .modal-content {overflow-wrap:anywhere;}
 .vru-package-manager .modal-content,.vru-sync-records .modal-content {overflow-wrap:anywhere;}
 .vru-package-row,.vru-sync-pair {padding:12px 0;border-bottom:1px solid var(--background-modifier-border);min-width:0;}
+
+.vru-package-section{max-height:min(32vh,280px);overflow:auto;overscroll-behavior:contain;border:1px solid var(--background-modifier-border);padding:8px;margin:10px 0;}
+.vru-package-section h3{position:sticky;top:0;background:var(--background-primary);z-index:1;padding:6px 0;margin:0;}
+.vru-package-section .vru-package-row{overflow-wrap:anywhere;min-width:0;}

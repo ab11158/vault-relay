@@ -1,9 +1,9 @@
 {
   "id": "vault-relay-v4",
   "name": "Vault Relay",
-  "version": "5.2.18",
+  "version": "5.2.19",
   "minAppVersion": "1.5.0",
-  "description": "Unified content ZIP, one-hop ACK receipts, scan selection and sync records. TEST build.",
+  "description": "Verified incoming ACK lifecycle, bundled receipts and package management.",
   "author": "Vault Relay",
   "isDesktopOnly": false
 }

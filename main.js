@@ -13396,37 +13396,40 @@ const VR5218PackageManager=(()=>{
           if(['move-intent','restore-intent','purge-intent'].includes(q.status))button(box,'核查未完成事务',()=>p.v5218RecoverRecycle(q.id),!Platform.isDesktopApp);}
       }
       async function render(){
-        const data=await p.v5218PackageRows();if(closed)return;c.empty();c.createEl('h2',{text:'增量包管理'});
+        const data=await p.v5218PackageRows();if(closed)return;c.empty();c.createEl('h2',{text:'增量包及ack管理'});
         c.createEl('p',{text:'一个发送ZIP可配对多个终端的内容ACK；任一条有效成功内容信息匹配即为配对成功，可回收本机发送副本，不代表整包已导入。未配对发送包不能删除；网盘原包继续保留。'});
         if(!Platform.isDesktopApp)c.createEl('p',{text:'当前终端提供只读配对列表；安全回收与永久删除暂在Windows端操作。'});
-        c.createEl('h3',{text:'本机发送的增量包'});
-        for(const item of data.packages){const box=c.createDiv({cls:'vru-package-row'});box.createEl('strong',{text:item.record.name});box.createEl('p',{text:item.matches.length?'配对成功 · 已有接收证据 · 有效内容信息 '+item.matches.length+' 条':'尚未确认 · 无有效配对ACK，不能删除'});
+        const first=c.createDiv({cls:'vru-package-section'});first.createEl('h3',{text:'本机增量包与收到的 ACK'});
+        const second=c.createDiv({cls:'vru-package-section'});second.createEl('h3',{text:'本机 ACK 与收到的 ACK-R'});
+        const third=c.createDiv({cls:'vru-package-section'});third.createEl('h3',{text:'未配对与终止项'});
+        for(const item of data.packages.filter(x=>x.matches.length)){const box=first.createDiv({cls:'vru-package-row'});box.createEl('strong',{text:item.record.name});box.createEl('p',{text:item.matches.length?'配对成功 · 已有接收证据 · 有效内容信息 '+item.matches.length+' 条':'尚未确认 · 无有效配对ACK，不能删除'});
           for(const d of item.feedbackFiles)box.createEl('p',{text:d.originDeviceId+' · 内容ACK '+d.batchId.slice(0,16)+'… · 匹配 '+d.entries.filter(a=>item.matches.some(v=>v.ackId===a.ackId)).length+' 条'});
           for(const a of item.matches.filter(a=>!item.feedbackFiles.some(d=>d.entries.some(e=>e.ackId===a.ackId))))box.createEl('p',{text:a.fromDeviceId+' · '+a.path+' · '+a.outcome});await controls(box,item,'send-zip',!!item.matches.length);}
-        if(!data.packages.length)c.createEl('p',{text:'暂无本机发送包记录。'});
-        c.createEl('h3',{text:'本机产生的 ACK'});
+        if(!data.packages.some(x=>x.matches.length))first.createEl('p',{text:'暂无已配对的本机发送包。'});
+        second.createEl('h3',{text:'本机产生的 ACK'});
         const covered=new Set(Object.values(data.content.generated).flatMap(d=>d.entries.map(a=>a.ackId)));
         for(const d of Object.values(data.content.generated)){
           const box=c.createDiv({cls:'vru-package-row'}),rel='ack/'+own(p)+'/ackbatch-'+d.batchId+'.json',sent=p.data.ackTransportLedger?.[rel],pairs=data.generatedPairs.filter(r=>d.entries.some(a=>a.ackId===r.ack.ackId)),matched=pairs.filter(r=>r.receipts.length).length;
           box.createEl('strong',{text:d.sourceBundle.name+' → 内容ACK'});box.createEl('p',{text:'仅记录内容 '+d.entries.length+' 条；'+(matched?'已配对 R 回执 '+matched+' 条':sent?.mode==='bundle'?'已合包，等待 R 回执':'待随下次内容增量回传')});
         }
-        for(const pair of data.generatedPairs.filter(r=>!covered.has(r.ack.ackId))){const a=pair.ack,box=c.createDiv({cls:'vru-package-row'}),batch=p.engine.state.publishedAckIds?.[a.ackId],rel=batch?'ack/'+own(p)+'/ackbatch-'+batch+'.json':'',sent=p.data.ackTransportLedger?.[rel];
+        for(const pair of data.generatedPairs.filter(r=>!covered.has(r.ack.ackId))){const a=pair.ack,box=second.createDiv({cls:'vru-package-row'}),batch=p.engine.state.publishedAckIds?.[a.ackId],rel=batch?'ack/'+own(p)+'/ackbatch-'+batch+'.json':'',sent=p.data.ackTransportLedger?.[rel];
           box.createEl('strong',{text:a.path});box.createEl('p',{text:a.toDeviceId+' · '+(pair.receipts.length?'已配对终止回执，对端已登记ACK':sent?.mode==='bundle'?'已合包，送达待确认':sent?'历史独立文件，回传待核对':'待随内容增量回传')});}
-        if(!data.generated.length)c.createEl('p',{text:'暂无本机生成的反馈。'});
-        c.createEl('h3',{text:'本机收到的 ACK'});
-        for(const d of Object.values(data.content.received)){const box=c.createDiv({cls:'vru-package-row'});box.createEl('strong',{text:d.sourceBundle.name+' ← 内容ACK'});box.createEl('p',{text:d.originDeviceId+' · 内容反馈 '+d.entries.length+' 条；'+(data.packages.some(r=>r.record.sha256===d.sourceBundle.sha256&&r.matches.length)?'增量包配对成功':'本机未找到有效的对应发送版本')});}
+        if(!data.generated.length)second.createEl('p',{text:'暂无本机生成的反馈。'});
+        first.createEl('h3',{text:'本机收到的内容 ACK'});
+        for(const d of Object.values(data.content.received)){const box=first.createDiv({cls:'vru-package-row'});box.createEl('strong',{text:d.sourceBundle.name+' ← 内容ACK'});box.createEl('p',{text:d.originDeviceId+' · 内容反馈 '+d.entries.length+' 条；'+(data.packages.some(r=>r.record.sha256===d.sourceBundle.sha256&&r.matches.length)?'增量包配对成功':'本机未找到有效的对应发送版本')});}
         const recorded=new Set(Object.values(data.content.received).flatMap(d=>d.entries.map(a=>a.ackId)));
-        for(const a of data.feedback.filter(a=>!recorded.has(a.ackId))){const box=c.createDiv({cls:'vru-package-row'});box.createEl('strong',{text:a.path});box.createEl('p',{text:a.fromDeviceId+' · '+a.outcome+' · '+(data.packages.some(x=>x.matches.some(m=>m.ackId===a.ackId))?'已配对本机增量版本':'本机未找到对应发送记录；保留反馈所记录的接收处理事实')});}
-        for(const item of data.received){const box=c.createDiv({cls:'vru-package-row'});box.createEl('strong',{text:item.record.name});box.createEl('p',{text:'有效反馈登记后可清理原文件，历史及无配对反馈也可清理。'});await controls(box,item,'received-ack',true);}
+        for(const a of data.feedback.filter(a=>!recorded.has(a.ackId))){const box=third.createDiv({cls:'vru-package-row'});box.createEl('strong',{text:a.path});box.createEl('p',{text:a.fromDeviceId+' · '+a.outcome+' · '+(data.packages.some(x=>x.matches.some(m=>m.ackId===a.ackId))?'已配对本机增量版本':'本机未找到对应发送记录；保留反馈所记录的接收处理事实')});}
+        for(const item of data.received){const box=third.createDiv({cls:'vru-package-row'});box.createEl('strong',{text:item.record.name});box.createEl('p',{text:'有效反馈登记后可清理原文件，历史及无配对反馈也可清理。'});await controls(box,item,'received-ack',true);}
         if(!data.received.length)c.createEl('p',{text:'暂无收到的独立ACK原文件；随包收到的反馈仍在发送包配对列表中显示。'});
-        c.createEl('h3',{text:'带 R 的 ACK 终止回执'});
-        c.createEl('p',{text:'内容ACK登记后只生成一次回执；回执引用原ACK编号，不复制原ACK内容。收到回执只配对，不生成新反馈，也不进入待反馈清单。'});
+        second.createEl('h3',{text:'本机生成的 ACK-R'});
+        second.createEl('p',{text:'ACK-R 只回执已登记的普通内容 ACK，自身为终止回执，不再产生新反馈。'});
         for(const r of Object.values(data.terminal.generated)){
           const docs=Object.values(data.terminal.generatedFiles||{}).filter(d=>d.entries.some(e=>e.ackId===r.ackId));
           const sent=docs.some(d=>p.data.ackTransportLedger?.['ack/'+own(p)+'/'+VR5218Ack.rname(d.referenceName)]?.mode==='bundle');
-          c.createEl('p',{text:'本机生成 → '+r.toDeviceId+' · 引用 '+r.referenceAckId.slice(0,16)+'… · '+(sent?'已合包；终止回执不再等待反馈':'待随下次内容增量回传；自身不再配对')});
+          second.createEl('p',{text:'本机生成 → '+r.toDeviceId+' · 引用 '+r.referenceAckId.slice(0,16)+'… · '+(sent?'已合包；终止回执不再等待反馈':'待随下次内容增量回传；自身不再配对')});
         }
-        for(const r of Object.values(data.terminal.received))c.createEl('p',{text:'本机收到 ← '+r.fromDeviceId+' · 引用 '+r.referenceAckId.slice(0,16)+'… · 已登记，至此终止'});
+        for(const r of Object.values(data.terminal.received))third.createEl('p',{text:'本机收到 ← '+r.fromDeviceId+' · 引用 '+r.referenceAckId.slice(0,16)+'… · 已登记，至此终止'});
+        for(const item of data.packages.filter(x=>!x.matches.length)){const box=third.createDiv({cls:'vru-package-row'});box.createEl('strong',{text:item.record.name});box.createEl('p',{text:'尚无有效配对 ACK；发送原件保留'});await controls(box,item,'send-zip',false);}
         const advanced=c.createEl('details');advanced.createEl('summary',{text:'高级诊断'});button(advanced,'重新核对 ACK 状态',()=>p.recheckAckStatus());
         button(c,'刷新',()=>{});button(c,'关闭',()=>m.close());
       }
@@ -13445,6 +13448,221 @@ VR5218Ack.install(VaultRelayV4,{Platform:OBS.Platform,tools:Bridge.__testing});
 VR5218BundleAck.install(VaultRelayV4,{tools:Bridge.__testing});
 VR5218SyncRecords.install(VaultRelayV4,{tools:Bridge.__testing,Modal:OBS.Modal,Notice:OBS.Notice,Panel:UnifiedBase.__testing.panel,Platform:OBS.Platform});
 VR5218PackageManager.install(VaultRelayV4,{tools:Bridge.__testing,Modal:OBS.Modal,Notice:OBS.Notice,Platform:OBS.Platform});
+// Reconcile durable feedback and received originals on every platform.
+// Protocol evidence survives physical-file cleanup and never becomes a new ACK.
+const VR5219Lifecycle=(()=>{
+  const IN='VaultRelay-Transfer/incoming/',OUT='VaultRelay-Transfer/outgoing/';
+  const encode=x=>new TextEncoder().encode(JSON.stringify(x));
+  const file=(name,raw)=>({name,size:raw.byteLength,arrayBuffer:async()=>raw});
+  const own=p=>p.engine?.state?.deviceId||p.data.v2?.deviceId;
+  const active=(p,r)=>r.groupId===p.data.groupId&&r.deviceId===own(p);
+  const safe=n=>typeof n==='string'&&/^[^/\\:\x00-\x1f]{1,155}$/.test(n)&&!n.startsWith('.')&&!/[. ]$/.test(n);
+  function install(P,{tools,ImportManager,Platform}){
+    const hash=b=>tools.sha256(new Uint8Array(b));
+    const book=p=>(p.data.v5219FeedbackFiles ||= {});
+    const scope=p=>p.data.groupId+':'+own(p);
+    const receipts=p=>p.v5218AckReceiptState();
+    const sameAck=(a,b)=>!!a&&JSON.stringify(VR5218Ack.contentIdentity(a))===JSON.stringify(VR5218Ack.contentIdentity(b));
+    async function durable(p,mutate){
+      const before=JSON.parse(JSON.stringify(p.data.v5219FeedbackFiles||{}));
+      mutate();try{await p.persistTransport();}catch(e){p.data.v5219FeedbackFiles=before;throw e;}
+    }
+    async function serial(p,fn){
+      const previous=p._v5219FeedbackIO||Promise.resolve();let release;
+      p._v5219FeedbackIO=new Promise(r=>release=r);await previous;
+      const current=scope(p),check=()=>{if(current!==scope(p))throw Error('反馈处理期间身份变化，保留原件');};
+      try{return await fn(check);}finally{release();}
+    }
+    async function packed(p,name,raw){
+      const rel='ack/'+own(p)+'/'+name,entry=p.data.ackTransportLedger?.[rel],digest=await hash(raw);
+      if(entry?.mode!=='bundle'||entry.sha256!==digest)return false;
+      const rec=(p.data.bundleRecords||[]).find(r=>r.groupId===p.data.groupId&&r.senderId===own(p)&&r.name===entry.bundleName);
+      if(!rec)return false;
+      try{
+        const b=await p.readTransportRecord(rec);if(await hash(b)!==rec.sha256)return false;
+        const contents=tools.zipDecode(new Uint8Array(b)),mf=JSON.parse(new TextDecoder().decode(contents.get('manifest.json')));
+        return mf.groupId===p.data.groupId&&mf.nativeSenderDeviceId===own(p)&&mf.files.some(f=>f.path===rel&&f.sha256===digest)&&!!contents.get(rel)&&await hash(contents.get(rel))===digest;
+      }catch(_){return false;}
+    }
+    async function materialize(p,name,doc,role,check){
+      if(!safe(name)||!tools.validAckName(name))throw Error('反馈文件名无效');
+      const raw=encode(doc),digest=await hash(raw),parsed=await tools.validateRawAck(raw,name,p.data.groupId);
+      if(parsed.device!==own(p))throw Error('待传反馈不属于本机');
+      const path=OUT+name,key=scope(p)+':'+name,a=p.app.vault.adapter,old=book(p)[key];
+      if(old&&(old.sha256!==digest||old.path!==path||!active(p,old)))throw Error('待传反馈记录不一致');
+      const complete=await packed(p,name,raw);
+      check();
+      if(!complete){
+        // Do not recreate a terminal file after its verified carrier was later
+        // recycled. Its cleanup journal and protocol document remain evidence.
+        if(old?.state==='cleaned'&&old.reason==='bundled')return;
+        await tools.ensureVaultFolder(a,OUT.slice(0,-1));
+        if(await a.exists(path)){if(await hash(await a.readBinary(path))!==digest)throw Error('待传反馈同名文件已变化，保留');}
+        else await a.writeBinary(path,tools.buffer(raw));
+        if(await hash(await a.readBinary(path))!==digest)throw Error('待传反馈写入回读失败');
+        check();
+        if(!old||old.state!=='pending')await durable(p,()=>{book(p)[key]={name,path,role,groupId:p.data.groupId,deviceId:own(p),sha256:digest,state:'pending'};});
+        return;
+      }
+      if(!old&&!await a.exists(path))return;
+      if(old?.state==='cleaned'&&!await a.exists(path))return;
+      await durable(p,()=>{book(p)[key]={...(old||{}),name,path,role,groupId:p.data.groupId,deviceId:own(p),sha256:digest,state:'cleanup-ready',reason:'bundled'};});
+      check();
+      // Repeat the delivery proof after persistence, immediately before delete.
+      if(!await packed(p,name,raw))throw Error('反馈清理依据已变化，保留原件');
+      if(await a.exists(path)){
+        if(await hash(await a.readBinary(path))!==digest)throw Error('反馈清理前SHA变化');
+        check();await a.remove(path);if(await a.exists(path))throw Error('反馈原件删除未完成');
+      }
+      await durable(p,()=>{book(p)[key].state='cleaned';book(p)[key].cleanedAt=Date.now();});
+    }
+    P.prototype.v5219ReconcileOutgoing=async function(){return serial(this,async check=>{
+      const errors=[];
+      for(const d of Object.values(receipts(this).generatedFiles||{})){
+        try{await materialize(this,VR5218Ack.rname(d.referenceName),d,'receipt',check);}catch(e){errors.push(String(e.message||e));}
+      }
+      if(errors.length)throw Error(errors.join('；'));
+    });};
+    P.prototype.v5219FeedbackRegistered=async function(parsed){
+      if(parsed.device===own(this))return false;
+      const relevant=parsed.entries.filter(a=>a.toDeviceId===own(this));
+      for(const a of relevant){
+        if(a.format===VR5218Ack.RECEIPT){
+          const r=receipts(this).received[a.fromDeviceId+'|'+a.ackId];
+          if(!r||JSON.stringify(VR5218Ack.receiptIdentity(r))!==JSON.stringify(VR5218Ack.receiptIdentity(a)))return false;
+        }else{
+          if(!sameAck(this.engine.state.receivedAcks?.[a.fromDeviceId+'|'+a.ackId],a))return false;
+          const r=await VR5218Ack.makeReceipt(a,own(this),hash);
+          if(!receipts(this).generated[r.ackId])return false;
+          const docs=Object.values(receipts(this).generatedFiles||{}).filter(d=>d.referenceFileSha256===parsed.hash&&d.entries.some(x=>x.ackId===r.ackId));
+          let ready=false;
+          for(const d of docs){
+            const name=VR5218Ack.rname(d.referenceName),raw=encode(d),row=book(this)[scope(this)+':'+name];
+            if(await packed(this,name,raw)||row?.state==='cleaned'&&row.reason==='bundled'){ready=true;break;}
+            if(row?.state==='pending'&&await this.app.vault.adapter.exists(row.path)&&await hash(await this.app.vault.adapter.readBinary(row.path))===await hash(raw)){ready=true;break;}
+          }
+          if(!ready)return false;
+        }
+      }
+      // Valid foreign feedback not addressed to this device is not re-ACKed.
+      return true;
+    };
+    P.prototype.v5219ZipReady=async function(r){
+      if(!active(this,r)||!r.confirmed||r.hasUntrackedInfo||!Array.isArray(r.versions))return false;
+      const docs=Object.values(this.v5218ContentAckState().generated).filter(d=>d.sourceBundle.sha256===r.sha256),a=this.app.vault.adapter;
+      for(const v of r.versions){
+        if(v.op!=='upsert'||!await a.exists(v.path)||await hash(await a.readBinary(v.path))!==v.sha256)return false;
+        const found=Object.values(this.engine.state.acks||{}).find(x=>x.vaultGroupId===r.groupId&&x.fromDeviceId===r.deviceId&&x.toDeviceId===v.originDeviceId&&x.packId===v.packId&&x.versionId===v.versionId&&x.path===v.path&&x.contentSha256===v.sha256&&['applied','same'].includes(x.outcome));
+        if(!found||!docs.some(d=>d.entries.some(x=>sameAck(x,found))))return false;
+      }
+      if(!await a.exists(r.path))return r.state==='cleaned'||r.state==='cleanup-ready';
+      const raw=new Uint8Array(await a.readBinary(r.path));if(await hash(raw)!==r.sha256)return false;
+      const report=await ImportManager.inspect(file(r.name,raw),{plugin:this,app:this.app,desktop:Platform.isDesktopApp});
+      for(const c of report.contents||[]){
+        if(c.path.startsWith('ack/')){
+          const parsed=await tools.validateRawAck(c.data,c.path.split('/').pop(),r.groupId);
+          if(!await this.v5219FeedbackRegistered(parsed))return false;
+        }else if(!c.path.startsWith('content/'))return false;
+      }
+      return true;
+    };
+    async function recoverConfirmed(p){
+      for(const r of Object.values(p.data.v5217Transfers||{})){
+        if(!active(p,r)||r.type!=='zip'||!r.confirmed||r.state==='cleaned'||!r.versions?.length||r.hasUntrackedInfo)continue;
+        // A saved human confirmation is required. Build only a readback plan;
+        // never apply notes, manufacture a core ACK, or confirm staged imports.
+        const plan={items:r.versions.map(v=>({path:v.path,status:'same',version:{...v}}))};
+        await p.v5218CollectContentAcks({errors:[]},plan);
+      }
+      await p.v5219ReconcileOutgoing();
+      for(const r of Object.values(p.data.v5217Transfers||{})){
+        if(!active(p,r)||r.type!=='zip'||!r.confirmed)continue;
+        const ready=await p.v5219ZipReady(r);
+        if(r.ackPrepared!==ready){const before=r.ackPrepared;r.ackPrepared=ready;try{await p.persistTransport();}catch(e){r.ackPrepared=before;throw e;}}
+      }
+    }
+    async function cleanAck(p,r,check){
+      const a=p.app.vault.adapter;
+      if(!active(p,r)||r.type!=='ack'||!safe(r.name)||r.path!==IN+r.name)return;
+      if(!await a.exists(r.path)){
+        if(r.state==='cleanup-ready'){r.state='cleaned';await p.persistTransport();}return;
+      }
+      const raw=new Uint8Array(await a.readBinary(r.path));if(await hash(raw)!==r.sha256)throw Error('收到的ACK原件SHA变化，保留');
+      const parsed=await tools.validateRawAck(raw,r.name,p.data.groupId);
+      if(!await p.v5219FeedbackRegistered(parsed))return;
+      const paths=[r.path,...(r.incomingAliases||[]).map(x=>x.path)];
+      const before=r.state;r.state='cleanup-ready';try{await p.persistTransport();}catch(e){r.state=before;throw e;}
+      for(const path of paths){
+        if(!path.startsWith(IN)||!safe(path.slice(IN.length)))throw Error('ACK副本路径无效');
+        if(!await a.exists(path))continue;
+        if(await hash(await a.readBinary(path))!==r.sha256)throw Error('ACK副本SHA变化，保留');
+        if(!await p.v5219FeedbackRegistered(parsed))throw Error('ACK清理依据变化');
+        check();await a.remove(path);if(await a.exists(path))throw Error('ACK原件删除未完成');
+      }
+      r.state='cleaned';r.cleanedAt=Date.now();await p.persistTransport();
+    }
+    const accept=P.prototype.v5218AcceptAck;
+    P.prototype.v5218AcceptAck=async function(input){
+      const raw=new Uint8Array(await input.arrayBuffer()),name=this.v5218BaseName?.(input.name)||input.name,parsed=await tools.validateRawAck(raw,name,this.data.groupId);
+      const result=await accept.call(this,file(name,raw));
+      if(parsed.device===own(this))return result;
+      await serial(this,async check=>{
+        const key=scope(this)+':'+parsed.hash,before=this.data.v5219ReceivedFiles;
+        this.data.v5219ReceivedFiles={...(before||{}),[key]:{groupId:this.data.groupId,deviceId:own(this),name:parsed.canonicalName||name,downloadName:input.name,sha256:parsed.hash,terminal:!!parsed.terminal,entryIds:parsed.entries.map(a=>a.ackId),referenceFileSha256:parsed.terminal?JSON.parse(new TextDecoder().decode(raw)).referenceFileSha256:null}};
+        try{check();await this.persistTransport();}catch(e){this.data.v5219ReceivedFiles=before;throw e;}
+      });
+      await this.v5219ReconcileOutgoing();
+      await serial(this,async check=>{for(const r of Object.values(this.data.v5217Transfers||{}))if(r.sha256===parsed.hash)await cleanAck(this,r,check);});
+      return result;
+    };
+    P.prototype.importRawAckFile=async function(input,options={}){
+      this.assertGroup();const raw=new Uint8Array(await input.arrayBuffer()),name=this.v5218BaseName?.(input.name)||input.name;
+      if(input.size>1024*1024||raw.length>1024*1024||raw.length<10)throw Error('独立 ACK 文件体积无效');
+      const parsed=await tools.validateRawAck(raw,name,this.data.groupId);
+      if(parsed.device===own(this))throw Error('不能把本机产生的 ACK 当作收到的反馈');
+      const id=this.v5218TransferKey(input,await hash(raw));
+      if(!this.data.v5217Transfers?.[id])await this.v5217Stage(file(name,raw),raw,{source:input._vr5217Source||null});
+      return this.v5218AcceptAck(file(name,raw));
+    };
+    const cleanup=P.prototype.v5217CleanupIncoming;
+    P.prototype.v5217CleanupIncoming=async function(){
+      if(this._v5219Cleaning)return;this._v5219Cleaning=true;
+      try{
+        await recoverConfirmed(this);
+        await cleanup.call(this);
+        await serial(this,async check=>{for(const r of Object.values(this.data.v5217Transfers||{}))await cleanAck(this,r,check);});
+      }finally{this._v5219Cleaning=false;}
+    };
+    const collected=P.prototype.v5218CollectContentAcks;
+    P.prototype.v5218CollectContentAcks=async function(...args){const result=await collected.apply(this,args);await this.v5219ReconcileOutgoing();return result;};
+    for(const method of ['createIncremental','createSelectedIncremental','registerWindowsAutoBundle']){
+      const original=P.prototype[method];if(!original)continue;
+      P.prototype[method]=async function(...args){const result=await original.apply(this,args);await this.persistTransport();await this.v5219ReconcileOutgoing();return result;};
+    }
+    const apply=P.prototype.applyDownloaded;
+    P.prototype.applyDownloaded=async function(review,...args){
+      const result=await apply.call(this,review,...args);
+      const digest=review?.report?.hash;
+      for(const r of Object.values(this.data.v5217Transfers||{})){
+        if(!active(this,r)||r.type!=='zip'||r.sha256!==digest||r.versions?.length||r.hasUntrackedInfo)continue;
+        const items=review.report.contents||[];
+        if(items.length&&items.every(x=>x.path.startsWith('ack/'))){
+          const verified=[];for(const item of items){const parsed=await tools.validateRawAck(item.data,item.path.split('/').pop(),r.groupId);if(!await this.v5219FeedbackRegistered(parsed)){verified.length=0;break;}verified.push(parsed);}
+          if(verified.length===items.length)r.confirmed=true;
+        }
+      }
+      await this.v5217CleanupIncoming();return result;
+    };
+    P.prototype.v5219FeedbackNames=function(ackId,terminal=false){
+      return [...new Set(Object.values(this.data.v5219ReceivedFiles||{}).filter(r=>active(this,r)&&r.terminal===terminal&&r.entryIds.includes(ackId)).map(r=>r.name))];
+    };
+    return {packed,cleanAck,recoverConfirmed};
+  }
+  return {install};
+})();
+
+const v5219LifecycleRuntime=VR5219Lifecycle.install(VaultRelayV4,{tools:Bridge.__testing,ImportManager,Platform:OBS.Platform});
+
 module.exports=VaultRelayV4;
 module.exports.__testing={...UnifiedBase.__testing,
   Native, NativeUi, createNative:()=>Native};
@@ -13465,3 +13683,5 @@ module.exports.__testing.v5218Ack=VR5218Ack;
 module.exports.__testing.v5218BundleAck=VR5218BundleAck;
 module.exports.__testing.v5218SyncRecords=VR5218SyncRecords;
 module.exports.__testing.v5218PackageManager=VR5218PackageManager;
+module.exports.__testing.v5219Lifecycle=VR5219Lifecycle;
+module.exports.__testing.v5219LifecycleRuntime=v5219LifecycleRuntime;
