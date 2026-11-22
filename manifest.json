@@ -1,9 +1,9 @@
 {
   "id": "vault-relay-v4",
   "name": "Vault Relay",
-  "version": "6.0.15",
+  "version": "6.16",
   "minAppVersion": "1.5.0",
-  "description": "Unified read-only review for received ZIPs and compact Android download search.",
+  "description": "Review received ZIPs and export operation logs as text files.",
   "author": "Vault Relay",
   "isDesktopOnly": false
 }
