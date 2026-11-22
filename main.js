@@ -1,3 +1,4 @@
+const VR_DOWNLOAD_BOX='VaultRelay-Transfer/Dbox';
 // Each plugin module receives its own wrapper. Never patch Obsidian's global Notice.
 function VR603Notice(Base){
  return class extends Base{
@@ -210,9 +211,9 @@ const VR5213 = (()=>{
     async stop(){this.cancelled=true;if(this.busy)await this.busy;for(const x of this.queue)if(x.handle)try{await x.handle.close();}catch(_){}this.queue=[];}
   }
   function execFile(command,args,options){return new Promise((resolve,reject)=>require('node:child_process').execFile(command,args,{windowsHide:true,timeout:15000,maxBuffer:65536,...options},(err,stdout)=>err?reject(err):resolve(stdout)));}
-  function downloadRoots(){
+  function downloadRoots(configured){
     const os=require('node:os'),path=require('node:path');
-    return ['Downloads','BaiduNetdiskDownload'].map(name=>path.join(os.homedir(),name));
+    return [...new Set([...['Downloads','BaiduNetdiskDownload'].map(name=>path.join(os.homedir(),name)),configured].filter(Boolean))];
   }
   async function localRoots(){
     if(process.platform!=='win32')return {roots:[],error:'当前桌面不是 Windows，保留系统选文件。'};
@@ -241,7 +242,7 @@ const VR5213 = (()=>{
       this._v5213InitPromise=(async()=>{const path=require('node:path'),fs=require('node:fs').promises;const listed=await localRoots();
         this._v5213RootsError=listed.error;
         const base=this.app.vault.adapter.getBasePath?.()||this.app.vault.adapter.basePath;
-        this._v5213Priorities=[this.data.windowsCloudDir,...downloadRoots(),...(this.data.v5213DownloadLocations||[])].filter(Boolean);
+        this._v5213Priorities=[this.data.windowsCloudDir,...downloadRoots(this.data.windowsDownloadDir),...(this.data.v5213DownloadLocations||[])].filter(Boolean);
         const service=new Discovery({fs,path,roots:listed.roots,exclude:base?[path.join(base,'VaultRelay-Transfer'),path.join(base,'.obsidian')]:[],looksLike:name=>this.mobileDownloadLooksLikeExchange(name)||/^VR-[^/\\]{1,145}\.zip$/i.test(name),visit:async item=>{
           if(this._v5213ReceiveDiscovery&&(!this._vrControlPanel?.active||this._v5213AllowActive))await this.v5213ReceiveDiscovered(item);
         }});this._v5213Discovery=service;return service;})();
@@ -272,7 +273,7 @@ const VR5213 = (()=>{
         const base=adapter.getBasePath?.()||adapter.basePath;
         const exclude=base?[path.join(base,'VaultRelay-Transfer'),path.join(base,'.obsidian')]:[];
         if(this.data.windowsCloudDir)exclude.push(this.data.windowsCloudDir);
-        const discovery=new Discovery({fs,path,roots:downloadRoots(),exclude,
+        const discovery=new Discovery({fs,path,roots:downloadRoots(this.data.windowsDownloadDir),exclude,
           looksLike:name=>/\.zip$/i.test(name)&&this.mobileDownloadLooksLikeExchange(name)});
         const active=()=>!this._v5213Stopped&&this.data.groupId===group;
         try{
@@ -1788,6 +1789,8 @@ const module={exports:{}};
 function createUnifiedPanel() {
   const {Platform}=require('obsidian'),Modal=VR603Modal(require('obsidian').Modal),Notice=VR603Notice(require('obsidian').Notice);
   const device=()=>Platform.isIosApp?'iPadOS / iOS':Platform.isAndroidApp?'Android':'Windows / macOS';
+  const downloadBoxNote='浏览器会把增量 ZIP 和普通下载文件保存到同一目录。将下载位置设为当前知识库的 '+VR_DOWNLOAD_BOX+' 后，插件只把校验通过的增量 ZIP 归集到 inbox 供审核。普通文件留在 Dbox，可在系统文件管理器中整理。';
+  const safariDownloadSteps='打开「设置 → App → Safari 浏览器 → 下载 → 其他…」，选择当前知识库里的「VaultRelay-Transfer → Dbox」。下载完成后返回 Obsidian 并打开控制台。';
   const ele=(p,tag,text,cls)=>{const x=document.createElement(tag);if(text!=null)x.textContent=text;if(cls)x.className=cls;p.appendChild(x);return x;};
   const section=(p,title,desc)=>{const s=ele(p,'section',null,'vru-section');ele(s,'h3',title);if(desc)ele(s,'p',desc,'vru-help');return s;};
   const button=(p,label,handler,primary=false)=>{
@@ -1909,7 +1912,7 @@ function createUnifiedPanel() {
       part("六、统一文件列表与笔记附件",["查看下载的文件列出 inbox 来源与状态，查看本身不导入。导入文件列表按正式写入记录展示笔记和附件。","打开目录、复制路径及系统分享沿用宿主能力；外部下载目录无法取得删除授权时保留原件并提示。","普通 Markdown 导入不自动携带附件；普通 ZIP 支持笔记和附件，正式写入仍须审核。"],[]);
       part("七、增量包管理与清理",["默认显示全部本机传输 ZIP，也可按状态分类；显示完整名称、生成时间和版本数量。","已核验配对的普通 ACK 显示在对应 ZIP 下方；回收及恢复记录持久保存。恢复备份本版暂不自动淘汰。"],[]);
       part("八、知识库多端同步记录",["导出本机可追溯发送、接收和传输包 ACK 记录，不含笔记正文。新流程不提供旧反馈历史查询。","导入多终端快照可按来源 ZIP 的完整 SHA、设备和文件名比对普通 ACK；不存在 ACK-R 配对。","ACK 表示接收包已完整校验，不能据此判断笔记是否已确认导入。快照只读，不授予清理资格。"],[]);
-      part("九、注意事项与常见问题",["Q：笔记能脱离插件使用吗？答：确认导入的 Markdown 和附件保存在正式知识库；同步版本、反馈和恢复备份用于插件后续同步或撤销。","Q：生成 ZIP 就是上传了吗？答：不是。需按当前设备流程发送，并在同步空间确认。","Q：为什么文件还没清理？答：未确认、失败、冲突、文件变化或记录保存失败时，程序保留文件供重试。"],[]);
+      part("九、注意事项与常见问题",["Q：笔记能脱离插件使用吗？答：确认导入的 Markdown 和附件保存在正式知识库；同步版本、反馈和恢复备份用于插件后续同步或撤销。","Q：生成 ZIP 就是上传了吗？答：不是。需按当前设备流程发送，并在同步空间确认。","Q：为什么文件还没清理？答：未确认、失败、冲突、文件变化或记录保存失败时，程序保留文件供重试。","Q：为什么把浏览器下载设在 Dbox？答："+downloadBoxNote,"Q：为什么打开控制台会弹出审核？答：inbox 里还有待审核的增量包。可在审核页确认处理，也可以取消并保留 ZIP，稍后再处理。"],[]);
 
       part("十、知识库比对：导出 → 导入 → 比对",[
         "入口为「高级操作 → 知识库比对」，不在日常主按钮中。用于检测两台设备的正式知识库文件是否不同，不会更改任何笔记。两台设备清单生成时间不同，结果仅代表两个快照。",
@@ -2668,27 +2671,199 @@ function createUnifiedPanel() {
         return false;
       }
     }
-    settings(p,label,key,placeholder){
+    settings(p,label,key,placeholder,onSaved){
       const line=ele(p,'label',null,'vru-setting');ele(line,'span',label);
       const input=ele(line,'input');input.value=this.plugin.data[key]||'';
       input.placeholder=placeholder||'';input.type='text';
-      input.addEventListener('change',async()=>{
+      let saving;
+      const commit=async()=>{
+        if(saving)await saving;
         const value=input.value.trim();
-        if(key==='groupId' && value && !/^vg-[a-z0-9]{16,40}$/.test(value)) {
-          new Notice('GroupID 格式无效，拒绝保存',6000);return;
-        }
-        if(key==='ackRecipientIds'){
-          try {this.plugin.validateAckRecipients(value);}catch(e){new Notice(e.message,6000);return;}
-        }
-        if(key==='shareUrl' && value &&
-           !/https:\/\/pan\.baidu\.com\/s\//.test(value)){
-          new Notice('请粘贴百度网盘群组的 HTTPS 分享链接',6500);return;
-        }
-        try{
+        const before=this.plugin.data[key]||'';
+        if(value===before)return;
+        if(key==='ackRecipientIds')this.plugin.validateAckRecipients(value);
+        if(key==='shareUrl'&&value&&!/https:\/\/pan\.baidu\.com\/s\//.test(value))
+          throw Error('请粘贴百度网盘群组的 HTTPS 分享链接');
+        saving=(async()=>{
           await this.plugin.updateSetting(key,value);
+          if(input.value.trim()===value)input.value=this.plugin.data[key]||'';
           await this.plugin.log('设置保存',label+' 已更新');
-        }catch(e){new Notice('设置未保存：'+String(e.message||e),7000);input.value=this.plugin.data[key]||'';}
+          onSaved?.();
+        })();
+        try{await saving;}finally{saving=null;}
+      };
+      // A guide step commits on navigation, so validation can keep the user on that step.
+      if(!onSaved)input.addEventListener('change',async()=>{
+        try{await commit();}
+        catch(error){new Notice('设置未保存：'+String(error.message||error),7000);input.value=this.plugin.data[key]||'';}
       });
+      return commit;
+    }
+    renderIdentitySettings(common,onSaved){
+      const p=this.plugin;
+      const groupAction=(label,action)=>onSaved?onSaved(action):this.run(label,action);
+      const identity=ele(common,'div',null,'vru-identity');
+      ele(identity,'strong','本机 Device ID');
+      const idrow=row(identity);
+      const realId=p.engine?.state?.deviceId||p.data.deviceId;
+      const deviceInput=ele(idrow,'input');deviceInput.value=realId;
+      deviceInput.readOnly=true;deviceInput.className='vru-readonly';
+      button(idrow,'复制 Device ID',()=>this.copy(realId));
+      if(!p.data.groupId){
+        ele(common,'p','同一个同步群组只需在一台设备上创建。其他设备用相同的 GroupID 加入。','vru-meta');
+        const create=ele(common,'div',null,'vru-group-choice');
+        button(create,'创建群组',()=>groupAction('创建群组',()=>p.createGroup()),true);
+        const join=ele(common,'div',null,'vru-group-choice');
+        const label=ele(join,'label',null,'vru-setting');
+        ele(label,'span','已有群组的 GroupID');
+        const joined=ele(label,'input');
+        joined.type='text';
+        joined.placeholder='从已绑定的设备复制完整的 vg-…';
+        joined.autocapitalize='none';
+        joined.spellcheck=false;
+        button(join,'加入已有群组',()=>groupAction('加入已有群组',()=>p.joinGroup(joined.value)));
+      }else{
+        const groupRow=row(common);
+        ele(groupRow,'strong','GroupID（已绑定）');
+        const id=ele(groupRow,'input');
+        id.value=p.data.groupId;
+        id.readOnly=true;
+        id.className='vru-readonly';
+        id.setAttribute('aria-label','已绑定的 GroupID');
+        button(groupRow,'复制 GroupID',()=>this.copy(p.data.groupId));
+        ele(common,'p','要让其他设备同步这个知识库，请复制 GroupID，在那台设备选择「加入已有群组」。','vru-meta');
+      }
+      const shared=onSaved?[()=>onSaved()]:[];
+      const deviceShort=this.settings(common,'本机简称（如 Win1 / Red1 / Ios1）','deviceShortName','Win1',...shared);
+      const groupShort=this.settings(common,'群组简称（如 Tes1）','groupShortName','Tes1',...shared);
+      ele(common,'p','GroupID 标识同一同步群组。建议同组各端使用相同的知识库文件夹名称，便于核对。','vru-meta');
+      return async()=>{await deviceShort();await groupShort();};
+    }
+    renderBaiduSettings(baidu,onSaved=()=>{}){
+      const p=this.plugin;
+      const directory=section(baidu,'① 百度网盘同步空间共享目录（上传入口）');
+      let current=null;try{current=VR527UI.savedDirectory(p.data);}catch(e){ele(directory,'p',e.message,'vru-warning');}
+      const draft=current;let targetSpace=draft?.space||'synchronization';
+      const label=ele(directory,'label',null,'vru-setting');ele(label,'span','共享目录地址');
+      const input=ele(label,'input');input.type='text';input.className='vru-cloud-directory';input.value=draft?VR527UI.visibleDirectory(draft):'';
+      input.placeholder='/示例目录/共享区，或粘贴官方目录页网址';
+      const status=ele(directory,'p',current?'当前目录已保存。':'填写目录并保存后生效。','vru-meta vru-directory-status vr527-keep-full');
+      const preview=ele(directory,'p','同步空间前缀由插件内部处理，无需手填。','vru-meta vru-directory-preview');
+      const parse=()=>VR527UI.directoryTarget(input.value,targetSpace);
+      input.addEventListener('change',()=>{try{const t=parse();targetSpace=t.space;input.value=VR527UI.visibleDirectory(t);preview.textContent='识别为'+(t.space==='synchronization'?'同步空间':'普通网盘')+'，点击保存后生效。';}catch(e){preview.textContent=e.message;}});
+      const actions=row(directory);
+      const saveUpload=async()=>{
+        const t=parse();
+        const saved=await p.saveCloudDirectoryTarget(t.path,t.space);
+        targetSpace=saved.space;input.value=VR527UI.visibleDirectory(saved);
+        status.textContent='已保存目录：'+input.value;
+        onSaved();
+      };
+      const saveButton=async save=>{try{await save();new Notice('目录已保存。',4500);}catch(e){new Notice('未保存：'+e.message,7000);}};
+      button(actions,'保存百度网盘同步空间共享目录',()=>saveButton(saveUpload),true);
+      button(actions,'复制打开百度网盘共享目录页地址',()=>{try{const t=VR527UI.navigationTarget(p.data,'upload');return this.copy(VR527UI.uploadUrl(t.path));}catch(e){new Notice(e.message,6500);}});
+      button(actions,'打开/查看百度网盘同步空间入口（浏览器电脑版）',()=>this.openUploadBrowser());
+      ele(directory,'p','此入口打开对应目录的电脑版上传网页，可查看原 ZIP / ACK 并上传；不表示已完成云端上传。','vru-help');
+
+      if(Platform.isMobileApp)ele(directory,'p',"手机上传默认使用电脑版网页。若页面过窄或没有上传按钮，请在浏览器菜单选择“访问电脑版”；重新打开后核对目录，再选择原增量 ZIP 上传。",'vru-help vr527-keep-full');
+      const downloadSettings=section(baidu,'② 百度网盘同步空间（下载入口）');
+      const linkSetting=ele(downloadSettings,'label',null,'vru-share-setting');ele(linkSetting,'span','同步空间下载目录（短路径）');
+      const urlInput=ele(linkSetting,'input');urlInput.type='text';urlInput.className='vru-download-directory';
+      try{urlInput.value=VR527UI.visibleDirectory(VR5215.downloadTarget(p.data));}catch(_){urlInput.value='';}
+      urlInput.placeholder='/示例目录/共享区';
+      const shareActions=row(downloadSettings);
+      const saveDownload=async()=>{
+        const target=await p.saveDownloadDirectoryTarget(urlInput.value);
+        urlInput.value=VR527UI.visibleDirectory(target);onSaved();
+      };
+      button(shareActions,'保存百度网盘同步空间下载目录',()=>saveButton(saveDownload),true);
+      button(shareActions,'复制百度网盘同步空间下载地址',()=>{try{return this.copy(VR527UI.syncSpaceUrl(VR5215.downloadTarget(p.data).path));}catch(e){new Notice(e.message,7000);}});
+      button(shareActions,'打开百度网盘同步空间（下载入口，浏览器）',()=>this.openSyncSpaceBrowser());
+      button(shareActions,'查看导入的文件',()=>this.showImportedFiles());
+      ele(downloadSettings,'p','上传、下载可分别保存目录；只填写短路径，前缀由插件补齐一次。本流程不用群组分享链接。下载位置由百度 App／浏览器决定，插件不改变它。','vru-meta vr527-keep-full');
+      return async()=>{
+        let uploadSaved='',downloadSaved='';
+        try{const saved=VR527UI.savedDirectory(p.data);if(saved)uploadSaved=VR527UI.visibleDirectory(saved);}catch(_){}
+        try{downloadSaved=VR527UI.visibleDirectory(VR5215.downloadTarget(p.data));}catch(_){}
+        if(input.value.trim()!==uploadSaved)await saveUpload();
+        if(urlInput.value.trim()!==downloadSaved)await saveDownload();
+      };
+    }
+    settingsPlatform(){return Platform.isIosApp?'ios':Platform.isAndroidApp?'android':'windows';}
+    renderDownloadLocation(box,platform,onSaved){
+      const p=this.plugin;
+      ele(box,'p',downloadBoxNote,'vru-help');
+      button(row(box),'创建并复制 Dbox 路径',async()=>{
+        try{
+          await p.ensureLayout();
+          const adapter=this.app.vault.adapter;
+          const base=platform==='windows'&&Platform.isDesktopApp&&(adapter.getBasePath?.()||adapter.basePath);
+          await this.copy(base?require('node:path').join(base,VR_DOWNLOAD_BOX):VR_DOWNLOAD_BOX);
+        }catch(error){new Notice('无法准备下载目录：'+String(error.message||error),7000);}
+      });
+      if(platform==='ios'){
+        ele(box,'p',safariDownloadSteps,'vru-meta');
+        ele(box,'p','下载在其他位置时，可使用插件里的「手动从“文件”选择 ZIP / ACK（备用）」。','vru-meta');
+      }else if(this.settingsPlatform()===platform){
+        ele(box,'p','优先将浏览器的下载位置设为 Dbox。需要兼容其他下载文件夹时，可填写本机路径。','vru-meta');
+        const args=platform==='windows'?
+          [box,'其他本机下载目录（选填）','windowsDownloadDir','完整的本机文件夹路径']:
+          [box,'其他 Android 下载目录（选填）','mobileSourcePath','/storage/emulated/0/Download/BaiduNetdisk/'];
+        return onSaved?this.settings(...args,onSaved):this.settings(...args);
+      }else ele(box,'p','可在对应系统的终端上填写该设备的下载路径。','vru-meta');
+      return async()=>{};
+    }
+    openSettingsGuide(){
+      const p=this.plugin,guide=new Modal(this.app);
+      guide.contentEl.addClass('vru-panel');
+      guide.modalEl.addClass('vru-settings-guide');
+      let step=0,platform=this.settingsPlatform(),busy=false,closed=false;
+      const titles=['系统与身份','百度网盘设置','下载设置'];
+      const refreshParent=()=>{if(p._vrControlPanel===this)this.render();};
+      guide.onClose=()=>{closed=true;refreshParent();};
+      const render=()=>{
+        const content=guide.contentEl;content.empty();
+        ele(content,'h2','设置向导');
+        ele(content,'p',titles.map((title,index)=>index===step?'【'+title+'】':title).join(' → '),'vru-meta');
+        const box=section(content,(step+1)+' / '+titles.length+' · '+titles[step]);
+        const status=ele(content,'p','','vru-warning');status.setAttribute('role','status');
+        const controls=[];
+        const work=async callback=>{
+          if(busy||closed)return;
+          busy=true;status.textContent='';
+          for(const control of controls)control.disabled=true;
+          try{await callback();}
+          catch(error){if(!closed)status.textContent=String(error.message||error);}
+          finally{busy=false;for(const control of controls)control.disabled=false;}
+        };
+        let save;
+        if(step===0){
+          const label=ele(box,'label',null,'vru-setting');ele(label,'span','系统');
+          const systems=ele(label,'select');
+          for(const [value,text] of [['windows','Windows'],['android','Android'],['ios','iOS / iPadOS']]){
+            const option=ele(systems,'option',text);option.value=value;
+          }
+          systems.value=platform;
+          systems.addEventListener('change',()=>{platform=systems.value;});
+          save=this.renderIdentitySettings(box,action=>action?work(async()=>{
+            await save();await action();refreshParent();if(!closed)render();
+          }):refreshParent());
+        }else if(step===1)save=this.renderBaiduSettings(box,refreshParent);
+        else save=this.renderDownloadLocation(box,platform,refreshParent);
+        const actions=row(content);
+        if(step>0)controls.push(button(actions,'上一步',()=>work(async()=>{
+          await save();if(!closed){step--;render();}
+        })));
+        controls.push(button(actions,step===titles.length-1?'完成':'下一步',()=>work(async()=>{
+          await save();
+          if(step===0&&!p.data.groupId)throw Error('请先创建群组，或填入已有 GroupID 后加入群组');
+          if(step===titles.length-1){await p.ensureLayout();if(!closed)guide.close();}
+          else if(!closed){step++;render();}
+        }),true));
+      };
+      guide.onOpen=render;
+      guide.open();
+      return guide;
     }
     async receiveZip(file){
       if(!file)return;
@@ -2775,9 +2950,9 @@ function createUnifiedPanel() {
       helpEntry.title='打开完整使用说明与常见问题；不修改任何正式笔记';
       const warning=ele(c,'div',null,'vru-warning');
       warning.textContent='安全写入：下载并导入会连续引导审核；正式新增、覆盖、删除都需要你明确确认。';
-      const mainSection=(title,key)=>{
+      const mainSection=(title,key,defaultOpen=false)=>{
         const root=ele(c,'details',null,'vru-settings vru-main-section');
-        if(this._mainOpen[key])root.open=true;
+        root.open=this._mainOpen[key]??defaultOpen;
         ele(root,'summary',title);
         root.addEventListener('toggle',()=>{this._mainOpen[key]=root.open;});
         return root;
@@ -2794,66 +2969,21 @@ function createUnifiedPanel() {
         const root=await p.ensureLayout();await p.log('目录检查通过','当前知识库/'+root+' 已存在，未触碰正式笔记');
       }),true);
 
-      const set=mainSection('设置与连接检查','settings');
+      const set=mainSection('设置与连接检查','settings',!p.data.groupId);
       const common=section(set,'① 公共设置');
-      const identity=ele(common,'div',null,'vru-identity');
-      ele(identity,'strong','本机 Device ID');
-      const idrow=row(identity);
-      const realId=p.engine?.state?.deviceId||p.data.deviceId;
-      const deviceInput=ele(idrow,'input');deviceInput.value=realId;
-      deviceInput.readOnly=true;deviceInput.className='vru-readonly';
-      button(idrow,'复制 Device ID',()=>this.copy(realId));
-      if(!p.data.groupId){
-        ele(common,'p','GroupID 尚未设置。请选择创建新群组或加入已有群组；安装时只生成 Device ID。','vru-meta');
-        const create=ele(common,'div',null,'vru-group-choice');
-        ele(create,'strong','创建新群组');
-        ele(create,'p','云端文件夹名称任意；一个 GroupID 同时只使用一个有效云端交换空间。','vru-meta');
-        button(create,'创建群组并生成 GroupID',()=>this.run('创建新群组',()=>p.createGroup()),true);
-        const join=ele(common,'div',null,'vru-group-choice');
-        ele(join,'strong','加入已有群组');
-        const joined=ele(join,'input');joined.type='text';joined.placeholder='粘贴已有 vg-... GroupID';
-        button(join,'加入群组',()=>this.run('加入现有群组',()=>p.joinGroup(joined.value)));
-      }else{
-        const groupRow=row(common);
-        ele(groupRow,'strong','GroupID（已绑定）');
-        const id=ele(groupRow,'input');id.value=p.data.groupId;
-        id.readOnly=true;id.className='vru-readonly';
-        button(groupRow,'复制 GroupID',()=>this.copy(p.data.groupId));
-        ele(common,'p','如需更换群组，应先完整备份并走单独的迁移流程，不能直接改写 GroupID。','vru-meta');
-      }
-      this.settings(common,'群组简称（3–4 位，如 Tes1）','groupShortName','Tes1');
-      this.settings(common,'设备简称（3–4 位，如 Win1 / Red1）','deviceShortName','Win1');
+      button(helpBar,'群组设置',()=>{
+        set.open=true;
+        this._mainOpen.settings=true;
+        common.scrollIntoView?.({block:'start'});
+      });
+      const launcher=row(common);
+      button(launcher,'打开设置向导',()=>this.openSettingsGuide(),true);
+      this.renderIdentitySettings(common);
       const baidu=section(set,'② 百度网盘设置');
-      const directory=section(baidu,'① 百度网盘同步空间共享目录（上传入口）');
-      let current=null;try{current=VR527UI.savedDirectory(p.data);}catch(e){ele(directory,'p',e.message,'vru-warning');}
-      const draft=current;let targetSpace=draft?.space||'synchronization';
-      const label=ele(directory,'label',null,'vru-setting');ele(label,'span','共享目录地址');
-      const input=ele(label,'input');input.type='text';input.className='vru-cloud-directory';input.value=draft?VR527UI.visibleDirectory(draft):'';
-      input.placeholder='/示例目录/共享区，或粘贴官方目录页网址';
-      const status=ele(directory,'p',current?'当前目录已保存。':'填写目录并保存后生效。','vru-meta vru-directory-status vr527-keep-full');
-      const preview=ele(directory,'p','同步空间前缀由插件内部处理，无需手填。','vru-meta vru-directory-preview');
-      const parse=()=>VR527UI.directoryTarget(input.value,targetSpace);
-      input.addEventListener('change',()=>{try{const t=parse();targetSpace=t.space;input.value=VR527UI.visibleDirectory(t);preview.textContent='识别为'+(t.space==='synchronization'?'同步空间':'普通网盘')+'，点击保存后生效。';}catch(e){preview.textContent=e.message;}});
-      const actions=row(directory);
-      button(actions,'保存百度网盘同步空间共享目录',async()=>{try{const t=parse();const saved=await p.saveCloudDirectoryTarget(t.path,t.space);targetSpace=saved.space;input.value=VR527UI.visibleDirectory(saved);status.textContent='已保存'+(saved.space==='synchronization'?'同步空间':'普通网盘')+'目录：'+input.value+'；浏览与上传使用同一目标。';new Notice('目录已保存。',4500);}catch(e){new Notice('未保存：'+e.message,7000);}},true);
-      button(actions,'复制打开百度网盘共享目录页地址',()=>{try{const t=VR527UI.navigationTarget(p.data,'upload');return this.copy(VR527UI.uploadUrl(t.path));}catch(e){new Notice(e.message,6500);}});
-      button(actions,'打开/查看百度网盘同步空间入口（浏览器电脑版）',()=>this.openUploadBrowser());
-      ele(directory,'p','此入口打开对应目录的电脑版上传网页，可查看原 ZIP / ACK 并上传；不表示已完成云端上传。','vru-help');
-
-      if(Platform.isMobileApp)ele(directory,'p',"手机上传默认使用电脑版网页。若页面过窄或没有上传按钮，请在浏览器菜单选择“访问电脑版”；重新打开后核对目录，再选择原增量 ZIP 上传。",'vru-help vr527-keep-full');
-      const downloadSettings=section(baidu,'② 百度网盘同步空间（下载入口）');
-      const linkSetting=ele(downloadSettings,'label',null,'vru-share-setting');ele(linkSetting,'span','同步空间下载目录（短路径）');
-      const urlInput=ele(linkSetting,'input');urlInput.type='text';urlInput.className='vru-download-directory';
-      try{urlInput.value=VR527UI.visibleDirectory(VR5215.downloadTarget(p.data));}catch(_){urlInput.value='';}
-      urlInput.placeholder='/示例目录/共享区';
-      const shareActions=row(downloadSettings);
-      button(shareActions,'保存百度网盘同步空间下载目录',async()=>{try{const t=await p.saveDownloadDirectoryTarget(urlInput.value);urlInput.value=VR527UI.visibleDirectory(t);new Notice('下载目录已保存；旧分享链接原值保留。',5000);}catch(e){new Notice(e.message,7000);}},true);
-      button(shareActions,'复制百度网盘同步空间下载地址',()=>{try{return this.copy(VR527UI.syncSpaceUrl(VR5215.downloadTarget(p.data).path));}catch(e){new Notice(e.message,7000);}});
-      button(shareActions,'打开百度网盘同步空间（下载入口，浏览器）',()=>this.openSyncSpaceBrowser());
-      button(shareActions,'查看导入的文件',()=>this.showImportedFiles());
-      ele(downloadSettings,'p','上传、下载可分别保存目录；只填写短路径，前缀由插件补齐一次。本流程不用群组分享链接。下载位置由百度 App／浏览器决定，插件不改变它。','vru-meta vr527-keep-full');
+      this.renderBaiduSettings(baidu);
+      this.renderDownloadLocation(section(set,'本机下载设置'),this.settingsPlatform());
       const connection=Platform.isDesktopApp?section(baidu,'③ Windows 专用 · 自动收发增量文件'):
-        ele(downloadSettings,'details',null,'vru-platform-advanced vru-reception-help');
+        ele(baidu,'details',null,'vru-platform-advanced vru-reception-help');
       if(!Platform.isDesktopApp)ele(connection,'summary','找不到下载文件？');
       if(Platform.isDesktopApp){
         this.settings(connection,'Windows 专用 · Windows 百度网盘已同步的本地文件夹',
@@ -2868,8 +2998,6 @@ function createUnifiedPanel() {
       }else{
         ele(connection,'p','先查看第二步的下载文件列表；未找到时使用第三步灰色手动选择入口。本流程使用同步空间目录，不需要群组分享链接。','vru-meta');
         if(Platform.isAndroidApp){
-          this.settings(connection,'Android 优先查找目录（备用设置）',
-            'mobileSourcePath','/storage/emulated/0/Download/BaiduNetdisk/');
           const extra=ele(connection,'label',null,'vru-setting');
           ele(extra,'span','补充优先目录（每行一条，最多 20 条）');
           const extInput=ele(extra,'textarea');extInput.rows=3;
@@ -2879,7 +3007,7 @@ function createUnifiedPanel() {
             p.updateSetting('mobileExtraSources',extInput.value)));
           ele(connection,'p','通常无需修改这些备用目录。仍未找到原件时可从高级操作手动扫描可读取共享存储；扫描弹窗显示进度，可停止本次搜索。受权限与本轮上限限制，不保证覆盖全部目录。','vru-meta');
         }else{
-          ele(connection,'p','iOS / iPadOS 无法遍历其他 App 的私有下载目录。先将原件存储到系统“文件”，再在下载列表点“添加外部 ZIP / ACK”授权，返回列表后明确接收；也可用第三步灰色手动选择入口直接准备审核。系统选择器可取消，正式写入仍需确认。','vru-meta');
+          ele(connection,'p','iOS / iPadOS 无法遍历其他 App 的私有下载目录。将 Safari 下载位置设为当前知识库的 VaultRelay-Transfer/Dbox 可自动归集增量 ZIP。下载在其他位置时，从系统“文件”手动选择 ZIP 或 ACK。','vru-meta');
         }
       }
       ele(connection,'p','平台：'+device()+'。仅显示当前系统可用的配置。','vru-meta');
@@ -3233,7 +3361,7 @@ function createUnifiedPlugin(Bridge, createDesktopAgent, JSZip, importer, Lifecy
     async ensureLayout(){
       this.assertVault();
       const parts=['outgoing','outbox','inbox'];
-      for(const part of [ROOT,...parts.map(x=>ROOT+'/'+x)])
+      for(const part of [ROOT,...parts.map(x=>ROOT+'/'+x),VR_DOWNLOAD_BOX])
         await T.ensureVaultFolder(this.app.vault.adapter,part);
       // The older outgoing/temporary folders are preserved during upgrades.
       // They are never silently deleted or recreated for new Windows installs.
@@ -9675,14 +9803,21 @@ class VaultRelayV4 extends UnifiedBase {
     if(OBS.Platform.isDesktopApp)throw Error('Windows 接收流程保持原配置');
     const source=await this.scanMobileDownloadSource({reason});
     if(source.cancelled)return {source,local:{zip:0,ack:0},summary:'已停止本次搜索；已安全复制的原件保留，未继续接收或打开审核。'};
-    const local=await this.scanMobileTemporary({
-      reason,notify:false,verifiedPaths:source.paths||[]});
+    const dbox=await this.vrCollectDbox().catch(async error=>{
+      await this.log('Dbox 归集未完成',String(error.message||error));
+      return {acceptedZips:[],errors:1,pending:0};
+    });
+    const inbox=await this.scanMobileTemporary({reason,notify:false,verifiedPaths:source.paths||[]});
+    const local={...inbox,zip:inbox.zip+dbox.acceptedZips.length,errors:inbox.errors+dbox.errors,
+      pending:inbox.pending+dbox.pending,acceptedZips:[...inbox.acceptedZips,...dbox.acceptedZips]};
+    const dboxSummary=dbox.acceptedZips.length||dbox.errors||dbox.pending?
+      `Dbox 归集 ZIP ${dbox.acceptedZips.length}、异常 ${dbox.errors}、待完成 ${dbox.pending}；`:'';
     const missing=['no-native-api','access-denied','source-error','not-configured','partial']
       .includes(source.state);
     const details='可访问目录扫描 '+source.scannedDirs+' 个、未授权/不可读 '+
       source.unreadableDirs+' 个、剩余待查 '+source.pendingDirs+' 个；新复制 '+
       source.copied+'、失败 '+source.errors+'；覆盖状态 '+source.state;
-    const combined=details+'；'+local.summary;
+    const combined=dboxSummary+details+'；'+local.summary;
     if(notify && (reason==='manual'||local.zip||local.ack||source.errors)){
       new OBS.Notice(combined+(missing?
         '。可使用「从系统文件夹选择增量包」兜底。':''),8000);
@@ -10042,6 +10177,26 @@ class VaultRelayV4 extends UnifiedBase {
       // Space identity is verified via VaultRelay-Space.json.
       if(!val)throw Error('请指定已经由百度网盘同步的完整本地文件夹路径');
       await this.bindWindowsSpace(val);
+      return;
+    }else if(key==='windowsDownloadDir'){
+      if(!OBS.Platform.isDesktopApp)throw Error('此路径仅供 Windows 使用');
+      const path=require('node:path'),fs=require('node:fs').promises;
+      let directory='';
+      if(val){
+        if(!path.isAbsolute(val)||/[\x00-\x1f]/.test(val))throw Error('请填写下载文件夹的完整路径');
+        directory=await fs.realpath(val);
+        if(directory===path.parse(directory).root||!(await fs.stat(directory)).isDirectory())throw Error('请选择具体的下载文件夹');
+        const adapter=this.app.vault.adapter;
+        const base=adapter.getBasePath?.()||adapter.basePath;
+        const within=(a,b)=>a.toLowerCase()===b.toLowerCase()||a.toLowerCase().startsWith(b.toLowerCase()+path.sep);
+        const cloud=this.data.windowsCloudDir&&path.resolve(this.data.windowsCloudDir);
+        if(cloud&&(within(directory,cloud)||within(cloud,directory)))throw Error('请选用百度同步目录以外的文件夹');
+        if(base&&['VaultRelay-Transfer','.obsidian'].some(name=>within(directory,path.resolve(base,name))))throw Error('Dbox 已自动扫描，此处只填传输区以外的下载目录');
+      }
+      const previous=this.data.windowsDownloadDir;
+      this.data.windowsDownloadDir=directory;
+      try{await this.persistTransport();}catch(error){this.data.windowsDownloadDir=previous;throw error;}
+      this._v5213Priorities=[this.data.windowsCloudDir,...VR5213.downloadRoots(directory),...(this.data.v5213DownloadLocations||[])].filter(Boolean);
       return;
     }else if(key==='shareUrl'){
       if(!val){
@@ -11261,7 +11416,7 @@ const VR5215=(()=>{
           if(Platform.isDesktopApp){const scan=await p.v5213Discover({receive:false});files=(scan.files||[]).map(x=>({...x,source:'desktop'}));details.push('本地发现：'+scan.state+' · 已查 '+scan.scannedDirs+' · 不可读 '+scan.unreadableDirs+' · 待查 '+scan.pendingDirs);}
           if(Platform.isAndroidApp){const scan=await androidList(p,()=>closed);files.push(...scan.files);details.push(scan.status);}
           try{const listing=await p.app.vault.adapter.list('VaultRelay-Transfer/inbox');files.push(...(listing.files||[]).filter(x=>p.mobileDownloadLooksLikeExchange(x.split('/').pop())||/\.md$/i.test(x)).map(path=>({path,name:path.split('/').pop(),source:'vault'})));}catch(_){details.push('本库临时目录暂不可读或未建立');}
-          if(Platform.isIosApp)details.push('iOS 不支持遍历其他 App 的下载目录；点“添加外部 ZIP / ACK”授权原件，先列出，再审核。');
+          if(Platform.isIosApp)details.push('Safari 下载位置可设为当前知识库的 VaultRelay-Transfer/Dbox。其他位置的文件可用“添加外部 ZIP / ACK”选取。');
           files.push(...picked.values());await p.v5217RefreshSources();
           status.textContent='找到 '+files.length+' 项';
           const info=el(status,'details',null,'vru-scan-details');el(info,'summary','扫描详情');el(info,'p',details.join('；'));p.v5217RenderUnmovedSources(info);
@@ -11460,7 +11615,7 @@ const VR5217=(()=>{
       const fs=require('node:fs').promises,n=require('node:path');
       const abs=n.resolve(path);
       const inside=root=>abs.toLowerCase().startsWith((n.resolve(root)+n.sep).toLowerCase());
-      if(!VR5213.downloadRoots().some(inside))throw Error('原件不在获准移动的本机下载目录');
+      if(!VR5213.downloadRoots(p.data.windowsDownloadDir).some(inside))throw Error('原件不在获准移动的本机下载目录');
       if(p.data.windowsCloudDir&&abs.toLowerCase().startsWith(n.resolve(p.data.windowsCloudDir).toLowerCase()+n.sep))throw Error('百度同步目录不能移动删除');
       let walk=n.parse(abs).root;
       for(const part of abs.slice(walk.length).split(n.sep)){walk=n.join(walk,part);if((await fs.lstat(walk)).isSymbolicLink())throw Error('下载路径包含链接');}
@@ -13185,6 +13340,94 @@ const VR603=(()=>{
    this.v614RememberInbox(path,report.hash);
    return {path};
  };
+ function dboxName(p,path){
+   const prefix=VR_DOWNLOAD_BOX+'/';
+   if(typeof path!=='string'||!path.startsWith(prefix))return '';
+   const name=path.slice(prefix.length);
+   return /^VR-[^/\\:\x00-\x1f]{1,145}\.zip$/i.test(name)&&p.mobileDownloadLooksLikeExchange(p.v5218BaseName(name))?name:'';
+ }
+ async function dboxStat(p,path){
+   const name=dboxName(p,path),adapter=p.app.vault.adapter;
+   if(!name)throw Error('无效的 Dbox 原件路径');
+   if(OBS.Platform.isDesktopApp){
+     const fs=require('node:fs').promises,n=require('node:path');
+     const base=await fs.realpath(adapter.getBasePath?.()||adapter.basePath);
+     const abs=n.join(base,VR_DOWNLOAD_BOX,name);
+     try{
+       for(const part of [n.join(base,'VaultRelay-Transfer'),n.dirname(abs),abs]){
+         if((await fs.lstat(part)).isSymbolicLink())throw Error('Dbox 路径包含链接');
+       }
+     }catch(error){if(error.code==='ENOENT')return null;throw error;}
+     if(p.data.windowsCloudDir){
+       const configured=n.resolve(p.data.windowsCloudDir);
+       const cloud=await fs.realpath(configured).catch(error=>{if(error.code==='ENOENT')return configured;throw error;});
+       if(abs.toLowerCase().startsWith(cloud.toLowerCase()+n.sep))throw Error('Dbox 位于受保护的百度同步目录');
+     }
+   }
+   const stat=await adapter.stat(path);
+   if(stat&&stat.type!=='file')throw Error('Dbox 原件不是文件');
+   return stat;
+ }
+ for(const method of ['Read','Exists','Delete']){
+   const original=P['v5217Source'+method];
+   P['v5217Source'+method]=async function(source){
+     if(source?.kind!=='vault-dbox')return original.call(this,source);
+     const stat=await dboxStat(this,source.path);
+     if(method==='Exists')return !!stat;
+     if(!stat||stat.size>Bridge.__testing.MAX_BUNDLE_BYTES)throw Error('Dbox 原件缺失或超过安全上限');
+     const adapter=this.app.vault.adapter;
+     return method==='Read'?adapter.readBinary(source.path):adapter.remove(source.path);
+   };
+ }
+ P.vrCollectDbox=async function(){
+   if(this._vrDboxScan)return this._vrDboxScan;
+   this.assertGroup();
+   const group=this.data.groupId,adapter=this.app.vault.adapter;
+   const run=async()=>{
+     const result={acceptedZips:[],errors:0,pending:0};
+     await this.ensureLayout();
+     const listing=await adapter.list(VR_DOWNLOAD_BOX);
+     const prior=this._vrDboxRejected||new Map(),rejected=this._vrDboxRejected=new Map();
+     for(const path of listing.files||[]){
+       if(this.data.groupId!==group)break;
+       const name=dboxName(this,path);
+       if(!name)continue;
+       try{
+         const stat=await dboxStat(this,path);
+         if(!stat){result.pending++;continue;}
+         if(stat.size<22&&(!stat.mtime||Date.now()-stat.mtime<2000)){result.pending++;continue;}
+         const signature=JSON.stringify([group,stat.size,stat.mtime,stat.ctime]);
+         if(prior.get(path)===signature){rejected.set(path,signature);result.errors++;continue;}
+         if(stat.size>Bridge.__testing.MAX_BUNDLE_BYTES){rejected.set(path,signature);throw Error('文件超过安全上限');}
+         const raw=new Uint8Array(await adapter.readBinary(path));
+         const after=await dboxStat(this,path);
+         if(!after||after.size!==stat.size||after.mtime!==stat.mtime||after.ctime!==stat.ctime||raw.length!==stat.size){result.pending++;continue;}
+         let report;
+         try{({report}=await this.v601ValidateReceivedPackage(this.v5218BaseName(name),raw));}
+         catch(error){
+           if(stat.mtime&&Date.now()-stat.mtime<2000){result.pending++;continue;}
+           rejected.set(path,signature);
+           throw error;
+         }
+         if(this.data.groupId!==group)break;
+         const file={name,size:raw.length,arrayBuffer:async()=>raw,_vr5217Source:{kind:'vault-dbox',path}};
+         const receipt=await this.v614ReceiveZip(file,raw,report);
+         result.acceptedZips.push({path:receipt.path,sha:report.hash,mtime:stat.mtime??null});
+         const session=this._v603Download;
+         if(session&&session.groupId===group)
+           await this.v614QueueSessionReview(session,receipt.path,report.hash);
+         const retained=await adapter.exists(path);
+         await this.log('Dbox 增量 ZIP 归集',name+(retained?' 已校验并存入 inbox，Dbox 原件保留。':' 已从 Dbox 归集到 inbox。')+' 正式笔记仍需审核确认。');
+       }catch(error){
+         result.errors++;
+         await this.log('Dbox 增量 ZIP 保留',name+'：'+String(error.message||error));
+       }
+     }
+     return result;
+   };
+   this._vrDboxScan=run();
+   try{return await this._vrDboxScan;}finally{this._vrDboxScan=null;}
+ };
  P.v614QueueSessionReview=async function(session,path,sha){
    if(this._v603Download!==session||!this._v614VerifiedInbox?.has(path))return;
    session.files.set(path,sha);
@@ -13194,7 +13437,8 @@ const VR603=(()=>{
    const session=this._v603Download;
    if(!session?.left)return;
    session.returned=true;
-   void this.v604ArmInboxReview().catch(e=>this.log('返回下载审核未完成',String(e.message||e)));
+   void this.vrCollectDbox().catch(e=>this.log('Dbox 归集未完成',String(e.message||e)))
+     .then(()=>this.v604ArmInboxReview()).catch(e=>this.log('返回下载审核未完成',String(e.message||e)));
  };
  P.v603DownloadLeft=function(){if(this._v603Download)this._v603Download.left=true;};
  P.v603FinishDownload=function(session=this._v603Download){
@@ -13213,7 +13457,7 @@ const VR603=(()=>{
  };
  P.v603ConsoleOpened=function(panel){
    if(this._v603Download?.returned){
-     if(OBS.Platform.isDesktopApp){void this.v604ArmInboxReview();return;}
+     if(OBS.Platform.isDesktopApp){this.v613WindowsReturned();return;}
      return Promise.resolve().then(()=>this.v603RunReturn())
        .catch(error=>this.log('返回下载审核未完成',String(error.message||error)));
    }
@@ -13221,8 +13465,10 @@ const VR603=(()=>{
    const group=this.data.groupId;
    const collecting=this._v615ConsoleCollection ||= Promise.resolve().then(async()=>{
      try{
-       if(OBS.Platform.isDesktopApp)await this.v615CollectDesktopDownloads();
-       else if(OBS.Platform.isAndroidApp)await this.scanMobileReception({reason:'console',notify:false});
+       if(OBS.Platform.isDesktopApp){
+         await this.vrCollectDbox().catch(error=>this.log('Dbox 归集未完成',String(error.message||error)));
+         await this.v615CollectDesktopDownloads();
+       }else await this.scanMobileReception({reason:'console',notify:false});
      }catch(error){await this.log('控制台下载归集未完成',String(error.message||error));}
    }).finally(()=>{this._v615ConsoleCollection=null;});
    return collecting.then(async()=>{
