@@ -955,3 +955,13 @@
 .vr607-difference .vr611-conflict-sides{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:12px}
 .vr607-difference .vr611-conflict-sides > div{min-width:0}
 .vr611-history-ui pre.vr607-file{display:block;max-height:45vh;overflow:auto;white-space:pre-wrap}
+
+.vru-sync-records-inline {overflow-wrap:anywhere;}
+.vru-sync-records-inline h4 {font-size:var(--font-ui-smaller);margin-bottom:.5em;}
+.vru-sync-records-picker {display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;}
+.vru-sync-records-picker input {min-width:0;width:100%;}
+
+.vr70-rule-fields{flex:1 1 100%;display:grid;gap:6px;padding-inline-start:12px}
+.vr70-rule-fields[hidden]{display:none}
+.vr70-rule-fields label{display:grid;grid-template-columns:minmax(6em,auto) minmax(0,1fr);align-items:center;gap:8px}
+.vr70-rule-fields input{min-width:0;width:100%}
