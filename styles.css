@@ -884,6 +884,7 @@
 .vru-reception-help{margin-top:12px}
 .vru-scan-progress{max-width:540px!important;width:calc(100vw - 32px)!important}
 .vru-scan-progress p{white-space:normal;overflow-wrap:anywhere}
+.vru-scan-progress .vru-scan-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vru-scan-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
 .vru-scan-actions button{max-width:100%;white-space:normal;overflow-wrap:anywhere}
 
@@ -902,3 +903,55 @@
 .vru-package-section{max-height:min(32vh,280px);overflow:auto;overscroll-behavior:contain;border:1px solid var(--background-modifier-border);padding:8px;margin:10px 0;}
 .vru-package-section h3{position:sticky;top:0;background:var(--background-primary);z-index:1;padding:6px 0;margin:0;}
 .vru-package-section .vru-package-row{overflow-wrap:anywhere;min-width:0;}
+
+/* 6.02: scoped download list and foreground receipt progress only. */
+.vru-files-dialog.modal-content { display:flex; flex-direction:column; min-height:0; max-height:85vh; }
+.vru-files-dialog .vru-files-list { flex:1 1 50vh; min-height:160px; max-height:none; overflow:auto; margin:6px 0; }
+.vru-files-dialog .vru-selectable-file { display:flex; align-items:center; gap:8px; min-width:0; }
+.vru-files-dialog .vru-selectable-file input { flex:none; }
+.vru-files-dialog .vru-file-path { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap!important; overflow-wrap:normal; }
+.vru-files-dialog .vru-file-location { margin:0 0 6px 26px; font-size:.86em; }
+.vru-files-dialog .vru-file-location summary { cursor:pointer; }
+.vru-files-dialog .vru-file-full-path { overflow-wrap:anywhere; user-select:text; }
+.vru-files-dialog .vru-files-status { margin:4px 0; flex:none; }
+.vru-files-dialog .vru-files-footer { display:flex; flex-wrap:wrap; gap:6px; flex:none; }
+.vru-files-dialog .vru-files-toolbar { flex:none; flex-wrap:wrap; gap:6px; }
+.vru-receive-progress progress { display:block; width:100%; }
+
+/* 6.03 scoped sorting controls; original console cards and layout retained. */
+.vr603-sort-controls { display:inline-flex; flex-wrap:wrap; gap:6px; margin-left:auto; align-items:center; }
+.vru-file-select-all { display:flex; align-items:center; gap:6px; width:100%; }
+.vr603-sort-controls button { font-size:.88em; padding:3px 8px; }
+.vr603-review-sort { display:flex; justify-content:flex-end; margin:6px 0; }
+.vr603-dismissible-notice { touch-action:pan-y; }
+
+/* Selected differences in the comparison and managed inbox review dialogs. */
+.vr607-difference .vr607-filters,.vr607-difference .vr607-tools,.vr607-difference .vr607-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:7px 0}
+.vr607-difference .vr607-tools{justify-content:space-between}
+.vr607-difference .vr607-filters button[aria-pressed=true]{color:var(--text-accent);box-shadow:inset 0 0 0 1px var(--interactive-accent)}
+.vr607-difference .vr607-files{border-block:1px solid var(--background-modifier-border);max-height:48vh;overflow:auto}
+.vr607-difference .vr607-file{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:6px 4px;overflow-wrap:anywhere}
+.vr607-difference .vr607-file+.vr607-file{border-top:1px solid var(--background-modifier-border)}
+.vr607-difference .vr607-file-title{min-width:0;display:flex;gap:6px;align-items:baseline}
+.vr607-difference .vr607-file-title details{min-width:0}
+.vr607-difference .vr607-status{color:var(--text-muted);flex-shrink:0;font-size:var(--font-smallest)}
+.vr607-difference .vr607-actions button{white-space:normal}
+.vr607-difference .vr607-actions .vr607-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.7fr);max-width:100%;margin:0}
+.vr607-difference .vr607-zip-name{overflow-wrap:anywhere;font-family:var(--font-monospace)}
+
+.vr607-difference .vr607-file.vr608-with-detail{display:grid;grid-template-columns:minmax(0,1fr) auto}
+.vr607-difference .vr608-with-detail .vr608-row-detail{grid-row:2;grid-column:1/-1;margin-left:22px}
+.vr607-difference .vr608-row-detail p{overflow-wrap:anywhere}
+
+.vr607-difference .vr609-actions[hidden],.vr607-difference .vr609-actions [hidden]{display:none}
+
+/* V6.11 history and conflict views */
+.vr607-difference .vr611-timeline{margin-inline-start:7px;padding-inline-start:15px;border-inline-start:2px solid var(--background-modifier-border)}
+.vr607-difference .vr611-history-entry,.vr607-difference .vr611-conflict-entry{position:relative;display:block;padding:9px 4px}
+.vr607-difference .vr611-history-entry::before{content:"";position:absolute;inset-inline-start:-21px;top:14px;width:10px;height:10px;border-radius:50%;background:var(--interactive-accent)}
+.vr607-difference .vr611-history-entry > p,.vr607-difference .vr611-conflict-entry > p{margin:0 0 5px}
+.vr607-difference .vr611-history-entry details{margin-inline-start:12px}
+.vr607-difference .vr611-history-entry details p{margin:5px 0}
+.vr607-difference .vr611-conflict-sides{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:12px}
+.vr607-difference .vr611-conflict-sides > div{min-width:0}
+.vr611-history-ui pre.vr607-file{display:block;max-height:45vh;overflow:auto;white-space:pre-wrap}
