@@ -425,7 +425,7 @@
 /* V5.0.1 usability fix: the manual must not be hidden off to the right of
    a flexible heading or inside any of the five collapsed main sections. */
 .vru-panel .vru-help-access {
-  width:100%;display:flex;align-items:center;margin:9px 0 11px;
+  width:100%;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:9px 0 11px;
 }
 .vru-panel .vru-help-access > .vru-button {
   display:block;flex:0 0 auto;max-width:100%;min-height:36px;
