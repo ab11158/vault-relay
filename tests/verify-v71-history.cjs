@@ -17,8 +17,8 @@ for(const Type of [Windows,Mobile,IOS]){
  policy(b,A);const result=await Type.__testing.v611.restore(b.p,source,source.items.map(x=>x.versionId));
  assert.equal(await b.adapter.read('Private.md'),'secret old');assert.equal(await b.adapter.read('Normal.md'),'normal old');
  const rec=b.p.data.bundleRecords.find(x=>x.name===result.name);assert(rec);assert.equal(rec.versions.length,1);assert.equal(rec.v70PrivateVersions.length,1);
- const bytes=await b.adapter.readBinary(rec.stored.path),parts=Type.__testing.tools.zipDecode(bytes);assert(parts.has('private/sealed.zip'));assert([...parts.keys()].some(x=>x.startsWith('content/')));
- assert.notDeepEqual(parts.get('private/sealed.zip'),Windows.__testing.tools.zipDecode(old.bytes).get('private/sealed.zip'));
+ const bytes=await b.adapter.readBinary(rec.stored.path),parts=Type.__testing.tools.zipDecode(bytes);const privateMember=[...parts.keys()].find(x=>x.startsWith('private/'));assert(privateMember);assert([...parts.keys()].some(x=>x.startsWith('content/')));
+ assert(!Windows.__testing.tools.zipDecode(old.bytes).has(privateMember));
  assert(await b.adapter.exists(archive.path));assert(b.p.data.undoOperations.some(x=>x.kind==='历史版本恢复'));
  console.log('PASS mixed archived history restore with current policy and fresh encryption: '+(Type===Windows?'Windows':Type===IOS?'iOS':'Android'));
 }

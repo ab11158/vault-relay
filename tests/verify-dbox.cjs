@@ -87,8 +87,20 @@ async function testSettings(){
       let view={contentEl:settingsBox(panel)};
       assert(!button(panel,'打开设置向导'));
       assert(!button(panel,'群组设置'));
-      assert(button(view,'复制 Device ID'));
-      assert(button(view,'复制 GroupID'));
+      assert(button(view,'复制设备 ID'));
+      assert(button(view,'复制群组 ID'));
+      const deviceId=view.contentEl.querySelectorAll('input').find(x=>x.getAttribute('aria-label')==='本机设备 ID');
+      const heading=view.contentEl.querySelectorAll('strong').find(x=>x.textContent==='群组 ID（已绑定）');
+      assert.equal(heading.parentNode.children[1],button(view,'解绑群组'));
+      assert.equal(deviceId.parentNode.parentNode,labelField(view,'本机简称').parentNode.parentNode);
+      const all=[...view.contentEl.querySelectorAll('button')];
+      const dbox=button(view,'创建并复制增量 ZIP 的 Dbox 路径（可选）');
+      const history=all.find(x=>x.textContent.startsWith('查看增量包记录'));
+      const startup=view.contentEl.querySelectorAll('summary').find(x=>x.textContent==='启动、退出与上传设置');
+      assert(!startup.parentNode.open);
+      assert.equal(startup.parentNode.parentNode,view.contentEl);
+      assert(all.indexOf(dbox)<all.indexOf(history));
+      if(runtime!==IOS)assert.equal(labelField(view,'下载目录（选填）').parentNode.parentNode,dbox.parentNode.parentNode);
       const name=labelField(view,'本机简称');
       name.value='Dev3';
       await name.handlers.change();
@@ -141,24 +153,24 @@ async function testGroupSetup(){
         assert.match(groupId,/^vg-[a-z0-9]{16,40}$/);
       }else{
         if(runtime===IOS){
-          labelField(view,'已有群组的 GroupID').value='vg-invalid';
+          view.contentEl.querySelectorAll('input').find(x=>x.getAttribute('aria-label')==='已有群组的 ID').value='vg-invalid';
           await button(view,'加入已有群组').click();
           assert.equal(h.p.data.groupId,'');
           view={contentEl:settingsBox(panel)};
         }
-        labelField(view,'已有群组的 GroupID').value=' '+groupId+' ';
+        view.contentEl.querySelectorAll('input').find(x=>x.getAttribute('aria-label')==='已有群组的 ID').value=' '+groupId+' ';
         await button(view,'加入已有群组').click();
       }
       view={contentEl:settingsBox(panel)};
       assert.equal(h.saved().groupId,groupId);
       assert.equal(h.p.engine.state.groupId,groupId);
       assert.equal(h.p.engine.state.deviceId,deviceId);
-      const field=view.contentEl.querySelectorAll('input').find(x=>x.getAttribute('aria-label')==='已绑定的 GroupID');
+      const field=view.contentEl.querySelectorAll('input').find(x=>x.getAttribute('aria-label')==='已绑定的群组 ID');
       assert.equal(field?.value,groupId);
       assert(field.readOnly);
       let copied='';
       panel.copy=async value=>{copied=value;};
-      await button(view,'复制 GroupID').click();
+      await button(view,'复制群组 ID').click();
       assert.equal(copied,groupId);
       assert(button(view,'新建群组').disabled);
       assert(button(view,'加入已有群组').disabled);

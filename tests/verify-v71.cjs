@@ -14,7 +14,7 @@ async function unified(){
  policy(a,['Private.md','Never.md'],{'Private.md':{out:[B],in:[]},'Never.md':{out:[],in:[]}});
  const q=await a.p.engine.previewUpload();assert.deepEqual(q.ready.map(x=>x.path),['Public.md']);assert.equal(q.restricted.length,2);
  const one=await packet(a,['Public.md','Private.md']);const parts=Windows.__testing.tools.zipDecode(one.bytes),m=JSON.parse(new TextDecoder().decode(parts.get('manifest.json')));
- assert(m.privateNotes);assert(parts.has('private/sealed.zip'));assert(parts.keys().some(x=>x.startsWith('content/')));assert(!new TextDecoder().decode(parts.get('sync-inventory.json')).match(/Private|Never/));
+ assert(m.privateNotes);assert([...parts.keys()].some(x=>/^private\/[a-f0-9]{32}\.zip$/.test(x)));assert(parts.keys().some(x=>x.startsWith('content/')));assert(!new TextDecoder().decode(parts.get('sync-inventory.json')).match(/Private|Never/));
  assert.equal(a.p.data.bundleRecords.length,1);assert(!(await a.p.engine.previewUpload()).restricted.some(x=>x.path==='Private.md'));
  await receive(b,one,false);assert(!await b.adapter.exists('Public.md'));assert(!await b.adapter.exists('Private.md'));
  let rows=await b.p.v604PrepareInbox(),row=rows.find(x=>x.sha256===one.rec.sha256);assert(row);const info=IOS.__testing.v71.review.restrictedRows(b.p,await b.p.engine.latestPlan());assert(info.some(x=>x.path==='Private.md'&&/不被接受/.test(x.label)));
