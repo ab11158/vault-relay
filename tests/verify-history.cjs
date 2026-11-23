@@ -1,0 +1,137 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const {host,publish,receive,Windows,Mobile,IOS,A,B,results}=require('./test-flow.cjs');
+const inbox='VaultRelay-Transfer/inbox/';
+const checks=[];
+const file=packet=>({name:packet.rec.name,size:packet.bytes.length,arrayBuffer:async()=>packet.bytes});
+function settle(h,name){const then=new Date(Date.now()-6000);fs.utimesSync(h.abs(inbox+name),then,then);}
+async function scenario(Source,Receiver){
+  const src=await host(Source,A,'HistorySource'),dst=await host(Receiver,B,'HistoryTarget');
+  await src.write('History.md','version one');await src.write('Other.md','other original');
+  const first=await publish(src);
+  await receive(dst,first,false);
+  const api=Receiver.__testing.v611;
+  const firstPending=await api.readHistory(dst.p,inbox+first.rec.name);
+  const note=firstPending.items.find(x=>x.path==='History.md');
+  await assert.rejects(api.restore(dst.p,firstPending,[note.versionId]),/待审核/);
+  assert(await dst.adapter.exists(firstPending.path));assert(!await dst.adapter.exists(note.path));
+  await receive(dst,first);
+  await src.write('History.md','version two');await src.write('Other.md','other new');
+  const second=await publish(src);await receive(dst,second);
+  const count=Object.keys(dst.p.v5218ContentAckState().generated).length;
+  await receive(dst,first,false);settle(dst,first.rec.name);
+  assert.equal((await dst.p.v604PrepareInbox()).find(x=>x.sha256===first.rec.sha256)?.state,'duplicate');
+  await dst.p.v604PrepareInbox();dst.p=await dst.restart();
+  assert(await dst.adapter.exists(firstPending.path));
+  assert.equal(Object.keys(dst.p.v5218ContentAckState().generated).length,count);
+  const ready=await api.readHistory(dst.p,firstPending.path);
+  assert.equal(new TextDecoder().decode(await api.historicalBytes(dst.p,ready.items[0])),'version one');
+  const before=dst.p.engine.state.known[note.path].versionId;
+  dst.p.finalizeConfirmedUpload=async()=>{throw Error('封装故障注入');};
+  await assert.rejects(api.restore(dst.p,ready,[note.versionId]),/封装故障注入/);
+  assert(await dst.adapter.exists(ready.path));
+  dst.p=await dst.restart();
+  const out=await api.restore(dst.p,ready,[note.versionId]);
+  assert.equal(out.cleanupError,'');assert(!await dst.adapter.exists(ready.path));
+  assert.equal(await dst.adapter.read(note.path),'version one');
+  assert.equal(await dst.adapter.read('Other.md'),'other new');
+  const result=dst.p.data.bundleRecords.find(x=>x.name===out.name);
+  assert.equal(result.versions.length,1);
+  const version=(await dst.p.engine._v605BaseLatest()).catalog.byPath[note.path].find(v=>v.versionId===result.versions[0].versionId);
+  assert.equal(version.parentVersionId,before);
+  const undo=dst.p.data.undoOperations.find(x=>x.kind==='历史版本恢复');
+  assert.equal(await dst.adapter.read(undo.items[0].backupPath),'version two');await dst.p.previewUndo(undo.id);
+  assert.equal(result.v611Recovery.sourceName,first.rec.name);
+  await receive(src,{rec:result,bytes:await dst.adapter.readBinary(result.stored.path)});
+  assert.equal(await src.adapter.read(note.path),'version one');
+  assert.equal(await src.adapter.read('Other.md'),'other new');
+  if(Source===Windows){
+    const info={path:path.join(src.base,'old-download.zip'),name:first.rec.name,size:first.bytes.length,mtime:1};
+    src.p.v5213GetDiscovery=async()=>({read:async()=>first.bytes,batch:async()=>({}),found:new Map()});src.p._v5213Stopped=false;
+    const outcome=await src.p.v5213ReceiveDiscovered(info,{manual:true});assert.equal(outcome.status,'received',outcome.error);
+  }else{
+    const inFile={...file(first),slice:()=>inFile};
+    const outcome=await src.p.importMobileChosenFiles([inFile]);assert.equal(outcome.copied,1);
+  }
+  assert(await src.adapter.exists(inbox+first.rec.name));settle(src,first.rec.name);
+  let own=(await src.p.v604PrepareInbox()).find(x=>x.path===inbox+first.rec.name);
+  assert.equal(own?.state,'own',own?.reason);
+  await src.p.v611ConfirmInboxCleanup(own);
+  assert(!await src.adapter.exists(inbox+first.rec.name));
+  checks.push('待导入包保护、取消与重启保留、原 ACK 不变、封装故障重试、备份撤销、后继同步、本机历史包归集与确认清理 '+(Receiver===Windows?'Windows':'Android'));
+}
+const find=(modal,tag,text)=>modal.contentEl.querySelectorAll(tag).find(node=>node.textContent===text);
+const click=async node=>{assert(node&&!node.disabled);await node.handlers.click({});};
+async function dialogs(){
+  const win=await host(Windows,A,'ConflictDesktop'),phone=await host(Mobile,B,'ConflictMobile');
+  await win.write('Conflict.md','Windows local');await phone.write('Conflict.md','Android local');
+  const original=await publish(phone);await receive(win,original,false);
+  const Panel=Windows.__testing.panel;
+  const panel=new Panel(win.p.app,win.p),dialog=Windows.__testing.v611.open(panel);await dialog.ready;
+  const sections=dialog.contentEl.querySelectorAll('details');
+  assert.deepEqual(sections.map(d=>d.querySelector('summary').textContent),['增量包历史版本','笔记历史版本','冲突管理']);
+  assert(sections.every(x=>!x.open));
+  sections[0].open=true;await sections[0].handlers.toggle();
+  assert(find(dialog,'button','从 inbox 导入历史增量包'));
+  assert(find(dialog,'button','查看记录'));
+  await click(find(dialog,'button','查看记录'));
+  assert(!win.p.app.openedModals.at(-1).contentEl.querySelector('pre'));
+  sections[2].open=true;await sections[2].handlers.toggle();
+  const details=find(dialog,'summary','查看差异').parentNode;
+  details.open=true;await details.handlers.toggle();
+  assert(find(dialog,'button','保留本机'));assert(find(dialog,'button','保留两份'));assert(find(dialog,'button','智能合并'));
+  await click(find(dialog,'button','采用对端'));await click(find(win.p.app.openedModals.at(-1),'button','确认处理'));
+  assert.equal(await win.adapter.read('Conflict.md'),'Android local');
+  const android=await host(Mobile,A,'ConflictReadOnly');await android.write('Conflict.md','local divergence');
+  await receive(android,original,false);
+  const mobileDialog=Mobile.__testing.v611.open(new Mobile.__testing.panel(android.p.app,android.p));await mobileDialog.ready;
+  const mobileSection=find(mobileDialog,'summary','冲突管理').parentNode;
+  mobileSection.open=true;await mobileSection.handlers.toggle();
+  const mobileDetails=find(mobileDialog,'summary','查看差异').parentNode;mobileDetails.open=true;await mobileDetails.handlers.toggle();
+  assert(mobileDialog.contentEl.textContent.includes('Android local'));
+  assert(!find(mobileDialog,'button','采用对端'));
+  checks.push('历史文件列表、反选和正文预览，Windows 冲突处理按钮及 Android 只读详情');
+}
+async function batchRestore(){
+  const src=await host(Windows,A,'Batch Source'),dst=await host(IOS,B,'Batch iPad');
+  await src.write('First.md','first original');const first=await publish(src);await receive(dst,first);
+  await src.write('Second.md','second original');const second=await publish(src);await receive(dst,second);
+  await src.write('First.md','first current');await src.write('Second.md','second current');
+  const third=await publish(src);await receive(dst,third);
+  await receive(dst,first,false);await receive(dst,second,false);
+  const api=IOS.__testing.v611,old1=await api.readHistory(dst.p,inbox+first.rec.name),old2=await api.readHistory(dst.p,inbox+second.rec.name);
+  const items=[old1.items.find(x=>x.path==='First.md'),old2.items.find(x=>x.path==='Second.md')];
+  const n=dst.p.data.bundleRecords.length;
+  assert.equal(await dst.adapter.read('First.md'),'first current');
+  const merged={...old1,items,sources:[old1,old2],sourceName:old1.sourceName+'、'+old2.sourceName,sha256:[old1.sha256,old2.sha256].sort().join(':')};
+  const out=await api.restore(dst.p,merged,items.map(x=>x.versionId));
+  const generated=dst.p.data.bundleRecords.at(-1),bytes=await dst.adapter.readBinary(out.path);
+  const inventory=JSON.parse(new TextDecoder().decode(IOS.__testing.tools.zipDecode(bytes).get('sync-inventory.json')));
+  assert.equal(generated.senderId,B);assert.equal(inventory.deviceId,B);assert.equal(dst.p.data.bundleRecords.length,n+1);
+  assert.deepEqual(generated.versions.map(x=>x.path).sort(),['First.md','Second.md']);
+  await receive(src,{rec:generated,bytes});
+  assert.equal(await src.adapter.read('First.md'),'first original');assert.equal(await src.adapter.read('Second.md'),'second original');
+  checks.push('iPad 从两个 Win1 旧包恢复两个正文，打成一个本机新包，再由 Win1 审核写入');
+}
+async function run(){
+  await scenario(Windows,Mobile);await scenario(Mobile,Windows);await dialogs();await batchRestore();
+  const w=await host(Windows,A,'InfoNames');const api=Windows.__testing.v611;
+  assert.match(api.inventoryName(w.p,new Date('2026-11-21T03:12:59Z')), /^inf-Tes1Win1-202611211112-[a-f0-9]{12}\.json$/);
+  assert.equal(api.inventoryShortName('inf-Tes1Win1-202611211112-01872a6b49ce.json'),'Win1');
+  assert.equal(api.inventoryShortName('VaultRelay-Inventory-Tes1Red1-20261121111259-01872a6b49ce.json'),'Red1');
+  const m=await host(Mobile,B,'InfoReceiver');await w.write('Info.md','inventory fixture');
+  const exported=await w.p.exportVaultInventory(),newName=path.basename(exported.path);
+  assert.match(newName,/^inf-Tes1Win1-\d{12}-[a-f0-9]{12}\.json$/);
+  const old=JSON.parse(new TextDecoder().decode(exported.content));delete old.deviceShortName;
+  await m.p.importVaultInventoryFile({name:newName,size:exported.content.length,arrayBuffer:async()=>exported.content});
+  assert.equal(m.p.data.vaultComparisonRemote.deviceShortName,'Win1');
+  const legacy=new TextEncoder().encode(JSON.stringify(old));
+  await m.p.importVaultInventoryFile({name:'VaultRelay-Inventory-Tes1Win1-20261121111259-01872a6b49ce.json',size:legacy.length,arrayBuffer:async()=>legacy});
+  assert.equal(m.p.data.vaultComparisonRemote.deviceShortName,'Win1');
+  checks.push('信息包北京时间精确到分钟，真实导出和两种文件名均能导入');
+  fs.writeFileSync(path.join(results,'v611-history.json'),JSON.stringify({status:'PASS',checks},null,2));
+  console.log('PASS '+checks.length+' history groups');
+}
+run().catch(e=>{console.error(e);process.exitCode=1;});

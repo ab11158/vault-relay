@@ -965,3 +965,36 @@
 .vr70-rule-fields[hidden]{display:none}
 .vr70-rule-fields label{display:grid;grid-template-columns:minmax(6em,auto) minmax(0,1fr);align-items:center;gap:8px}
 .vr70-rule-fields input{min-width:0;width:100%}
+
+/* 7.1 device settings, mixed review and inline history. */
+.vr71-devices{min-width:0}
+.vr71-device-row{display:grid;grid-template-columns:4em 3em minmax(5em,.7fr) 4.2em minmax(10em,1.5fr) auto;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--background-modifier-border)}
+.vr71-device-row input{width:100%;min-width:0;box-sizing:border-box}
+.vr71-device-row input[readonly]{color:var(--text-muted);font-family:var(--font-monospace)}
+.vr71-device-row button{white-space:normal;height:auto;min-height:32px}
+.vr71-private-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:12px 4px;border-bottom:1px solid var(--background-modifier-border);min-width:0}
+.vr71-private-row>label{display:flex;gap:8px;min-width:0;flex:1 1 70%;overflow-wrap:anywhere}
+.vr71-private-row .vr70-rule-fields{flex-basis:100%;width:100%;box-sizing:border-box}
+.vr71-packages{max-height:34vh;overflow:auto;overflow-wrap:anywhere}
+.vr71-packages label{display:flex;gap:8px;align-items:flex-start;min-width:0}
+.vr71-packages label input{flex:none;margin-top:4px}
+.vr71-packages strong{min-width:0;overflow-wrap:anywhere}
+.vr71-history-section>summary{font-size:var(--font-ui-medium);font-weight:600}
+.vr71-history-section .vr607-files{max-height:48vh;overflow:auto}
+.vr71-history-section .vr607-file,.vr611-history-ui details.vr607-file{display:block;min-width:0;overflow-wrap:anywhere}
+.vr71-history-section .vr607-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0}
+.vr71-history-section .vr607-zip-name{font-family:var(--font-monospace);overflow-wrap:anywhere}
+.vr71-history-section label{display:flex;gap:8px;min-width:0;flex:1 1 100%}
+.vr607-difference .vr607-file:has(.vr71-source){display:grid;grid-template-columns:minmax(0,1fr) auto}
+.vr607-difference .vr71-source{grid-column:1/-1;grid-row:2;margin:0;font-size:.83em;overflow-wrap:anywhere}
+.vr71-restricted pre{white-space:pre-wrap;overflow:auto;max-height:35vh}
+@media(max-width:640px){
+ .vr71-device-row{grid-template-columns:3.5em minmax(0,1fr) auto;gap:6px}
+ .vr71-device-row>strong{grid-column:1/-1}
+ .vr71-device-row>input[aria-label="简称"]{grid-column:2/-1}
+ .vr71-device-row button{grid-column:3;grid-row:3}
+ .vr70-rule-fields label{grid-template-columns:minmax(0,1fr)}
+ .vr70-rule-fields{padding-inline-start:0}
+ .vr71-history-section .vr607-actions button{white-space:normal;max-width:100%;height:auto;min-height:36px}
+ .vr607-difference .vr607-file-title{flex-wrap:wrap}
+}

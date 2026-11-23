@@ -1,9 +1,18 @@
-# Vault Relay 5.2.19 TEST
+# Vault Relay 7.1
 
-Obsidian 的 Windows、Android、iOS / iPadOS 增量同步插件，正式笔记须人工审核确认。
+通过共享群组和百度网盘同步 Obsidian 知识库。Windows、Android、iOS / iPadOS 使用同一插件；正式笔记的写入与删除须在审核页确认。
 
-一次传输一个 ZIP，包含内容与待回传 ACK／ACK-R；无新内容时反馈暂存。重复下载按完整 SHA 识别，下载时间提示配合网盘实际上传时间选择文件。知识库管理提供增量包配对及多终端同步记录比对；Android 扫描支持勾选审核、停止继续搜索并完成已找到文件的检查。
+7.1 为真机测试预发布版。新增设备管理和隐私自动保存，普通与受限笔记合为一个增量 ZIP；支持接收包多选、删除、归档及按当前授权恢复历史正文。
 
-通过 BRAT 添加 `ab11158/vault-relay`，或安装 Release 的 PluginOnly ZIP。插件 ID 为 `vault-relay-v4`；升级只替换三个插件文件，保留本机 data.json、群组、独立设备身份及账本。所有参与终端需升级到5.2.19，旧版不能处理新版内容 ACK 与 R。
+## 安装或升级
 
-使用说明见 USER-GUIDE.md，自动验证与限制见 TEST-STATUS.md。内容 ACK 保存在同步账本并随下一内容 ZIP 合包；收到的 ACK 与 ACK-R 在登记或合包证据保存后自动清理原件。增量包管理采用三个独立滚动区。Windows 发送包回收保护与移动端只读规则维持不变。未完整导入的内容包保留，网盘与百度同步目录原件保护。实际目录拼写迁移留待正式版。
+从 GitHub 的 7.1 发布页下载 VaultRelay-7.1-PluginOnly.zip。退出 Obsidian 后，将包中 vault-relay-v4 文件夹的三个文件放入知识库的 .obsidian/plugins/vault-relay-v4/，重新启用插件。升级时保留原 data.json，勿删除整个插件目录。
+
+- [操作指南](USER-GUIDE.md)
+- [隐私与授权](PRIVACY.md)
+- [注意事项](PRECAUTIONS.md)
+- [Apple 设备安装](APPLE-INSTALL.md)
+- [7.1 更新说明](RELEASE-7.1.md)
+- [测试状态](TEST-STATUS.md)
+
+最低 Obsidian 版本为 1.5.0。7.0 发布及其附件保持原样。

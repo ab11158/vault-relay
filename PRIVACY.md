@@ -1,17 +1,11 @@
-# Privacy and data access — 5.2.12 TEST
+# Vault Relay 7.1 隐私与授权
 
-This build does not add a developer account, payment integration, subscription server or analytics service. Notes are not sent to a developer-operated storage service.
+隐私规则按群组和本机设备身份保存。每篇受限笔记分别设置开放对象和接受更新对象。公开设备 ID 仅用于标识设备，不是密码，也不用于推算内容密钥。
 
-The plugin reads local vault content and writes transfer metadata, device/group identities, version and ACK ledgers, backups and operation logs in the vault. Formal note changes require user review and confirmation. When sharing an exported file, a temporary cache copy may be created by an available native host bridge.
+每次生成受限内容时，为每篇笔记产生随机 AES-GCM 内容密钥，通过已核验设备的 RSA-OAEP 公钥分别封装，并使用设备签名核对来源。随包信息仅携带密文与封装后的密钥，不携带可直接使用的明文内容密钥。正文与私密文件名处于密文区；完全不开放的笔记不进入共享清单。
 
-Baidu Netdisk transfer is handled through the user's configured local sync folder, browser, app or OS share sheet. Baidu and any OS document provider handle data according to their own terms. Cloud delivery is not inferred from opening a page or sharing a file.
+设备名片和指纹应通过可信渠道核对。仅填写设备 ID 不会自动信任该设备。设备私钥和本机规则保存在本机插件数据中，请保护知识库和备份；设备数据丢失可能失去历史密文的读取能力。
 
-On iOS/iPadOS the user selects external ZIP/ACK files in the system Files picker. The plugin copies verified files to its vault transfer area and preserves external originals. On Android the host may expose user-readable download folders; on desktop a configured sync directory is accessed outside the vault.
+接收端解密后仍检查当前「接受谁更新」规则，并要求人工确认。历史恢复仅取用旧正文，重新检查当前身份、接收与开放规则，并生成新密钥。已被授权设备解密取得的旧内容无法远程撤回。
 
-If installed using BRAT, BRAT contacts GitHub to retrieve plugin updates. This build does not introduce its own plugin updater. Adding payment or authorization later requires updated disclosures.
-
-This preparation does not publish any real vault data, device configuration, payment credentials or test artifacts.
-
-The optional synchronization-space destination is stored locally per group. Opening it uses the system HTTPS browser interface; no Baidu credentials, API tokens or cloud directory migration are added.
-
-5.2.12 stores an explicitly chosen cloud directory locally per group. Legacy directory fields remain unchanged. URL parsing and workspace-prefix handling run locally; opening a directory uses the system HTTPS browser. No cloud API credentials, automatic migration or device configuration sharing is added.
+本机操作日志、备份与历史区可能含有本机可读的路径或正文；发送给其他人的增量包和共享清单不等同于本机备份。除非主动上传或分享，插件不会替用户发送日志或备份。
