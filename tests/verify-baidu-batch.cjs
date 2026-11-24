@@ -88,6 +88,48 @@ async function test(){
     for(const note of notes)assert(!await target.adapter.exists(note));
   }
 
+  const picked=await host(Windows,B,'Win2');
+  const picker=reviewUI(picked,Windows);
+  picker.render=()=>{};
+  await picked.adapter.mkdir('browser-downloads');
+  const source='browser-downloads/'+archiveName;
+  await picked.adapter.writeBinary(source,wrapped);
+  await picker.receiveTransferFiles([{
+    name:archiveName,size:wrapped.length,arrayBuffer:()=>picked.adapter.readBinary(source)
+  }]);
+  assert.deepEqual(picked.p._vrReviewModal?._v71Selected,expected);
+  assert(button(picked.p._vrReviewModal,'预览确认处理（2）'));
+  assert.equal(sha(await picked.adapter.readBinary(source)),sha(wrapped));
+  for(const note of notes)assert(!await picked.adapter.exists(note));
+
+  const found=await host(Windows,B,'Win2');
+  reviewUI(found,Windows);
+  // Discovery excludes AppData, where the other temporary vaults live on Windows.
+  const downloadRoot=await fs.promises.mkdtemp(path.join(__dirname,'.batch-download-'));
+  const downloadedFile=path.join(downloadRoot,archiveName);
+  const {Discovery,isBaiduBatch}=Windows.__testing.v5213;
+  const service=new Discovery({fs:fs.promises,path,roots:[downloadRoot],
+    looksLike:isBaiduBatch,now:()=>Date.now()+5000});
+  try{
+    found.p.v603BeginDownload();
+    found.p.v603DownloadLeft();
+    found.p._v603Download.returned=true;
+    await fs.promises.writeFile(downloadedFile,wrapped);
+    found.p.v5213GetDiscovery=async()=>service;
+    found.p.scheduleReadOnlyReview=()=>assert.deepEqual(new Set(found.p._v603Download.files.values()),expected);
+    const discovered=await found.p.v5213Discover({receive:true});
+    assert.equal(discovered.candidates,1);
+    assert.deepEqual(new Set(found.p._v603Download.files.values()),expected);
+    await found.p.showReviewAfterReceive({reason:'automatic'});
+    assert.deepEqual(found.p._vrReviewModal?._v71Selected,expected);
+    assert.equal(sha(await fs.promises.readFile(downloadedFile)),sha(wrapped));
+    for(const note of notes)assert(!await found.adapter.exists(note));
+  }finally{
+    await service.stop();
+    await fs.promises.rm(downloadedFile,{force:true});
+    await fs.promises.rmdir(downloadRoot);
+  }
+
   const partialTarget=await host(Windows,B,'Win2');
   const partial=await pack([[key(first),first.bytes],[key(second),new Uint8Array(44)]]);
   await partialTarget.adapter.writeBinary(DBOX+archiveName,partial);
@@ -182,6 +224,6 @@ async function test(){
     console.log('PASS real Baidu ZIP wrapper');
   }
   delete global.document;
-  console.log('PASS Dbox ZIP recognition, wrapper deletion before inbox, review, and retries');
+  console.log('PASS Windows picker and discovery, Dbox batch review, source preservation, and retries');
 }
 test().catch(error=>{console.error(error);process.exitCode=1;});
