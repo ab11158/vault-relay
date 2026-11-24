@@ -1,4 +1,63 @@
-// Formal files must enter the live Vault index before an import is confirmed.
+// Shared by every Vault Relay modal. Preferences stay on this device.
+const VR78Dialogs=(()=>{
+  const key='vault-relay.dialog-size.v1',defaults={width:92,height:88},active=new Set();
+  let preference=null;
+  const clean=value=>({width:Math.max(45,Math.min(100,Number(value?.width)||defaults.width)),height:Math.max(35,Math.min(100,Number(value?.height)||defaults.height))});
+  function read(){if(!preference){try{preference=clean(JSON.parse(globalThis.localStorage.getItem(key)));}catch(_){preference={...defaults};}}return preference;}
+  function save(value,persist=true){preference=clean(value);if(persist)try{globalThis.localStorage.setItem(key,JSON.stringify(preference));}catch(_){}for(const item of active)item.apply();}
+  function mount(modal){
+    if(modal._vr78Size)return;
+    const root=modal.modalEl,content=modal.contentEl,doc=root?.ownerDocument,win=doc?.defaultView;
+    if(!root?.style||!content?.parentNode||!doc||!win)return;
+    root.classList.add('vr78-dialog');
+    const viewport=()=>({width:Math.max(1,Math.min(win.innerWidth,win.visualViewport?.width||win.innerWidth)-24),height:Math.max(1,Math.min(win.innerHeight,win.visualViewport?.height||win.innerHeight)-24)});
+    function apply(){
+      const value=read(),bounds=viewport();
+      root.style.setProperty('--vr78-dialog-width',Math.round(bounds.width*value.width/100)+'px');
+      root.style.setProperty('--vr78-dialog-height',Math.round(bounds.height*value.height/100)+'px');
+      root.style.setProperty('--vr78-available-width',bounds.width+'px');root.style.setProperty('--vr78-available-height',bounds.height+'px');
+    }
+    const handles=[];let drag=null;
+    for(const [axis,title] of [['right','拖动调整窗口宽度'],['bottom','拖动调整窗口高度'],['corner','拖动调整窗口大小；双击恢复默认']]){
+      const handle=doc.createElement('div');handle.className='vr78-resize vr78-resize-'+axis;handle.tabIndex=0;handle.setAttribute('role','button');handle.setAttribute('aria-label',title);handle.title=title;root.append(handle);handles.push(handle);
+      handle.addEventListener('pointerdown',event=>{
+        if(event.button!==0||drag)return;
+        event.preventDefault();event.stopPropagation();
+        const rect=root.getBoundingClientRect();drag={id:event.pointerId,handle,axis,x:event.clientX,y:event.clientY,width:rect.width,height:rect.height};
+        root.classList.add('vr78-resizing');try{handle.setPointerCapture(event.pointerId);}catch(_){}
+      });
+      handle.addEventListener('keydown',event=>{
+        const value={...read()},step=event.shiftKey?10:2;
+        if(event.key==='Home')save(defaults);
+        else if(['ArrowLeft','ArrowRight'].includes(event.key)&&axis!=='bottom'){value.width+=event.key==='ArrowRight'?step:-step;save(value);}
+        else if(['ArrowUp','ArrowDown'].includes(event.key)&&axis!=='right'){value.height+=event.key==='ArrowDown'?step:-step;save(value);}
+        else return;
+        event.preventDefault();event.stopPropagation();
+      });
+      handle.addEventListener('dblclick',event=>{event.preventDefault();save(defaults);});
+    }
+    const move=event=>{
+      if(!drag||event.pointerId!==drag.id)return;
+      event.preventDefault();const bounds=viewport(),value={...read()};
+      // Modal stays centered, so each edge moves by half the size change.
+      if(drag.axis!=='bottom')value.width=Math.max(Math.min(240,bounds.width),drag.width+2*(event.clientX-drag.x))/bounds.width*100;
+      if(drag.axis!=='right')value.height=Math.max(Math.min(180,bounds.height),drag.height+2*(event.clientY-drag.y))/bounds.height*100;
+      save(value,false);
+    };
+    function finish(event){
+      if(!drag||event&&event.pointerId!==drag.id)return;
+      const previous=drag;drag=null;root.classList.remove('vr78-resizing');try{previous.handle.releasePointerCapture(previous.id);}catch(_){}save(read());
+    }
+    win.addEventListener('pointermove',move,{passive:false});win.addEventListener('pointerup',finish);win.addEventListener('pointercancel',finish);
+    for(const handle of handles)handle.addEventListener('lostpointercapture',finish);
+    win.addEventListener('resize',apply);win.visualViewport?.addEventListener('resize',apply);
+    const state={apply,destroy(){finish();active.delete(state);win.removeEventListener('pointermove',move);win.removeEventListener('pointerup',finish);win.removeEventListener('pointercancel',finish);win.removeEventListener('resize',apply);win.visualViewport?.removeEventListener('resize',apply);for(const handle of handles)handle.remove();root.classList.remove('vr78-dialog');delete modal._vr78Size;}};
+    active.add(state);modal._vr78Size=state;apply();
+  }
+  function unmount(modal){modal._vr78Size?.destroy();}
+  return {mount,unmount};
+})();
+
 const VR761Vault=(()=>{
   const buffer=raw=>{const b=new Uint8Array(raw);return b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength);};
   function markdown(path,raw){
@@ -71,11 +130,11 @@ function VR603Notice(Base){
 }
 function VR603Modal(Base){
  return class extends Base{
-  open(...args){const result=super.open(...args);if(typeof MutationObserver!=='undefined'&&this.contentEl){
+  open(...args){VR78Dialogs.mount(this);let result;try{result=super.open(...args);}catch(e){VR78Dialogs.unmount(this);throw e;}if(typeof MutationObserver!=='undefined'&&this.contentEl&&this.modalEl?.isConnected){
     this._v603Observer?.disconnect();let queued=false;const update=()=>{if(queued)return;queued=true;Promise.resolve().then(()=>{queued=false;if(this.modalEl?.isConnected)VR603.enhanceLists(this.contentEl,this);});};
     this._v603Observer=new MutationObserver(update);this._v603Observer.observe(this.contentEl,{childList:true,subtree:true});update();
    }return result;}
-  close(...args){this._v603Observer?.disconnect();this._v603Observer=null;return super.close(...args);}
+  close(...args){VR78Dialogs.unmount(this);this._v603Observer?.disconnect();this._v603Observer=null;return super.close(...args);}
  };
 }
 
@@ -2503,19 +2562,6 @@ function createUnifiedPanel() {
       // Size the modal against the actual Obsidian host window/phone viewport;
       // never assume a desktop width or force a fixed number of columns.
       this.modalEl?.addClass?.('vru-control-modal','vr73-console');
-      if(Platform.isDesktopApp&&this.modalEl?.style?.setProperty){
-        const width=Math.max(520,Math.min(1100,Number(this.plugin.data.desktopPanelWidthPx)||680));
-        this.modalEl.style.setProperty('--vr-console-width',width+'px');
-        this.modalEl.addEventListener?.('pointerup',()=>{
-          const actual=Math.round(this.modalEl.getBoundingClientRect?.().width||0);
-          if(actual>=520&&actual<=1100 &&
-             Math.abs(actual-(this.plugin.data.desktopPanelWidthPx||680))>=10){
-            this.plugin.data.desktopPanelWidthPx=actual;
-            this.modalEl.style.setProperty('--vr-console-width',actual+'px');
-            void this.plugin.persistTransport();
-          }
-        });
-      }
       this.plugin._vrControlPanel=this;this.plugin.v603ConsoleOpened?.(this);
       if(this.plugin._v525)this._v525Unsubscribe=this.plugin._v525.refresh.subscribe(()=>{
         if(this.plugin._vrControlPanel===this&&!this.active)
@@ -3007,26 +3053,6 @@ function createUnifiedPanel() {
       const shownVersion=parts?parts[1]+'.'+parts[2].padStart(2,'0'):version;
       ele(headline,'h2','Vault Relay V'+shownVersion+' · 同步控制台');
       ele(c,'p',shownVersion+' · '+device()+" · 增量同步 / 版本保护 / 内容 ZIP 与 回执",'vru-subtitle');
-      if(Platform.isDesktopApp){
-        const size=ele(c,'div',null,'vru-width-controls');
-        const widthLabel=ele(size,'label','窗口宽度','vru-width-label');
-        const adjust=ele(size,'input');adjust.type='range';adjust.min='520';adjust.max='1100';
-        adjust.step='10';adjust.value=String(p.data.desktopPanelWidthPx||680);
-        const px=ele(size,'span',adjust.value+' px','vru-width-value');
-        adjust.setAttribute?.('aria-label','调整 Windows 控制台宽度');
-        adjust.addEventListener('input',()=>{
-          px.textContent=adjust.value+' px';
-          this.modalEl?.style?.setProperty?.('--vr-console-width',adjust.value+'px');
-        });
-        adjust.addEventListener('change',async()=>{
-          p.data.desktopPanelWidthPx=Number(adjust.value);await p.persistTransport();
-        });
-        button(size,'恢复默认宽度',async()=>{
-          adjust.value='680';px.textContent='680 px';
-          this.modalEl?.style?.setProperty?.('--vr-console-width','680px');
-          p.data.desktopPanelWidthPx=680;await p.persistTransport();
-        });
-      }
       // Place Help on its own permanent row. Some Obsidian desktop themes
       // can clip a flexible heading's trailing button even when it exists.
       // This entry must remain visible regardless of which main pane is open.
@@ -17990,3 +18016,5 @@ const VR73Zoom=(()=>{
 module.exports.__testing.v73Zoom=VR73Zoom;
 
 module.exports.__testing.v761={vault:VR761Vault,upload:VR761Upload};
+
+module.exports.__testing.v78={dialogs:VR78Dialogs};

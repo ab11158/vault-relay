@@ -623,39 +623,6 @@
   .vru-comparison-modal .vru-comparison-list {max-height:42dvh;min-height:160px;}
 }
 
-/* V5.2.0 — Windows adjustable console width. The native Obsidian modal is
-   resized within the current host window, not relative to a fixed vault path.
-   The slider is a reliable alternative if a theme hides the CSS resize grip. */
-@media (min-width:641px) {
-  .vru-control-modal {
-    width:min(var(--vr-console-width,680px),calc(100vw - 32px));
-    max-width:min(1100px,calc(100vw - 32px))!important;
-    min-width:min(520px,calc(100vw - 32px));
-    resize:horizontal;
-    overflow:auto;
-  }
-}
-.vru-width-controls {
-  display:flex;align-items:center;flex-wrap:wrap;
-  gap:8px;margin:4px 0 12px;
-  font-size:12px;color:var(--text-muted);
-}
-.vru-width-controls input[type=range] {
-  flex:1 1 130px;width:auto;min-width:90px;max-width:260px;
-}
-.vru-width-controls .vru-width-value {
-  min-width:50px;font-variant-numeric:tabular-nums;
-}
-.vru-control-modal .vru-width-controls > .vru-button {
-  width:auto;max-width:160px;flex:0 0 auto;
-  min-height:32px;min-width:0;padding:5px 10px;
-  margin:0;font-size:12px;
-}
-@media (max-width:640px) {
-  .vru-width-controls {display:none!important;}
-  .vru-control-modal {resize:none;}
-}
-
 /* V5.2.0 — optional import subfolder. Current vault root is the default. */
 .vru-optional-folder {
   margin:8px 0;padding:8px 10px;
@@ -1052,3 +1019,49 @@
   .vr761-upload-content > .vr2-summary {font-size:13px;line-height:1.5;padding:6px 8px;margin:6px 0}
   .vr761-upload-content > .vr2-help {font-size:12px;line-height:1.5;margin:6px 0}
 }
+
+/* Explicit dimensions survive host themes that disable native checkbox appearance. */
+.vr78-dialog input[type=checkbox],
+.vr761-upload-content .vr2-review-item > label > input[type=checkbox] {
+  appearance:none!important;-webkit-appearance:none!important;box-sizing:border-box!important;
+  display:inline-block!important;position:relative!important;flex:0 0 20px!important;
+  width:20px!important;min-width:20px!important;max-width:20px!important;
+  height:20px!important;min-height:20px!important;max-height:20px!important;
+  inline-size:20px!important;block-size:20px!important;
+  margin:2px 0 0!important;padding:0!important;border:2px solid var(--text-muted,#6b6b6b)!important;
+  border-radius:4px!important;background:var(--background-primary,#fff)!important;
+  box-shadow:none!important;opacity:1!important;cursor:pointer;vertical-align:middle;
+}
+.vr78-dialog input[type=checkbox]:checked,
+.vr761-upload-content .vr2-review-item > label > input[type=checkbox]:checked {
+  border-color:var(--interactive-accent,#8055d9)!important;background-color:var(--interactive-accent,#8055d9)!important;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4 10l4 4 8-9' fill='none' stroke='white' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")!important;
+  background-position:center!important;background-repeat:no-repeat!important;background-size:16px 16px!important;
+}
+.vr78-dialog input[type=checkbox]::before,.vr78-dialog input[type=checkbox]::after,
+.vr761-upload-content .vr2-review-item > label > input[type=checkbox]::before,
+.vr761-upload-content .vr2-review-item > label > input[type=checkbox]::after {content:none!important;display:none!important}
+.vr78-dialog input[type=checkbox]:disabled,
+.vr761-upload-content .vr2-review-item > label > input[type=checkbox]:disabled {opacity:.6!important;cursor:not-allowed}
+.vr78-dialog input[type=checkbox]:focus-visible,
+.vr761-upload-content .vr2-review-item > label > input[type=checkbox]:focus-visible {outline:2px solid var(--interactive-accent,#8055d9)!important;outline-offset:3px!important}
+.vr761-upload-content .vr2-review-item > label {min-height:28px;align-items:flex-start;cursor:pointer}
+
+/* Resize every plugin modal directly at its edges, outside refreshed content. */
+.modal.vr78-dialog {
+  position:relative!important;display:flex!important;flex-direction:column!important;box-sizing:border-box!important;
+  width:var(--vr78-dialog-width)!important;height:var(--vr78-dialog-height)!important;
+  max-width:var(--vr78-available-width)!important;max-height:var(--vr78-available-height)!important;
+  min-width:min(240px,var(--vr78-available-width))!important;min-height:min(180px,var(--vr78-available-height))!important;
+  margin:auto!important;overflow:hidden!important;resize:none!important;
+}
+.modal.vr78-dialog > .modal-content {flex:1 1 0!important;min-width:0!important;min-height:0!important;max-width:100%!important;max-height:none!important;overflow:auto!important;overscroll-behavior:contain;padding-bottom:30px}
+.vr78-resize {position:absolute!important;z-index:10;touch-action:none;user-select:none;-webkit-user-select:none;outline-offset:-3px}
+.vr78-resize-right {right:0;top:40px;bottom:30px;width:10px;cursor:ew-resize}
+.vr78-resize-bottom {bottom:0;left:12px;right:30px;height:10px;cursor:ns-resize}
+.vr78-resize-corner {right:0;bottom:0;width:30px;height:30px;cursor:nwse-resize}
+.vr78-resize-corner::after {content:'';position:absolute;right:6px;bottom:6px;width:13px;height:13px;background:repeating-linear-gradient(135deg,transparent 0 3px,var(--text-muted,#777) 3px 5px,transparent 5px 7px);clip-path:polygon(100% 0,100% 100%,0 100%);opacity:.8;pointer-events:none}
+.vr78-resize:focus-visible {outline:2px solid var(--interactive-accent,#8055d9)}
+.vr78-resizing,.vr78-resizing * {user-select:none!important;-webkit-user-select:none!important}
+@media (pointer:coarse) {.vr78-resize-right {width:12px}.vr78-resize-bottom {height:12px}.vr78-resize-corner {width:36px;height:36px}}
+@media (forced-colors:active) {.vr78-dialog input[type=checkbox] {appearance:auto!important;-webkit-appearance:auto!important}}
