@@ -69,7 +69,10 @@ async function testCollection(){
   await setDownloaded(ipad,corrupt,new Uint8Array(45));
   const failed=await ipad.p.vrCollectDbox();
   assert.equal(failed.errors,1);
-  assert(await ipad.adapter.exists(corrupt));
+  assert(!await ipad.adapter.exists(corrupt));
+  const [issue]=ipad.p.vrDownloadIssues().values();
+  assert.equal(issue.name,packet.rec.name);
+  assert.equal(sha(await ipad.adapter.readBinary(issue.path)),sha(new Uint8Array(45)));
   assert(!await ipad.adapter.exists(IN+packet.rec.name));
 }
 

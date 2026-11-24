@@ -71,8 +71,13 @@ async function host(P,id,name,initial){
  const workspaceEvents=new Map(),layouts=[];
  const app={vault,openedModals:[],workspace:{on:(event,fn)=>{workspaceEvents.set(event,fn);return {};},onLayoutReady:fn=>layouts.push(fn)},plugins:{plugins:{}}};
  const p=new P(app);p.loadData=async()=>JSON.parse(JSON.stringify(saved));p.saveData=async d=>{saved=JSON.parse(JSON.stringify(d));};
- await p.onload();if(p._mobileScanTimer)clearTimeout(p._mobileScanTimer);
- return {p,base,abs,adapter,files,workspaceEvents,layouts,saved:()=>saved,restart:async()=>{const next=new P(app);next.loadData=p.loadData;next.saveData=p.saveData;await next.onload();return next;},write:async(p,s)=>{await fs.promises.mkdir(path.dirname(abs(p)),{recursive:true});await fs.promises.writeFile(abs(p),s);}};
+ const start=async plugin=>{
+   plugin.v5213InitDiscovery=()=>{}; // Test disk discovery explicitly against isolated fixtures.
+   await plugin.onload();if(plugin._mobileScanTimer)clearTimeout(plugin._mobileScanTimer);
+   return plugin;
+ };
+ await start(p);
+ return {p,base,abs,adapter,files,workspaceEvents,layouts,saved:()=>saved,restart:async()=>{const next=new P(app);next.loadData=p.loadData;next.saveData=p.saveData;return start(next);},write:async(p,s)=>{await fs.promises.mkdir(path.dirname(abs(p)),{recursive:true});await fs.promises.writeFile(abs(p),s);}};
 }
 async function publish(h){
  const q=await h.p.engine.previewUpload();assert.equal(q.errors.length,0);assert.equal(q.catalogWarnings.length,0);

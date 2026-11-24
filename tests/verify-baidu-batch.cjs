@@ -56,8 +56,11 @@ async function test(){
   windows.p.v603BeginDownload();windows.p.v603DownloadLeft();
   await windows.adapter.writeBinary(DBOX+archiveName,wrapped);
   windows.p.scheduleReadOnlyReview=()=>assert.deepEqual(new Set(windows.p._v603Download.files.values()),expected);
-  windows.p.v613WindowsReturned();
-  const received=await windows.p._vrDboxScan;
+  const collectDbox=windows.p.vrCollectDbox.bind(windows.p);
+  let received;
+  windows.p.vrCollectDbox=async()=>received=await collectDbox();
+  windows.p.v615CollectDesktopDownloads=async()=>{};
+  await windows.p.v613WindowsReturned();
   assert.equal(received.errors,0);
   assert.equal(received.acceptedZips.length,2);
   assert(removed);
@@ -115,7 +118,17 @@ async function test(){
   const mtime=Date.now()-6000;
   android.p.mobileCapacitorFilesystem=()=>({});
   android.p.getMobileDownloadEntries=async directory=>
-    directory.endsWith('/Download/BaiduNetdisk/')?[downloaded]:[];
+    directory.endsWith('/Download/BaiduNetdisk/')&&await android.adapter.exists(androidSource)?[downloaded]:[];
+  const androidRead=android.p.v5217SourceRead.bind(android.p);
+  const androidDelete=android.p.v5217SourceDelete.bind(android.p);
+  const androidExists=android.p.v5217SourceExists.bind(android.p);
+  android.p.v5217SourceRead=async source=>source.kind==='android'?android.adapter.readBinary(androidSource):androidRead(source);
+  android.p.v5217SourceDelete=async source=>{
+    if(source.kind!=='android')return androidDelete(source);
+    for(const packet of [first,second])assert.equal(sha(await android.adapter.readBinary(IN+packet.rec.name)),sha(packet.bytes));
+    await android.adapter.remove(androidSource);
+  };
+  android.p.v5217SourceExists=async source=>source.kind==='android'?android.adapter.exists(androidSource):androidExists(source);
   android.p.readMobileDownloadEntry=async()=>({
     mtime,size:wrapped.length,file:{name:archiveName,size:wrapped.length,arrayBuffer:()=>android.adapter.readBinary(androidSource)}
   });
@@ -125,8 +138,8 @@ async function test(){
   await android.p.reviewMobileScanResult(androidScan);
   assert.deepEqual(android.p._vrReviewModal?._v71Selected,expected);
   for(const note of notes)assert(!await android.adapter.exists(note));
-  assert.equal((await android.p.scanMobileReception({reason:'console',notify:false})).local.acceptedZips.length,0);
-  assert.equal(sha(await android.adapter.readBinary(androidSource)),sha(wrapped));
+  assert.equal((await android.p.scanMobileReception({reason:'console',notify:false})).source.acceptedZips.length,0);
+  assert(!await android.adapter.exists(androidSource),'Android should remove the wrapper after the inbox copies are verified');
 
   const picked=await host(Windows,B,'Win2');
   const picker=reviewUI(picked,Windows);
@@ -155,6 +168,7 @@ async function test(){
     found.p.v603DownloadLeft();
     found.p._v603Download.returned=true;
     await fs.promises.writeFile(downloadedFile,wrapped);
+    found.p.data.windowsDownloadDir=downloadRoot;
     found.p.v5213GetDiscovery=async()=>service;
     found.p.scheduleReadOnlyReview=()=>assert.deepEqual(new Set(found.p._v603Download.files.values()),expected);
     const discovered=await found.p.v5213Discover({receive:true});
@@ -162,13 +176,126 @@ async function test(){
     assert.deepEqual(new Set(found.p._v603Download.files.values()),expected);
     await found.p.showReviewAfterReceive({reason:'automatic'});
     assert.deepEqual(found.p._vrReviewModal?._v71Selected,expected);
-    assert.equal(sha(await fs.promises.readFile(downloadedFile)),sha(wrapped));
+    await assert.rejects(fs.promises.stat(downloadedFile),{code:'ENOENT'});
+    for(const packet of [first,second])assert.equal(sha(await found.adapter.readBinary(IN+packet.rec.name)),sha(packet.bytes));
     for(const note of notes)assert(!await found.adapter.exists(note));
   }finally{
     await service.stop();
     await fs.promises.rm(downloadedFile,{force:true});
     await fs.promises.rmdir(downloadRoot);
   }
+
+  const wholeDisk=await host(Windows,B,'Win2');
+  reviewUI(wholeDisk,Windows);
+  const diskRoot=await fs.promises.mkdtemp(path.join(__dirname,'.review-drive-'));
+  const outsideDownloads=path.join(diskRoot,'Archive',second.rec.name);
+  const otherTransfer=path.join(diskRoot,'test1','VaultRelay-Transfer');
+  const ignoredDirs=['Dbox','inbox','outgoing'].map(name=>path.join(otherTransfer,name));
+  try{
+    await fs.promises.mkdir(path.dirname(outsideDownloads));
+    await fs.promises.writeFile(outsideDownloads,second.bytes);
+    const old=new Date('2020-01-01T00:00:00Z');
+    await fs.promises.utimes(outsideDownloads,old,old);
+    for(const dir of ignoredDirs){
+      await fs.promises.mkdir(dir,{recursive:true});
+      const ignored=path.join(dir,first.rec.name);
+      await fs.promises.writeFile(ignored,first.bytes);
+      await fs.promises.utimes(ignored,old,old);
+    }
+    wholeDisk.p.v5213GetDiscovery=async()=>({roots:[diskRoot]});
+    await wholeDisk.p.showReviewAfterReceive({reason:'manual-review',forceOpen:true});
+    assert.deepEqual(wholeDisk.p._vrReviewModal?._v71Selected,new Set([sha(second.bytes)]));
+    assert(button(wholeDisk.p._vrReviewModal,'预览确认处理（1）'));
+    assert.equal(sha(await fs.promises.readFile(outsideDownloads)),sha(second.bytes));
+    assert(!await wholeDisk.adapter.exists(notes[1]));
+    for(const dir of ignoredDirs)assert.equal(sha(await fs.promises.readFile(path.join(dir,first.rec.name))),sha(first.bytes));
+  }finally{
+    for(const dir of ignoredDirs){
+      await fs.promises.rm(path.join(dir,first.rec.name),{force:true});
+      await fs.promises.rmdir(dir);
+    }
+    await fs.promises.rmdir(otherTransfer);
+    await fs.promises.rmdir(path.dirname(otherTransfer));
+    await fs.promises.rm(outsideDownloads,{force:true});
+    await fs.promises.rmdir(path.dirname(outsideDownloads));
+    await fs.promises.rmdir(diskRoot);
+  }
+
+  const returning=await host(Mobile,B,'Red1');
+  reviewUI(returning,Mobile);
+  returning.p.v603BeginDownload();
+  returning.p.v603DownloadLeft();
+  returning.p._v603Download.at-=24*3600*1000;
+  const alias=first.rec.name.replace(/\.zip$/, ' (1).zip');
+  returning.p.mobileCapacitorFilesystem=()=>({});
+  returning.p.data.mobileExtraSources=['/storage/emulated/0/Other/VaultRelay-Transfer/inbox/','/storage/emulated/0/Other/VaultRelay-Transfer/outgoing/'];
+  const visited=[];
+  returning.p.getMobileDownloadEntries=async directory=>{
+    visited.push(directory);
+    const tree=new Map([['/storage/emulated/0/','Archive'],['/storage/emulated/0/Archive/','Year'],
+      ['/storage/emulated/0/Archive/Year/','Backup']]);
+    const localDir=directory.replace('file://','');
+    if(tree.has(localDir))return [{name:tree.get(localDir),isDirectory:true}];
+    return localDir.endsWith('/Archive/Year/Backup/')?[{name:alias,isFile:true}]:[];
+  };
+  returning.p.readMobileDownloadEntry=async()=>({mtime,size:first.bytes.length,file:input(alias,first.bytes)});
+  await returning.p.scanMobileReception({reason:'return',notify:false});
+  assert(!visited.some(dir=>dir.includes('/Other/VaultRelay-Transfer/')));
+  const automatic=returning.p._vrReviewModal;
+  const automaticPlan=automatic?.plan.items.map(item=>[item.path,item.status]);
+  const manuallyChosen=await returning.p.importMobileChosenFiles([input(alias,first.bytes)]);
+  await returning.p.v614OpenSelectedReview(manuallyChosen.paths);
+  const manualPlan=returning.p._vrReviewModal?.plan.items.map(item=>[item.path,item.status]);
+  assert(manualPlan?.some(([note,status])=>note===notes[0]&&status==='create'));
+  assert.deepEqual(automaticPlan,manualPlan,'Returning and picking the same downloaded copy should show the same plan');
+  assert(!await returning.adapter.exists(notes[0]));
+
+  const iosArchive=await host(IOS,B,'Ios1');
+  reviewUI(iosArchive,IOS);
+  const localCopy='Archive/Old/'+first.rec.name;
+  await iosArchive.adapter.mkdir('Archive/Old');
+  await iosArchive.adapter.writeBinary(localCopy,first.bytes);
+  const foreign='Archive/Other/VaultRelay-Transfer/outgoing';
+  await iosArchive.adapter.mkdir(foreign);
+  await iosArchive.adapter.writeBinary(foreign+'/'+second.rec.name,second.bytes);
+  fs.utimesSync(iosArchive.abs(localCopy),new Date('2020-01-01'),new Date('2020-01-01'));
+  await iosArchive.p.showReviewAfterReceive({reason:'manual-review',forceOpen:true});
+  assert.deepEqual(iosArchive.p._vrReviewModal?._v71Selected,new Set([sha(first.bytes)]));
+  assert.equal(sha(await iosArchive.adapter.readBinary(localCopy)),sha(first.bytes));
+  assert(!await iosArchive.adapter.exists(notes[0]));
+
+  const mixedDownloads=await host(Mobile,B,'Red1');
+  const mixedPanel=reviewUI(mixedDownloads,Mobile);
+  mixedDownloads.p._vrControlPanel=mixedPanel;
+  const firstOnly=await pack([[key(first),first.bytes]]);
+  const downloadedFiles=new Map([[archiveName,firstOnly],[second.rec.name,second.bytes]]);
+  mixedDownloads.p.mobileCapacitorFilesystem=()=>({});
+  mixedDownloads.p.getMobileDownloadEntries=async directory=>directory.endsWith('/Download/BaiduNetdisk/')?
+    [...downloadedFiles.keys()].map(name=>({name,isFile:true})):[];
+  mixedDownloads.p.readMobileDownloadEntry=async entry=>{
+    const bytes=downloadedFiles.get(entry.name);
+    return {mtime,size:bytes.length,file:input(entry.name,bytes)};
+  };
+  await mixedDownloads.p.v603ConsoleOpened(mixedPanel);
+  assert.deepEqual(mixedDownloads.p._vrReviewModal?._v71Selected,expected,'Automatic console review must include both batch and standalone ZIPs');
+  assert(button(mixedDownloads.p._vrReviewModal,'预览确认处理（2）'));
+  for(const note of notes)assert(!await mixedDownloads.adapter.exists(note));
+
+  const sourceChanged=await host(Mobile,B,'Red1');
+  const readSource=sourceChanged.p.v5217SourceRead.bind(sourceChanged.p);
+  const deleteSource=sourceChanged.p.v5217SourceDelete.bind(sourceChanged.p);
+  sourceChanged.p.v5217SourceRead=async source=>source.kind==='android'?first.bytes:readSource(source);
+  let triedToDelete=false;
+  sourceChanged.p.v5217SourceDelete=async source=>{
+    if(source.kind!=='android')return deleteSource(source);
+    triedToDelete=true;
+  };
+  const changed=await sourceChanged.p.vrReceiveExternalBatch({name:archiveName,
+    _vr5217Source:{kind:'android',path:'file:///storage/emulated/0/Download/'+encodeURIComponent(archiveName)}},wrapped);
+  assert.equal(changed.removed,false);
+  assert.equal(triedToDelete,false,'A changed wrapper must be preserved');
+  assert.equal(changed.errors,0);
+  assert.deepEqual(new Set(changed.receipts.map(receipt=>receipt.sha)),expected);
 
   const wrongGroup=await host(IOS,B,'Ios1');
   await wrongGroup.p.v71UnbindGroup();
@@ -196,13 +323,16 @@ async function test(){
   const collected=await partialTarget.p.vrCollectDbox();
   assert.equal(collected.errors,1);
   assert.deepEqual(collected.acceptedZips.map(row=>row.sha),[sha(first.bytes)]);
-  assert(await partialTarget.adapter.exists(DBOX+archiveName));
+  assert(!await partialTarget.adapter.exists(DBOX+archiveName));
+  const [outerIssue]=partialTarget.p.vrDownloadIssues().values();
+  assert(outerIssue.reason.includes(second.rec.name));
+  assert.equal(sha(await partialTarget.adapter.readBinary(outerIssue.path)),sha(partial));
   const acceptedPath=collected.acceptedZips[0].path;
   const acceptedRow=(await partialTarget.p.v604PrepareInbox()).find(row=>row.path===acceptedPath);
   assert(acceptedRow);
   await Windows.__testing.v71.review.manage(partialTarget.p,acceptedRow,false);
   assert(!await partialTarget.adapter.exists(acceptedPath));
-  assert.equal((await partialTarget.p.vrCollectDbox()).acceptedZips.length,0,'Retained wrapper must not restore a dismissed ZIP');
+  assert.equal((await partialTarget.p.vrCollectDbox()).acceptedZips.length,0,'Isolated wrappers do not reenter review');
 
   const verifyOriginal=await host(Windows,B,'Win2');
   await verifyOriginal.adapter.writeBinary(DBOX+first.rec.name,first.bytes);
@@ -228,18 +358,33 @@ async function test(){
   const retryTarget=await host(Windows,B,'Win2');
   await retryTarget.adapter.writeBinary(DBOX+archiveName,wrapped);
   const read=retryTarget.p.v614ReceiveZip.bind(retryTarget.p);
-  retryTarget.p.v614ReceiveZip=async file=>{
-    if(file.name===first.rec.name)throw Error('simulated inbox write failure');
-    return read(file);
+  let writes=0;
+  retryTarget.p.v614ReceiveZip=async (file,...args)=>{
+    if(file.name===first.rec.name&&++writes===1)throw Error('simulated first inbox write failure');
+    return read(file,...args);
   };
-  const interrupted=await retryTarget.p.vrCollectDbox();
-  assert.equal(interrupted.errors,1);
-  assert(!(await retryTarget.adapter.exists(DBOX+archiveName)));
-  assert.equal(sha(await retryTarget.adapter.readBinary(DBOX+first.rec.name)),sha(first.bytes));
-  retryTarget.p.v614ReceiveZip=read;
   const retried=await retryTarget.p.vrCollectDbox();
+  assert.equal(writes,2);
   assert.equal(retried.errors,0);
-  assert.equal(retried.acceptedZips[0].sha,sha(first.bytes));
+  assert.deepEqual(new Set(retried.acceptedZips.map(row=>row.sha)),expected);
+  assert.equal(retryTarget.p.vrDownloadIssues().size,0);
+
+  const failed=await host(IOS,B,'Ios1');
+  reviewUI(failed,IOS);
+  await failed.adapter.writeBinary(DBOX+first.rec.name,first.bytes);
+  let attempts=0;
+  failed.p.v614ReceiveZip=async()=>{attempts++;throw Error('simulated persistent inbox write failure');};
+  failed.p.v603BeginDownload();
+  failed.p.v603DownloadLeft();
+  await failed.p.scanMobileReception({reason:'return',notify:false});
+  assert.equal(attempts,2);
+  assert(!await failed.adapter.exists(DBOX+first.rec.name));
+  const [issue]=failed.p.vrDownloadIssues().values();
+  assert.equal(sha(await failed.adapter.readBinary(issue.path)),sha(first.bytes));
+  const reviewText=failed.p._vrReviewModal?.contentEl.textContent;
+  assert(reviewText?.includes('增量包处理异常（1）'));
+  assert(reviewText.includes(first.rec.name)&&reviewText.includes('simulated persistent inbox write failure'));
+  assert(!await failed.adapter.exists(notes[0]));
 
   const privateSource=await host(Windows,A,'Win1');
   const privateTarget=await host(IOS,B,'Ios1');
