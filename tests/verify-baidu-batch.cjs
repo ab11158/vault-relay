@@ -88,6 +88,46 @@ async function test(){
     for(const note of notes)assert(!await target.adapter.exists(note));
   }
 
+  for(const [runtime,device] of [[Mobile,'Red1'],[IOS,'Ios1']]){
+    const target=await host(runtime,B,device);
+    reviewUI(target,runtime);
+    await target.adapter.mkdir('browser-downloads');
+    const source='browser-downloads/'+archiveName;
+    await target.adapter.writeBinary(source,wrapped);
+    const result=await target.p.importMobileChosenFiles([{
+      name:archiveName,size:wrapped.length,arrayBuffer:()=>target.adapter.readBinary(source)
+    }]);
+    assert.equal(result.errors,0,'The system file picker must recognize a valid batch ZIP');
+    assert.equal(result.paths.length,2);
+    await target.p.v614OpenSelectedReview(result.paths);
+    assert.deepEqual(target.p._vrReviewModal?._v71Selected,expected);
+    assert(button(target.p._vrReviewModal,'预览确认处理（2）'));
+    assert.equal(sha(await target.adapter.readBinary(source)),sha(wrapped));
+    for(const note of notes)assert(!await target.adapter.exists(note));
+  }
+
+  const android=await host(Mobile,B,'Red1');
+  reviewUI(android,Mobile);
+  await android.adapter.mkdir('browser-downloads');
+  const androidSource='browser-downloads/'+archiveName;
+  await android.adapter.writeBinary(androidSource,wrapped);
+  const downloaded={name:archiveName,isFile:true};
+  const mtime=Date.now()-6000;
+  android.p.mobileCapacitorFilesystem=()=>({});
+  android.p.getMobileDownloadEntries=async directory=>
+    directory.endsWith('/Download/BaiduNetdisk/')?[downloaded]:[];
+  android.p.readMobileDownloadEntry=async()=>({
+    mtime,size:wrapped.length,file:{name:archiveName,size:wrapped.length,arrayBuffer:()=>android.adapter.readBinary(androidSource)}
+  });
+  const androidScan=await android.p.scanMobileReception({reason:'console',notify:false});
+  assert.equal(androidScan.source.errors,0);
+  assert.deepEqual(new Set(androidScan.local.acceptedZips.filter(item=>item.batch).map(item=>item.sha)),expected);
+  await android.p.reviewMobileScanResult(androidScan);
+  assert.deepEqual(android.p._vrReviewModal?._v71Selected,expected);
+  for(const note of notes)assert(!await android.adapter.exists(note));
+  assert.equal((await android.p.scanMobileReception({reason:'console',notify:false})).local.acceptedZips.length,0);
+  assert.equal(sha(await android.adapter.readBinary(androidSource)),sha(wrapped));
+
   const picked=await host(Windows,B,'Win2');
   const picker=reviewUI(picked,Windows);
   picker.render=()=>{};
@@ -129,6 +169,26 @@ async function test(){
     await fs.promises.rm(downloadedFile,{force:true});
     await fs.promises.rmdir(downloadRoot);
   }
+
+  const wrongGroup=await host(IOS,B,'Ios1');
+  await wrongGroup.p.v71UnbindGroup();
+  await wrongGroup.p.joinGroup('vg-'+'d'.repeat(24));
+  const rejectedBatch=await wrongGroup.p.importMobileChosenFiles([input(archiveName,wrapped)]);
+  assert.equal(rejectedBatch.errors,2,'Valid members from a different group must still be rejected');
+  assert.deepEqual(rejectedBatch.paths,[]);
+  assert.deepEqual((await wrongGroup.adapter.list(IN.slice(0,-1))).files,[]);
+  const newGroupSender=await host(Windows,A,'Win1');
+  await newGroupSender.p.v71UnbindGroup();
+  await newGroupSender.p.joinGroup(wrongGroup.p.data.groupId);
+  newGroupSender.p.data.groupShortName='Tes2';
+  await newGroupSender.write('New group note.md','ready for review');
+  const newGroupZip=await publish(newGroupSender);
+  const newGroupWrapper=await pack([[key(newGroupZip),newGroupZip.bytes]]);
+  const acceptedBatch=await wrongGroup.p.importMobileChosenFiles([input(archiveName,newGroupWrapper)]);
+  assert.equal(acceptedBatch.errors,0,'A newly joined group can receive without restarting');
+  assert.equal(acceptedBatch.paths.length,1);
+  assert.equal(sha(await wrongGroup.adapter.readBinary(acceptedBatch.paths[0])),sha(newGroupZip.bytes));
+  assert(!await wrongGroup.adapter.exists('New group note.md'));
 
   const partialTarget=await host(Windows,B,'Win2');
   const partial=await pack([[key(first),first.bytes],[key(second),new Uint8Array(44)]]);
@@ -224,6 +284,6 @@ async function test(){
     console.log('PASS real Baidu ZIP wrapper');
   }
   delete global.document;
-  console.log('PASS Windows picker and discovery, Dbox batch review, source preservation, and retries');
+  console.log('PASS Windows and mobile ZIP intake, group checks, Dbox batch review, source preservation, and retries');
 }
 test().catch(error=>{console.error(error);process.exitCode=1;});
