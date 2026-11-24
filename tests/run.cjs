@@ -1,4 +1,4 @@
 const {spawnSync}=require('node:child_process');const path=require('node:path');
-const cases=['test-flow','verify-ui','verify-history','verify-discard','verify-dbox','verify-inbox-errors','verify-v70','verify-v71','verify-v71-history','verify-v71-failures','verify-v72'];
+const cases=['test-flow','verify-ui','verify-history','verify-discard','verify-dbox','verify-inbox-errors','verify-v70','verify-v71','verify-v71-history','verify-v71-failures','verify-v72','verify-v73'];
 for(const test of cases){console.log('Checking '+test);const result=spawnSync(process.execPath,[path.join(__dirname,test+'.cjs')],{stdio:'inherit'});if(result.status!==0)process.exit(result.status||1);}
-console.log('PASS all 7.2 regression suites');
+console.log('PASS all 7.3 regression suites');

@@ -40,11 +40,11 @@ async function checkPreview(runtime,id){
   policy(sender,{[files.closed]:{out:[],in:[]},[files.partial]:{out:[B],in:[]},[files.missing]:{out:[D],in:[]}});
   sender.p.openCoreUi('upload');
   const modal=sender.p.app.openedModals.at(-1);
-  for(let i=0;i<250&&!modal.contentEl.textContent.includes('设备名片');i++)await new Promise(resolve=>setTimeout(resolve,10));
+  for(let i=0;i<250&&!modal.contentEl.textContent.includes('确认信任设备');i++)await new Promise(resolve=>setTimeout(resolve,10));
   const text=modal.contentEl.textContent;
   assert.match(text,/已勾选 3 项 · 普通 1 · 部分受限 1 · 完全受限 1/);
   assert(text.includes(files.missing));
-  assert(text.includes('请先核对并保存设备名片：'+D));
+  assert(text.includes('请先确认信任设备：'+D));
 }
 async function checkPackages(){
   const a=await host(Windows,A,'Sender'), b=await host(IOS,B,'First authorized');

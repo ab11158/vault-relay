@@ -1008,3 +1008,22 @@
 .vru-control-modal .vru-panel .vru-id-row > .vru-button,
 .vru-control-modal .vru-panel .vru-group-heading > .vru-button{width:auto;}
 .vru-control-modal .vru-panel .vru-group-heading > .vru-button{padding-inline:8px;}
+
+.vr73-console .vru-panel .vru-transfer-step {padding:9px 10px;margin-block:8px}
+.vr73-console .vru-panel .vru-transfer-step h3 {margin-block:0 6px}
+.vr73-console .vru-panel .vru-transfer-step p {margin-block:5px}
+.vr73-console .vru-panel .vru-row {gap:6px}
+.vr73-console .vru-panel button {border-radius:7px;box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 2px 3px rgba(0,0,0,.15)}
+.vr73-console .vru-panel button:active:not(:disabled) {transform:translateY(1px);box-shadow:inset 0 1px 3px rgba(0,0,0,.15)}
+.vr73-console .vru-panel button:focus-visible {outline:2px solid var(--interactive-accent);outline-offset:2px}
+.vr73-console .vru-panel .vru-transfer-step .setting-item {padding-block:7px}
+.vr71-device-row > :nth-child(7) {grid-column:5/-1;justify-self:start}
+.vr73-device-picker {min-width:0;padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:6px}
+.vr73-device-picker > summary {cursor:pointer;overflow-wrap:anywhere}
+.vr73-device-options {max-height:12em;overflow:auto;padding:4px}
+.vr73-device-options .vr73-device-option {display:flex;gap:6px;padding:3px 0}
+.vr73-device-options input[type=checkbox] {width:auto;flex:none}
+.vr73-note-zoom .workspace-leaf-content[data-type=markdown] :is(.markdown-preview-view,.markdown-source-view) {touch-action:pan-x pan-y;zoom:var(--vr73-note-scale,1)}
+@media (max-width:640px) {
+  .vr71-device-row > :nth-child(7) {grid-column:2/-1;grid-row:4}
+}

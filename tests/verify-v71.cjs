@@ -26,14 +26,15 @@ async function unified(){
  console.log('PASS unified mixed and private-only carrier; denied third device; cancel preservation; separate confirmations; current policy');
 }
 async function autosave(){
- const h=await host(IOS,B,'Settings');await h.write('Keep.md','body');const modal=IOS.__testing.v71.settings.open(h.p);
+ const h=await host(IOS,B,'Settings'),peer=await host(Windows,A,'Settings peer');await pair(h,peer);
+ const scope=JSON.stringify([group,B]);h.p.data.v71Devices={[scope]:[{name:'Win1',id:A}]};await h.write('Keep.md','body');const modal=IOS.__testing.v71.settings.open(h.p);
  assert(!find(modal,'button','保存隐私笔记设置'));assert(!find(modal,'button','保存并生成定向增量包'));
  const check=modal.contentEl.querySelectorAll('input').find(x=>x.type==='checkbox');check.checked=true;await check.handlers.change();await modal._v71SaveTask;
  assert(h.saved().v70PrivateNotes[JSON.stringify([group,B])].notes.includes('Keep.md'));
- const input=modal.contentEl.querySelectorAll('input').find(x=>x.attrs['aria-label']==='接受谁更新 Keep.md');input.value=A;await input.handlers.input();await input.handlers.blur();await modal._v71SaveTask;
+ const input=modal.contentEl.querySelectorAll('input').find(x=>x.attrs['aria-label']==='接受谁更新 Keep.md Win1');input.checked=true;await input.handlers.click({});await modal._v71SaveTask;
  assert.deepEqual(h.saved().v70PrivateNotes[JSON.stringify([group,B])].devices['Keep.md'].in,[A]);
  check.checked=false;await check.handlers.change();await modal._v71SaveTask;assert(!h.saved().v70PrivateNotes[JSON.stringify([group,B])].notes.length);
- const devices=modal.contentEl.querySelectorAll('details').find(x=>x.querySelector('summary')?.textContent==='设备管理');assert(!devices.open);await find(modal,'button','添加设备').handlers.click();assert.equal(h.saved().v71Devices[JSON.stringify([group,B])].length,1);
+ const devices=modal.contentEl.querySelectorAll('details').find(x=>x.querySelector('summary')?.textContent==='设备管理');assert(!devices.open);await find(modal,'button','添加设备').handlers.click();assert.equal(h.saved().v71Devices[JSON.stringify([group,B])].length,2);
  console.log('PASS automatic privacy checkbox and blur save; device default collapse and add');
 }
 async function archiveAndSelection(){

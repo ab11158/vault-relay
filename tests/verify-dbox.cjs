@@ -96,7 +96,7 @@ async function testSettings(){
       const all=[...view.contentEl.querySelectorAll('button')];
       const dbox=button(view,'创建并复制增量 ZIP 的 Dbox 路径（可选）');
       const history=all.find(x=>x.textContent.startsWith('查看增量包记录'));
-      const startup=view.contentEl.querySelectorAll('summary').find(x=>x.textContent==='启动、退出与上传设置');
+      const startup=view.contentEl.querySelectorAll('summary').find(x=>x.textContent==='一般设置');
       assert(!startup.parentNode.open);
       assert.equal(startup.parentNode.parentNode,view.contentEl);
       assert(all.indexOf(dbox)<all.indexOf(history));

@@ -1,18 +1,15 @@
-# Vault Relay 7.2
+# Vault Relay 7.3
 
-通过共享群组和百度网盘同步 Obsidian 知识库。Windows、Android、iOS / iPadOS 使用同一插件；正式笔记的写入与删除须在审核页确认。
+Vault Relay 通过共享群组和百度网盘同步 Obsidian 知识库。Windows、Android、iOS 和 iPadOS 使用同一插件，导入笔记前需要审核确认。
 
-7.2 为真机测试版。普通、部分受限和完全受限笔记可以一起生成一个增量 ZIP。每篇受限笔记及附件使用独立的内部 ZIP 和随机密钥。
+7.3 是真机测试版。每台设备第一次启用时生成自己的设备 ID。增量包会带上设备 ID 和简称，在「设备管理」中确认信任后，即可按简称选择隐私笔记的开放对象。
 
-## 安装或升级
+从 [GitHub 7.3 发布页](https://github.com/ab11158/vault-relay/releases/tag/7.3) 获取安装文件。建议在各设备分别新建空白测试库，再安装 7.3。使用 BRAT 安装时可指定版本 7.3。
 
-从 [GitHub 的 7.2 发布页](https://github.com/ab11158/vault-relay/releases/tag/7.2) 下载 VaultRelay-7.2-PluginOnly.zip 并解压。退出 Obsidian 后，将包中 vault-relay-v4 文件夹的三个文件放入知识库的 .obsidian/plugins/vault-relay-v4/，重新启用插件。升级时保留原 data.json，勿删除整个插件目录。
-
+- [安装与真机测试](RELEASE-7.3.md)
 - [操作指南](USER-GUIDE.md)
 - [隐私与授权](PRIVACY.md)
 - [注意事项](PRECAUTIONS.md)
-- [Apple 设备安装](APPLE-INSTALL.md)
-- [7.2 更新说明](RELEASE-7.2.md)
 - [测试状态](TEST-STATUS.md)
 
-最低 Obsidian 版本为 1.5.0。7.2 可以读取 7.0 和 7.1 的旧受限包。各端升到 7.2 后再交换新格式的包。
+最低 Obsidian 版本为 1.5.0。请在参与测试的设备上统一使用 7.3。
