@@ -1,3 +1,57 @@
+// Formal files must enter the live Vault index before an import is confirmed.
+const VR761Vault=(()=>{
+  const buffer=raw=>{const b=new Uint8Array(raw);return b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength);};
+  function markdown(path,raw){
+    if(!/\.(md|markdown)$/i.test(path))return null;
+    try{const bytes=new Uint8Array(raw),value=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(bytes);
+      const encoded=new TextEncoder().encode(value);return encoded.length===bytes.length&&encoded.every((v,i)=>v===bytes[i])?value:null;
+    }catch(_){return null;}
+  }
+  function indexed(vault,path){
+    const file=vault.getAbstractFileByPath(path);
+    if(!file||file.children)throw Error('正文已写入，但文件列表尚未更新；接收包保留，请重新审核：'+path);
+    return file;
+  }
+  async function folders(vault,dir){
+    let path='';for(const segment of dir.split('/').filter(Boolean)){
+      path=path?path+'/'+segment:segment;
+      const current=vault.getAbstractFileByPath(path);
+      if(current){if(!current.children)throw Error('目标目录是文件：'+path);continue;}
+      if(await vault.adapter.exists(path)){
+        const stat=await vault.adapter.stat(path);if(stat?.type!=='folder')throw Error('目标目录不可写：'+path);
+      }else await vault.createFolder(path);
+    }
+  }
+  async function create(vault,path,raw){
+    const parent=path.split('/').slice(0,-1).join('/');if(parent)await folders(vault,parent);
+    if(await vault.adapter.exists(path))throw Error('目标刚刚出现，请重新审核：'+path);
+    const value=markdown(path,raw);
+    if(value!==null&&typeof vault.create==='function')await vault.create(path,value);
+    else await vault.createBinary(path,buffer(raw));
+    return indexed(vault,path);
+  }
+  async function modify(vault,file,raw){
+    const value=markdown(file.path,raw);
+    if(value!==null&&typeof vault.modify==='function')await vault.modify(file,value);
+    else await vault.modifyBinary(file,buffer(raw));
+    return indexed(vault,file.path);
+  }
+  return {create,modify,folders};
+})();
+const VR761Upload=(()=>{
+  function pagination(parent,modal,count){
+    const pages=Math.max(1,Math.ceil(count/modal.pageSize)),row=parent.createDiv({cls:'vr761-pagination'});
+    const label=row.createEl('label',{text:'每页'}),select=label.createEl('select');select.setAttribute('aria-label','每页显示');
+    for(const size of [25,50,100])select.createEl('option',{text:String(size),value:String(size)}).value=String(size);
+    select.value=String(modal.pageSize);select.addEventListener('change',()=>{modal.pageSize=Number(select.value);modal.page=1;modal.render();});
+    row.createEl('span',{text:'第 '+modal.page+' / '+pages+' 页 · '+count+' 条',cls:'vr761-page-count'});
+    if(pages>1)for(const [title,delta] of [['上一页',-1],['下一页',1]]){
+      const b=row.createEl('button',{text:title});b.disabled=delta<0?modal.page<=1:modal.page>=pages;
+      b.addEventListener('click',()=>{modal.page+=delta;modal.render();});
+    }
+  }
+  return {pagination};
+})();
 const privateZipPath=/^private\/[a-f0-9]{32}\.zip$/;
 const isPrivateZip=path=>path==='private/sealed.zip'||privateZipPath.test(path);
 // Display vocabulary is separate from stable protocol names and persisted evidence.
@@ -4959,6 +5013,21 @@ class V2Engine{
     if(sha(bytes)!==e.sha256)throw Error('Historical file hash mismatch');
     return bytes;
   }
+  async writeImported(path,bytes,expected){
+    if(!this.vault)return this.writeVault(path,bytes,expected);
+    const target=this.vaultFile(path),current=currentDigest(exists(target)?target:null);
+    if(current!==expected)throw Error('Local file changed during download: '+path);
+    const backupPath=current!==null?this.privateBackup(path):null;
+    const file=this.vault.getAbstractFileByPath(path);
+    if(current===null)await VR761Vault.create(this.vault,path,bytes);
+    else{
+      if(!file||file.children)throw Error('文件列表尚未就绪，请重新审核：'+path);
+      if(currentDigest(target)!==expected)throw Error('Local file changed during write: '+path);
+      await VR761Vault.modify(this.vault,file,bytes);
+    }
+    if(sha(nodeFs.readFileSync(target))!==sha(bytes))throw Error('Local write verification failed');
+    return {backupPath,sha256:sha(bytes)};
+  }
   async applyPlan(preview,{auto=false,allowDeletes=false}={}){
     const latest=await this.latestPlan();
     if(latest.catalog.warnings.length)
@@ -4989,7 +5058,7 @@ class V2Engine{
             localSha:item.localHash};
         }else if(item.status==='create'||item.status==='safe-update'){
           const data=await this.payload(v);
-          const write=this.writeVault(v.path,data,item.localHash);
+          const write=await this.writeImported(v.path,data,item.localHash);
           counts.undoRecords.push({path:item.path,action:item.status,
             backupAbsolutePath:write.backupPath||null,beforeSha:item.localHash,
             afterSha:v.sha256,afterVersionId:v.versionId});
@@ -5003,7 +5072,11 @@ class V2Engine{
           const target=this.vaultFile(v.path);
           if(currentDigest(target)!==item.localHash)throw Error('Deletion source changed');
           const backupAbsolutePath=this.privateBackup(v.path);
-          nodeFs.unlinkSync(target);
+          if(this.vault){
+            const file=this.vault.getAbstractFileByPath(v.path);
+            if(!file||file.children||currentDigest(target)!==item.localHash)throw Error('Deletion source changed');
+            await this.vault.delete(file);
+          }else nodeFs.unlinkSync(target);
           if(exists(target))throw Error('Deletion failed');
           counts.undoRecords.push({path:item.path,action:'delete',
             backupAbsolutePath,beforeSha:item.localHash,afterSha:null,
@@ -5816,6 +5889,7 @@ class BackupModal extends Modal{
   }
   render(){
     const e=this.contentEl,q=this.plan,r=this.remote;if(!q||!r)return;e.empty();
+    e.addClass('vr761-upload-content');this.modalEl.addClass('vr761-upload');
     e.createEl('h2',{text:'上传文件｜预览'});
     const all=VR603.sorted(this.categorized(),this,this.p),counts=Object.fromEntries(['new','modified','deleted','same','conflict','error','restricted'].map(k=>[k,all.filter(x=>x.category===k).length]));
     e.createEl('p',{cls:'vr2-summary',text:`扫描自动勾选新增 ${counts.new}、修改 ${counts.modified}；本机已删除 ${counts.deleted}（需单独确认）；已一致 ${counts.same}；冲突 ${counts.conflict}；异常 ${counts.error}。`});
@@ -5829,11 +5903,6 @@ class BackupModal extends Modal{
     const filters=e.createDiv({cls:'vr2-review-filters'}),labels=[['all','全部'],['new','新增'],['modified','修改'],['restricted','受限'],['deleted','本机已删除'],['same','已一致'],['conflict','冲突'],['error','读取异常']];
     for(const [key,label] of labels){const b=filters.createEl('button',{text:`${label} (${key==='all'?all.length:counts[key]})`});b.disabled=this.view===key;b.addEventListener('click',()=>{this.view=key;this.page=1;this.uploadAnchor=null;this.render();});}
     const visible=all.filter(x=>(this.view==='all'||x.category===this.view)&&!(this.hideDeletions&&x.category==='deleted')),pageCount=Math.max(1,Math.ceil(visible.length/this.pageSize));this.page=Math.min(this.page,pageCount);
-    const sizeRow=new Setting(e).setName('每页显示').setDesc(`第 ${this.page} / ${pageCount} 页 · ${visible.length} 条`);
-    for(const size of [25,50,100])sizeRow.addButton(b=>b.setButtonText(`${size}`).setCta().onClick(()=>{this.pageSize=size;this.page=1;this.render();}));
-    const pageControls=new Setting(e).setName('翻页');
-    pageControls.addButton(b=>b.setButtonText('上一页').setDisabled(this.page<=1).onClick(()=>{this.page--;this.render();}));
-    pageControls.addButton(b=>b.setButtonText('下一页').setDisabled(this.page>=pageCount).onClick(()=>{this.page++;this.render();}));
     const selection=VR612Upload.selection(this,all,visible,e);
     const list=e.createDiv({cls:'vr2-scroll'}),start=(this.page-1)*this.pageSize;
     const stateName={new:'新增',modified:'修改',deleted:'本机已删除 · 默认不发布',restricted:'受限 · 按设备授权传输',same:'已一致',conflict:'冲突 · 暂停发布',error:'读取异常 · 暂停发布'};
@@ -5846,6 +5915,7 @@ class BackupModal extends Modal{
       else if(item.category==='deleted')line.createEl('p',{text:'目标文件当前已缺失；确认只会发布删除版本，不会删除任何本机文件。'});
     }
     if(!visible.length)list.createEl('p',{text:'当前类别没有文件。'});
+    VR761Upload.pagination(e,this,visible.length);
     if(['all','new','modified','same','restricted'].includes(this.view)&&(q.ready.length||q.republishable.length||q.restricted?.some(x=>x.publishable))){
       const getPaths=()=>this.view==='all'&&this.allowBranches?
         [...selection.paths(),...branches.map(item=>item.path)]:selection.paths();
@@ -6391,6 +6461,7 @@ module.exports=class VaultRelay extends Plugin{
     const base=adapter.getBasePath?.()||adapter.basePath;
     if(!base){this.locked=true;notify('Desktop Vault path unavailable. Sync locked.');return;}
     this.engine=new V2Engine({vaultPath:base,state:this.data.v2,zip:VRI_ZIP,persist:()=>this.persist()});
+    this.engine.vault=this.app.vault;
     this.job=Promise.resolve();this.changeTimer=null;
     this.addRibbonIcon('archive-restore','Vault Relay 知识库同步',()=>new HomeModal(this.app,this).open());
     this.addCommand({id:'vaultrelay-v2-panel',name:'Vault Relay v2: backup, download, history',callback:()=>new HomeModal(this.app,this).open()});
@@ -6971,11 +7042,11 @@ class MobileEngine{
             if(await M.sha(await this.adapter.readBinary(dest))!==item.localHash)
               throw Error('安全更新备份 SHA 校验失败');
             versionBackup=dest;
-            await this.vault.modifyBinary(current,bytesAB(bytes));
+            await VR761Vault.modify(this.vault,current,bytes);
             updated++;
           }else{
             if(await this.adapter.exists(item.path))throw Error('文件刚刚被创建，拒绝覆盖');
-            await this.vault.createBinary(item.path,bytesAB(bytes));
+            await VR761Vault.create(this.vault,item.path,bytes);
             created++;
           }
           if(await M.sha(await this.adapter.readBinary(item.path))!==v.sha256)
@@ -7559,6 +7630,7 @@ class UploadModal extends Modal{
   }
   render(){
     const e=this.contentEl,p=this.plan;if(!p)return;e.empty();
+    e.addClass('vr761-upload-content');this.modalEl.addClass('vr761-upload');
     e.createEl('h2',{text:'上传文件｜预览'});
     const rows=[];
     for(const x of p.ready)rows.push({...x,category:x.parentVersionId?'modified':'new',checked:true});
@@ -7600,11 +7672,6 @@ class UploadModal extends Modal{
       b.addEventListener('click',()=>{this.view=key;this.page=1;this.uploadAnchor=null;this.render();});
     }
     const visible=all.filter(x=>(this.view==='all'||x.category===this.view)&&!(this.hideDeletions&&x.category==='deleted')),pages=Math.max(1,Math.ceil(visible.length/this.pageSize));this.page=Math.min(this.page,pages);
-    const pageSize=new Setting(e).setName('每页显示').setDesc(`第 ${this.page} / ${pages} 页 · ${visible.length} 条`);
-    for(const n of [25,50,100])pageSize.addButton(b=>b.setButtonText(String(n)).setCta().onClick(()=>{this.pageSize=n;this.page=1;this.render();}));
-    const pageButtons=new Setting(e).setName('翻页');
-    pageButtons.addButton(b=>b.setButtonText('上一页').setDisabled(this.page<=1).onClick(()=>{this.page--;this.render();}));
-    pageButtons.addButton(b=>b.setButtonText('下一页').setDisabled(this.page>=pages).onClick(()=>{this.page++;this.render();}));
     const selection=VR612Upload.selection(this,all,visible,e);
     const list=e.createDiv({cls:'vr2-scroll'}),start=(this.page-1)*this.pageSize;
     const labels={new:'新增',modified:'修改',deleted:'本机已删除 · 默认不发布',restricted:'受限 · 按设备授权传输',same:'已一致',conflict:'冲突 · 暂停发布',error:'读取异常 · 暂停发布'};
@@ -7616,6 +7683,7 @@ class UploadModal extends Modal{
       if(item.category==='deleted')line.createEl('p',{text:'目标文件当前已缺失；本操作只发布删除版本。'});
     }
     if(!visible.length)list.createEl('p',{text:'当前类别没有文件。'});
+    VR761Upload.pagination(e,this,visible.length);
     if(['all','new','modified','same','restricted'].includes(this.view)&&(p.ready.length||p.republishable.length||p.restricted?.some(x=>x.publishable))){
       const action=e.createEl('button',{cls:'mod-cta'});
       this.syncUploadAction=()=>{
@@ -8440,8 +8508,8 @@ const VR70Sealed=(()=>{
         if(folder)await p.v5EnsureFolder(folder);
         const existing=p.app.vault.getAbstractFileByPath(entry.path);
         if(existing?.children)throw Error('目标是文件夹：'+entry.path);
-        if(existing)await p.app.vault.modifyBinary(existing,tools.buffer(after));
-        else if(!await adapter.exists(entry.path))await p.app.vault.createBinary(entry.path,tools.buffer(after));
+        if(existing)await VR761Vault.modify(p.app.vault,existing,after);
+        else if(!await adapter.exists(entry.path))await VR761Vault.create(p.app.vault,entry.path,after);
         else throw Error('目标刚刚出现，请重新审核：'+entry.path);
         written.push(file);
         if(await tools.sha256(await adapter.readBinary(entry.path))!==entry.sha256)
@@ -16740,11 +16808,11 @@ const VR611=(()=>{
     const vault=p.app.vault,previous=await current(p,path);
     if(previous.sha256!==expected)throw Error('笔记已变化，请重新选择：'+path);
     const file=vault.getAbstractFileByPath(path);
-    if(previous.bytes){if(!file||file.children)throw Error('目标笔记不可写：'+path);await vault.modifyBinary(file,p.v5Buffer(bytes));}
+    if(previous.bytes){if(!file||file.children)throw Error('目标笔记不可写：'+path);await VR761Vault.modify(vault,file,bytes);}
     else{
       const folder=path.split('/').slice(0,-1).join('/');if(folder)await p.v5EnsureFolder(folder);
       if(await vault.adapter.exists(path))throw Error('目标笔记已出现，请刷新：'+path);
-      await vault.createBinary(path,p.v5Buffer(bytes));
+      await VR761Vault.create(vault,path,bytes);
     }
     if((await current(p,path)).sha256!==await p.v5Hash(bytes))throw Error('恢复后校验失败：'+path);
   }
@@ -17920,3 +17988,5 @@ const VR73Zoom=(()=>{
   return {install,scale};
 })();
 module.exports.__testing.v73Zoom=VR73Zoom;
+
+module.exports.__testing.v761={vault:VR761Vault,upload:VR761Upload};

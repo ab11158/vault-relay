@@ -1,4 +1,4 @@
-# Vault Relay 7.6 操作指南
+# Vault Relay 7.7 操作指南
 
 ## 初次设置
 

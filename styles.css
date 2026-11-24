@@ -1027,3 +1027,28 @@
 @media (max-width:640px) {
   .vr71-device-row > :nth-child(7) {grid-column:2/-1;grid-row:4}
 }
+
+/* Keep the upload file list close to the filters, including mobile themes. */
+.vr761-upload .modal-content {overflow-y:auto;overscroll-behavior:contain}
+.vr761-upload-content {min-width:0}
+.vr761-upload-content > .vr2-review-filters {display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0}
+.vr761-upload-content > .vr2-review-filters > button {width:auto!important;flex:0 0 auto;height:auto;min-height:32px;padding:5px 10px;font-size:13px;line-height:1.4;margin:0}
+.vr761-upload-content > .vr2-review-filters > .vr2-review-meta {flex:1 1 100%;font-size:12px;line-height:1.5;margin:0;overflow-wrap:anywhere}
+.vr761-upload-content > .vr2-scroll {min-height:64px;max-height:42vh;padding:4px 10px}
+.vr761-upload-content .vr2-review-item {padding:8px 0;border-bottom:1px solid var(--background-modifier-border)}
+.vr761-upload-content .vr2-review-item:last-child {border-bottom:0}
+.vr761-upload-content .vr2-review-item > label {display:flex;align-items:flex-start;gap:8px;min-width:0;font-size:14px}
+.vr761-upload-content .vr2-review-item > label > input {flex:none;width:auto;margin-top:4px}
+.vr761-upload-content .vr2-review-item > label > span {min-width:0;overflow-wrap:anywhere}
+.vr761-upload-content .vr2-review-item > p {font-size:12px;line-height:1.5;margin:4px 0 0}
+.vr761-pagination {display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:8px 0;font-size:12px;line-height:1.5}
+.vr761-pagination > label {display:flex;align-items:center;gap:6px;margin:0}
+.vr761-pagination select {width:64px!important;max-width:80px;min-height:30px;height:30px;padding:2px 6px;font-size:13px}
+.vr761-pagination > button {width:auto!important;flex:0 0 auto;min-height:30px;height:auto;padding:4px 9px;font-size:12px;margin:0}
+.vr761-upload-content > button.mod-cta {width:100%;height:auto;min-height:38px;white-space:normal;line-height:1.5}
+@media (max-width:640px) {
+  .vr761-upload .modal-content {padding:12px;max-height:calc(100dvh - 48px)}
+  .vr761-upload-content > h2 {font-size:20px;line-height:1.4;margin:0 28px 8px 0}
+  .vr761-upload-content > .vr2-summary {font-size:13px;line-height:1.5;padding:6px 8px;margin:6px 0}
+  .vr761-upload-content > .vr2-help {font-size:12px;line-height:1.5;margin:6px 0}
+}

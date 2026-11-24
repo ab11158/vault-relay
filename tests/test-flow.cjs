@@ -1,5 +1,5 @@
 const fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),assert=require('node:assert/strict'),crypto=require('node:crypto');
-const root=__dirname,source=path.join(root,'../main.js'),results=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'vault-relay-71-tests-'));fs.mkdirSync(results,{recursive:true});
+const root=__dirname,source=process.env.VAULT_RELAY_TEST_SOURCE||path.join(root,'../main.js'),results=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'vault-relay-71-tests-'));fs.mkdirSync(results,{recursive:true});
 const checks=[];let serial=0;
 function load(desktop,ios=false){
  const Platform={isDesktopApp:desktop,isAndroidApp:!desktop&&!ios,isMobileApp:!desktop,isIosApp:ios};
