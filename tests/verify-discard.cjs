@@ -25,13 +25,13 @@ async function openReview(h){
 }
 async function discardScenario(fromType,toType,fromID,toID){
   const source=await host(fromType,fromID,'Source'),target=await host(toType,toID,'Target');
-  await source.write('Diverged.md','remote');await source.write('New.md','extra');
+  await source.write('Diverged.md','[title]\nchange remote\nunchanged line');await source.write('New.md','extra');
   const packet=await publish(source);
   await target.write('Diverged.md','local');
   await receive(target,packet,false);
   const before=await checkedPlan(target),old=before.items.find(x=>x.path==='Diverged.md');
   assert.equal(old.status,'conflict');
-  await target.write('Diverged.md','local edited after preview');
+  await target.write('Diverged.md','[title]\nchange local\nunchanged line\nremove this line');
   await assert.rejects(()=>target.p.v608DiscardReviewVersion(before,old.recordId,old.version),/重新审核/);
   const review=await openReview(target),content=review.contentEl;
   const [normal,pending]=footers(content);
@@ -42,8 +42,20 @@ async function discardScenario(fromType,toType,fromID,toID){
   assert(button(normal,'预览确认处理（1）').hidden);
   assert(button(pending,'本次忽略').disabled);
   selectedRadio(content,'Diverged.md');
-  assert(!button(pending,'查看差异').hidden);
-  assert(!button(pending,'放弃导入此版本').hidden);
+  const view=button(pending,'查看原文');assert(!view.hidden);
+  global.document={createElement:tag=>Object.assign(new review.modalEl.constructor(tag),{dataset:{}})};
+  try{
+    await click(view);
+    const diff=target.p.app.openedModals.at(-1);await diff.opened;
+    const columns=diff.contentEl.querySelectorAll('pre');
+    assert.equal(columns.length,2);
+    assert(columns[0].textContent.includes('[title]')&&columns[1].textContent.includes('[title]'));
+    assert.equal(columns[0].querySelector('del').textContent,'remove this line');
+    assert(columns[1].querySelectorAll('span').some(x=>x.textContent==='remote'&&x.className==='vru-conflict-change'));
+    assert.equal(await target.adapter.read('Diverged.md'),'[title]\nchange local\nunchanged line\nremove this line');
+    diff.close();
+  }finally{delete global.document;}
+  assert(!button(pending,'取消导入').hidden);
   assert(button(pending,'打开同步空间').hidden);
   assert.equal(find(content,'summary','Diverged.md').tag,'summary');
   await click(button(pending,'本次忽略'));
@@ -60,21 +72,21 @@ async function discardScenario(fromType,toType,fromID,toID){
   const reopened=await openReview(target),newContent=reopened.contentEl;
   await click(button(newContent,'待处理 1'));
   selectedRadio(newContent,'Diverged.md');
-  await click(button(footers(newContent)[1],'放弃导入此版本'));
-  await click(button(target.p.app.openedModals.at(-1).contentEl,'取消'));
+  await click(button(footers(newContent)[1],'取消导入'));
+  await click(button(target.p.app.openedModals.at(-1).contentEl,'返回审核'));
   assert(!target.p.data.v608DiscardedVersions);
-  await click(button(newContent,'放弃导入此版本'));
-  await click(button(target.p.app.openedModals.at(-1).contentEl,'确认放弃此版本'));
+  await click(button(newContent,'取消导入'));
+  await click(button(target.p.app.openedModals.at(-1).contentEl,'确认取消导入'));
   assert.equal(Object.keys(target.p.data.v608DiscardedVersions).length,1);
   assert(button(newContent,'待处理 0'));assert(button(newContent,'已跳过 1'));
-  assert.equal(await target.adapter.read('Diverged.md'),'local edited after preview');
+  assert.equal(await target.adapter.read('Diverged.md'),'[title]\nchange local\nunchanged line\nremove this line');
   assert(await activeZip(target,packet));
   target.p=await target.restart();
   const after=await checkedPlan(target);
   assert.equal(after.items.find(x=>x.path==='Diverged.md').status,'discarded');
   assert.equal(after.items.find(x=>x.path==='New.md').status,'create');
   assert.equal((await apply(target,after,['New.md'])).created,1);
-  assert.equal(await target.adapter.read('Diverged.md'),'local edited after preview');
+  assert.equal(await target.adapter.read('Diverged.md'),'[title]\nchange local\nunchanged line\nremove this line');
   assert.equal(await target.adapter.read('New.md'),'extra');
   assert(!target.p.v605HasPending());
   assert(!await target.adapter.exists('VaultRelay-Transfer/inbox/'+packet.rec.name));
@@ -83,7 +95,7 @@ async function discardScenario(fromType,toType,fromID,toID){
   assert.equal(Object.keys(target.p.data.v608DiscardedVersions).length,1);
   const next=await target.p.engine.latestPlan();
   assert(!next.items.some(item=>item.version?.versionId===old.version.versionId));
-  assert.equal(await target.adapter.read('Diverged.md'),'local edited after preview');
+  assert.equal(await target.adapter.read('Diverged.md'),'[title]\nchange local\nunchanged line\nremove this line');
 }
 async function run(){
   await discardScenario(Windows,Mobile,A,B);
@@ -101,7 +113,7 @@ async function run(){
   assert(find(reviewContent,'summary','OldOnly.md'));
   const row=find(reviewContent,'summary','OldOnly.md').parentNode;
   assert(button(row,'打开同步空间'));assert(button(row,'本次忽略'));
-  assert(!find(row,'button','放弃导入此版本'));
+  assert(!find(row,'button','取消导入'));
   const [importFooter,missingFooter]=footers(reviewContent);
   assert(importFooter.hidden&&!missingFooter.hidden);
   const pendingAll=reviewContent.querySelectorAll('.vr607-tools')[0].querySelectorAll('input')[0];
@@ -119,7 +131,7 @@ async function run(){
   try{await click(button(missingFooter,'打开同步空间'));assert.equal(opened,1);}
   finally{panel.openSyncSpaceBrowser=previousOpen;}
   selectedRadio(reviewContent,'OldOnly.md');
-  assert(button(missingFooter,'放弃导入此版本').hidden);
+  assert(button(missingFooter,'取消导入').hidden);
   await click(button(missingFooter,'本次忽略'));
   assert(button(reviewContent,'待处理 0'));
   assert(await activeZip(stage,late));

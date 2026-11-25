@@ -1,16 +1,13 @@
-# Vault Relay 7.9
+# Vault Relay 7.13
 
-Vault Relay 通过共享群组和百度网盘同步 Obsidian 知识库。Windows、Android、iOS 和 iPadOS 使用同一插件，导入笔记前需要审核确认。
+Vault Relay 通过同一群组和百度网盘同步 Obsidian 知识库。Windows、Android、iPhone 和 iPad 可使用同一插件，正式写入前需要审核确认。
 
-7.9 是真机测试版。本版修复移动端下载返回后的审核误判，等待核验的 ZIP 可复查并接续自动审核。Android 实机仍需按说明复测。Windows 和 Android 可扫描系统允许读取的下载目录。各设备也可手动选择百度网盘批量 ZIP，或把它放进 Dbox，集中审核校验通过的原始增量包。自动接收没有下载时间限制，同一增量包的多份副本只进入一次审核。每台设备第一次启用时生成自己的设备 ID。增量包会带上设备 ID 和简称，在「设备管理」中确认信任后，即可按简称选择隐私笔记的开放对象。
+7.13 是真机测试版。普通下载后主动点「刷新」或⑤进入审核；想先看包列表可点④。轻量扫描优先查 `Dbox`、`inbox` 和已知目录，找不到刚下载的包时可在结果页执行全盘扫描。经核验的新包可以登记对端设备资料，并更新圈③的群组下载目录。同路径冲突支持查看原文、导入、备份导入和取消导入。
 
-从 [GitHub 7.9 发布页](https://github.com/ab11158/vault-relay/releases/tag/7.9) 获取安装文件。建议在各设备分别新建空白测试库，再安装 7.9。使用 BRAT 安装时可指定版本 7.9。
-
-- [安装与真机测试](RELEASE-7.9.md)
-- [本次修复与复测](RELEASE-7.9.md#真机复测)
-- [操作指南](USER-GUIDE.md)
+- [GitHub 7.13 发布页](https://github.com/ab11158/vault-relay/releases/tag/7.13)
+- [插件特点、详细使用说明和问答](USER-GUIDE.md)
+- [安装与真机复测](RELEASE-7.13.md)
 - [隐私与授权](PRIVACY.md)
-- [注意事项](PRECAUTIONS.md)
-- [测试状态](TEST-STATUS.md)
+- [版本历史](CHANGELOG.md)
 
-最低 Obsidian 版本为 1.5.0。请在参与测试的设备上统一使用 7.9。
+最低 Obsidian 版本为 1.5.0。请先用测试知识库，并在参与测试的设备上统一使用 7.13。升级时保留 `data.json` 和同步历史。

@@ -65,10 +65,19 @@ function selectedInScan(h,path){
   console.log('PASS manual audit progress spans scan and preparation and closes before the read-only review');
 
   const first=await android();
+  const render=Mobile.__testing.panel.prototype.render;
+  render.call(first.panel);
+  const refreshButton=first.panel.contentEl.querySelectorAll('button').find(el=>el.textContent==='刷新');
+  assert(refreshButton,'Expected the Android control panel refresh button');
   const openedBeforeRefresh=first.h.p.app.openedModals.length;
-  await first.panel.refreshDownloadReview();
-  assert.equal(first.h.p.app.openedModals.length,openedBeforeRefresh+1,'Refresh remains silent and opens only the official review');
+  const refreshing=refreshButton.click();
+  const refreshProgress=first.h.p.app.openedModals[openedBeforeRefresh];
+  assert(refreshProgress?.contentEl.querySelector('progress')&&!refreshProgress.closed,'Android refresh shows progress while scanning');
+  await refreshing;
+  assert.equal(first.h.p.app.openedModals.length,openedBeforeRefresh+2,'Refresh opens only the progress and official review windows');
+  assert(refreshProgress.closed,'Refresh closes progress when the official review opens');
   assert(first.h.p._vrReviewModal,'Empty refresh opens the existing review');
+  assert(first.h.p._vrReviewModal.contentEl.querySelectorAll('p').some(el=>el.textContent==='可导入 0'));
   assert.equal(first.h.p._v5216ScanModal,undefined);
   first.h.p._vrReviewModal.close();
   first.put(packet);
