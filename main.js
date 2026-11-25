@@ -8221,10 +8221,11 @@ const VR70Privacy=(()=>{
   const protectedNote=(p,path)=>policy(p).notes.find(name=>normalize(name)===normalize(path));
   // A local privacy deletion must not become an ordinary deletion sent to peers.
   const localDeletion=(p,path,known)=>!!known?.versionId&&p.data.vrLocalDeletedVersions?.[key(p)]?.[path]===known.versionId;
-  function deleted(p,file,{confirmMissing=false}={}){
-    if(!file?.path||!p.engine?.state||p._vrPrivacyRollbackPaths?.has(file.path))return Promise.resolve(false);
-    const identity=key(p),target=normalize(file.path),folder=Array.isArray(file.children);
-    const affected=name=>normalize(name)===target||(folder&&normalize(name).startsWith(target+'/'));
+  function deleted(p,file,{confirmMissing=false,missingPaths}={}){
+    if((!file?.path&&!missingPaths)||!p.engine?.state||p._vrPrivacyRollbackPaths?.has(file?.path))return Promise.resolve(false);
+    const identity=key(p),target=normalize(file?.path),folder=Array.isArray(file?.children);
+    const affected=name=>missingPaths?missingPaths.has(normalize(name)):
+      normalize(name)===target||(folder&&normalize(name).startsWith(target+'/'));
     const current=policy(p);
     if(![...current.notes,...(current.retainedAttachments||[])].some(affected)&&
        !(p._vrPrivacyDeletion&&current.attachments.some(affected)))return Promise.resolve(false);
@@ -8260,6 +8261,7 @@ const VR70Privacy=(()=>{
       }
       if(Object.keys(localDeletedVersions).length)versions[identity]=localDeletedVersions;
       const after={...before,notes,links,devices:keep(before.devices),inherited:keep(before.inherited),
+        observedNotes:(before.observedNotes||[]).filter(path=>!gone.has(normalize(path))),
         attachments:before.attachments.filter(path=>!formerlyLinked.has(normalize(path))||linked.has(normalize(path))),
         retainedAttachments:[...retained.values()]};
       const secure=p.data.v70DeviceTrust?.[identity],oldKnown=secure?.known;
@@ -8279,6 +8281,65 @@ const VR70Privacy=(()=>{
     void job.finally(()=>{if(p._vrPrivacyDeletion===job)p._vrPrivacyDeletion=null;}).catch(()=>{});
     return job;
   }
+  function knownForReview(p,v,localHash,accepted){
+    const recorded=p.engine.state.known[v.path];
+    if(localHash!==null||v.op!=='upsert'||!(/\.(?:md|markdown)$/i.test(v.path))||recorded?.op==='delete')return recorded;
+    // An item already accepted in a partly processed ZIP must not be reapplied.
+    if(recorded?.versionId===v.versionId||accepted(v))return v;
+    // The ledger is still used for explicit deletion sync and history, but a
+    // past upsert is not the current Markdown file once the file is removed.
+    return undefined;
+  }
+  async function observeNote(p,file){
+    if(!p.engine?.state||p.engine._v606Applying||p._v611Recovering||!file?.path||file.children||!protectedNote(p,file.path))return;
+    if(p._vrPrivacyDeletion)await p._vrPrivacyDeletion;
+    if(!p.engine?.state)return;
+    const identity=key(p),before=policy(p),path=protectedNote(p,file.path);
+    if(!path||(before.observedNotes||[]).includes(path)||!await p.app.vault.adapter.exists(file.path)||policy(p)!==before)return;
+    const after={...before,observedNotes:[...(before.observedNotes||[]),path]};
+    p.data.v70PrivateNotes[identity]=after;
+    try{await p.persistTransport();}catch(error){if(p.data.v70PrivateNotes?.[identity]===after)p.data.v70PrivateNotes[identity]=before;throw error;}
+  }
+  function reconcile(p){
+    if(!p.engine?.state||!p.data.groupId)return Promise.resolve();
+    const engine=p.engine,identity=key(p),workspace=p.app.workspace;
+    if(p._vrPrivacyReconcile?.engine===engine&&p._vrPrivacyReconcile.identity===identity)return p._vrPrivacyReconcile.job;
+    const job=(async()=>{
+      if(workspace?.layoutReady===false&&workspace.onLayoutReady)await new Promise(resolve=>workspace.onLayoutReady(resolve));
+      if(p.engine!==engine||key(p)!==identity)return;
+      if(p._vrPrivacyDeletion)await p._vrPrivacyDeletion;
+      const before=policy(p),a=p.app.vault.adapter;
+      if(!before.notes.length&&!before.retainedAttachments?.length)return;
+      const previous=new Set((before.observedNotes||[]).map(normalize));
+      const plain=new Set(Object.entries(engine.state.known).filter(([,v])=>v?.op==='upsert').map(([path])=>normalize(path)));
+      const sealed=new Set(Object.keys(p.data.v70DeviceTrust?.[identity]?.known||{}).map(normalize));
+      const files=new Set(p.app.vault.getFiles().map(file=>normalize(file.path)));
+      const missingPaths=new Set();
+      for(const path of before.notes){
+        const id=normalize(path);
+        if(!files.has(id)&&(previous.has(id)||plain.has(id)||sealed.has(id))&&!await a.exists(path))missingPaths.add(id);
+      }
+      for(const path of before.retainedAttachments||[]){
+        const id=normalize(path);
+        if(!files.has(id)&&!await a.exists(path))missingPaths.add(id);
+      }
+      if(p.engine!==engine||key(p)!==identity)return;
+      if(missingPaths.size){
+        if(policy(p)!==before)throw Error('核对期间隐私规则已变化，请重试');
+        await deleted(p,null,{missingPaths});
+      }
+      if(p.engine!==engine||key(p)!==identity)return;
+      const current=policy(p),observed=new Set(current.observedNotes||[]);
+      for(const path of current.notes)if(files.has(normalize(path)))observed.add(path);
+      if(observed.size===(current.observedNotes||[]).length)return;
+      const after={...current,observedNotes:[...observed]};
+      p.data.v70PrivateNotes[identity]=after;
+      try{await p.persistTransport();}catch(error){if(p.data.v70PrivateNotes?.[identity]===after)p.data.v70PrivateNotes[identity]=current;throw error;}
+    })();
+    p._vrPrivacyReconcile={engine,identity,job};
+    void job.catch(()=>{if(p._vrPrivacyReconcile?.job===job)p._vrPrivacyReconcile=null;});
+    return job;
+  }
   async function renamed(p,file,oldPath){
     if(!file?.path||!oldPath||!p.engine?.state||!VaultComparison.allowed(file.path))return;
     const before=policy(p),old=normalize(oldPath);
@@ -8292,7 +8353,7 @@ const VR70Privacy=(()=>{
     const remap=table=>Object.fromEntries(Object.entries(table||{}).map(([path,value])=>[move(path),value]));
     p.data.v70PrivateNotes[key(p)]={...before,notes:[...new Set(before.notes.map(move))],
       attachments:[...new Set(before.attachments.map(move))],retainedAttachments:[...new Set((before.retainedAttachments||[]).map(move))],
-      devices:remap(before.devices),inherited:remap(before.inherited),
+      devices:remap(before.devices),inherited:remap(before.inherited),observedNotes:[...new Set((before.observedNotes||[]).map(move))],
       links:Object.fromEntries(Object.entries(before.links||{}).map(([path,items])=>[move(path),items.map(move)]))};
     await p.persistTransport();
   }
@@ -8303,7 +8364,7 @@ const VR70Privacy=(()=>{
     return ids;
   }
   function open(p,onClose){return VR71Settings.open(p,onClose);}
-  return {blocks,exclusions,open,recipients,attachments,accepts,keepRestricted,checkOutgoing,renamed,deleted,protectedNote,localDeletion,policy,fields,key,parseIds};
+  return {blocks,exclusions,open,recipients,attachments,accepts,keepRestricted,checkOutgoing,renamed,deleted,protectedNote,localDeletion,knownForReview,observeNote,reconcile,policy,fields,key,parseIds};
 })();
 // Device trust and encrypted, per-note transport for Vault Relay 7.0.
 const VR70Sealed=(()=>{
@@ -9642,6 +9703,9 @@ class VaultRelayV4 extends UnifiedBase {
     }));
     this.registerEvent(this.app.vault.on('delete',file=>{
       void VR70Privacy.deleted(this,file).catch(error=>new OBS.Notice('隐私规则清理未完成：'+String(error.message||error),8000));
+    }));
+    this.registerEvent(this.app.vault.on('create',file=>{
+      void VR70Privacy.observeNote(this,file).catch(error=>new OBS.Notice('笔记状态记录未保存：'+String(error.message||error),8000));
     }));
     this._v525=new V525.V525LiveService(this,{Platform:OBS.Platform,Bridge,Lifecycle,Zip});
     this.v5217WrapEngine();
@@ -15537,8 +15601,16 @@ const VR605=(()=>{
   };
   async function contentPlan(p,base,record,expected){
     if(!record)return base;
+    await VR70Privacy.reconcile(p);
     const cat=base.catalog,items=[],privateItems=[],a=p.app.vault.adapter;
     const excluded=VR70Privacy.exclusions(p),ignored=privacySkips(record);
+    let receipts;
+    const receiptKey=(path,version,sha)=>JSON.stringify([path,version,sha]);
+    const accepted=v=>{
+      receipts ||= new Set(Object.values(p.engine.state.acks||{}).filter(a=>a.fromDeviceId===p.engine.state.deviceId&&a.vaultGroupId===p.engine.state.groupId&&
+        ['applied','same','equivalent'].includes(a.outcome)).map(a=>receiptKey(a.path,a.versionId,a.contentSha256)));
+      return receipts.has(receiptKey(v.path,v.versionId,v.sha256));
+    };
     if(cat?.warnings?.length)throw Error('版本目录存在异常，接收包保留，先修复后再处理');
     for(const local of eligibleVersions(record)){
       if(ignored.has(local.versionId))continue;
@@ -15552,7 +15624,7 @@ const VR605=(()=>{
       if(!v)throw Error('同步核心中找不到已校验条目：'+local.path+' · '+local.versionId);
       const localHash=expected?.hashes.has(v.path)?expected.hashes.get(v.path):
         await a.exists(v.path)?await readHash(p,v.path):null;
-      const known=expected?.known.get(v.path)||p.engine.state.known[v.path];
+      const known=expected?.known.get(v.path)||VR70Privacy.knownForReview(p,v,localHash,accepted);
       const localBase=localHash===null&&VR70Privacy.localDeletion(p,v.path,known)?{...known,op:'delete',sha256:null}:known;
       const decision=isDiscarded(p,v)?{status:'discarded',reason:'已确认放弃导入此版本，本机内容已保留。'}:
         VR606.classify(v,versions,localHash,localBase,expected?.contested.has(v.path));
@@ -15954,6 +16026,7 @@ const VR605=(()=>{
     e.vrLocalPrivacyDeletion=(path,known)=>VR70Privacy.localDeletion(p,path,known);
     const latest=e.latestPlan.bind(e);e._v605BaseLatest=latest;e.latestPlan=async function(){
       if(e._v605ActivePlan)return e._v605ActivePlan;
+      await VR70Privacy.reconcile(p);
       if(p._vrPrivacyDeletion)await p._vrPrivacyDeletion;
       const base=await latest(),queue=VR606.order(ordered(p),base.catalog);
       return queue.length?reviewPlan(p,base,queue):withoutDiscarded(p,base);
@@ -15964,6 +16037,7 @@ const VR605=(()=>{
       try{return await runReview(apply,preview,opts);}finally{e._v606Applying=false;}
     };
     const runReview=async(apply,preview,opts={})=>{
+      await VR70Privacy.reconcile(p);
       if(p._vrPrivacyDeletion)await p._vrPrivacyDeletion;
       const base=await latest(),queue=VR606.order(ordered(p),base.catalog);
       if(!queue.length)throw Error('接收队列已变化，请重新审核');
@@ -16514,6 +16588,7 @@ const VR606=(()=>{
   }
   async function startup(p){
     if(!p.engine||!p.data.groupId)return;
+    await VR70Privacy.reconcile(p);
     await p.v604PrepareInbox();
     if(p.v604HasInboxReview()){
       if(!OBS.Platform.isAndroidApp)await p.showReviewAfterReceive({reason:'workspace-start',forceOpen:true});
@@ -18009,7 +18084,9 @@ const VR71Settings=(()=>{
         if(p.engine?._v606Applying||p._v70Sealing||p._v611Recovering)throw Error('同步处理中，请稍后重试本次设置');
         const before=api.policy(p),links={},attachments=new Set(),devices={};
         for(const path of snapshot.notes){const rule=snapshot.devices[path]||{out:[],in:[]};devices[path]={out:api.parseIds(Array.isArray(rule.out)?rule.out.join(','):rule.out,p),in:api.parseIds(Array.isArray(rule.in)?rule.in.join(','):rule.in,p)};links[path]=api.attachments(p,path);for(const x of links[path])attachments.add(x);}
-        p.data.v70PrivateNotes||={};p.data.v70PrivateNotes[identity]={...before,notes:snapshot.notes,devices,links,attachments:[...attachments]};
+        const existing=new Set(p.app.vault.getFiles().map(file=>file.path));
+        const observedNotes=snapshot.notes.filter(path=>existing.has(path));
+        p.data.v70PrivateNotes||={};p.data.v70PrivateNotes[identity]={...before,notes:snapshot.notes,devices,links,attachments:[...attachments],observedNotes};
         try{await p.persistTransport();p._v71PolicyRevision=(p._v71PolicyRevision||0)+1;if(mine===revision)status.textContent='已保存';}
         catch(e){p.data.v70PrivateNotes[identity]=before;throw e;}
       });
@@ -18052,6 +18129,7 @@ const VR71Transport=(()=>{
   const P=VaultRelayV4.prototype,T=Bridge.__testing,own=p=>p.engine.state.deviceId;
   const sealedDone=r=>!r.v70Sealed?.relevant||(r.v70PrivateVersions||[]).every(v=>Object.hasOwn(r.v70Sealed.decisions||{},v.index));
   async function restricted(p){
+    await VR70Privacy.reconcile(p);
     const rows=[],state=VR70Sealed.state(p),saved=VR70Privacy.policy(p);
     for(const path of saved.notes){
       const ids=VR70Privacy.recipients(p,path),access=ids.length?'partial':'closed';
@@ -18077,7 +18155,7 @@ const VR71Transport=(()=>{
   }
   function install(p){
     const e=p.engine;if(!e||e._v71Wrapped)return;e._v71Wrapped=true;
-    const preview=e.previewUpload.bind(e);e.previewUpload=async()=>{if(p._vrPrivacyDeletion)await p._vrPrivacyDeletion;const q=await preview();q.restricted=await restricted(p);q.v71PolicyRevision=p._v71PolicyRevision||0;return q;};
+    const preview=e.previewUpload.bind(e);e.previewUpload=async()=>{await VR70Privacy.reconcile(p);if(p._vrPrivacyDeletion)await p._vrPrivacyDeletion;const q=await preview();q.restricted=await restricted(p);q.v71PolicyRevision=p._v71PolicyRevision||0;return q;};
     const wrap=(method,isExport)=>{if(!e[method])return;const base=e[method].bind(e);e[method]=async(...args)=>{
       const opts={...(args[isExport?1:0]||{})},q=isExport?args[0]:await e.previewUpload();
       const selected=opts.selectedPaths??q.ready.map(x=>x.path),privateRows=(q.restricted||await restricted(p)).filter(x=>selected.includes(x.path));
@@ -18275,6 +18353,7 @@ const VR71Review=(()=>{
     }
   }
   const prepare=P.v604PrepareInbox;P.v604PrepareInbox=async function(...args){
+    await VR70Privacy.reconcile(this);
     const rows=await prepare.apply(this,args),unique=new Map(),priority=row=>['error','missing'].includes(row.state)?3:row.sha256?2:1;
     for(const row of rows.filter(row=>!row.transfer?.v618InboxDismissedAt)){
       const key=row.path||row.sha256||row.name,prior=unique.get(key);
