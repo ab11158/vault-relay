@@ -1895,7 +1895,12 @@ function createImportInspector(JSZip, tools) {
     await adapter.writeBinary(dest,buffer(packed));
     return {path:dest,files:listed.length,bytes:packed.length};
   }
-  return {inspect,apply,exportVault,scanCentral,probeDboxZip};
+  async function claimedGroup(file){
+    const manifest=await getManifest(await parseZIP(file,MAX_ARCHIVE,false));
+    return manifest&&['vault-relay-transport-envelope',VR70Sealed.format].includes(manifest.format)&&
+      /^vg-[a-z0-9]{16,40}$/.test(manifest.groupId||'')?manifest.groupId:null;
+  }
+  return {inspect,apply,exportVault,scanCentral,probeDboxZip,claimedGroup};
 }
 module.exports={createImportInspector};
 
@@ -2562,7 +2567,7 @@ function createUnifiedPanel() {
       // Size the modal against the actual Obsidian host window/phone viewport;
       // never assume a desktop width or force a fixed number of columns.
       this.modalEl?.addClass?.('vru-control-modal','vr73-console');
-      this.plugin._vrControlPanel=this;this.plugin.v603ConsoleOpened?.(this);
+      this.plugin._vrControlPanel=this;if(!Platform.isAndroidApp)this.plugin.v603ConsoleOpened?.(this);
       if(this.plugin._v525)this._v525Unsubscribe=this.plugin._v525.refresh.subscribe(()=>{
         if(this.plugin._vrControlPanel===this&&!this.active)
           Promise.resolve().then(()=>{if(this.plugin._vrControlPanel===this)this.render();});
@@ -2576,6 +2581,27 @@ function createUnifiedPanel() {
       this._v5213Picker?.remove();this._v5213Picker=null;
       this.review=null;
       if(this.plugin._vrControlPanel===this)this.plugin._vrControlPanel=null;
+    }
+    async refreshDownloadReview(){
+      const p=this.plugin,group=p.data.groupId;
+      if(this.active||!group||!p.engine?.state)return;
+      this.active=true;this._vr710Refreshing=true;this.render();
+      try{
+        const acceptedZips=await p.vr710CollectForReview();
+        if(p._vrControlPanel!==this||p.data.groupId!==group)return;
+        await p.showReviewAfterReceive({reason:'console-refresh',forceOpen:true,acceptedZips});
+      }catch(error){
+        await p.log('刷新下载审核未完成',String(error.message||error));
+        new Notice('刷新未完成：'+String(error.message||error),7500);
+      }finally{this.active=false;this._vr710Refreshing=false;if(p._vrControlPanel===this)this.render();}
+    }
+    searchDownloadZips(){
+      const p=this.plugin,group=p.data.groupId;
+      return this.run('手动查找 ZIP',async()=>{
+        const result=await p.scanMobileReception({reason:'manual-results',notify:false});
+        if(p._vrControlPanel===this&&p.data.groupId===group&&!result.source?.cancelled)p.showMobileScanProgress();
+        return result;
+      });
     }
     pickMobileTransferFiles(){
       if(Platform.isDesktopApp)throw Error('此文件选择入口仅用于移动端');
@@ -2616,7 +2642,7 @@ function createUnifiedPanel() {
       const dialog=new Modal(this.app);dialog.onOpen=()=>{const c=dialog.contentEl;c.addClass('vru-panel');ele(c,'h3','确认需要下载的文件');
         ele(c,'p','尚未接入百度云端文件清单，请在已保存的分享页面确认并下载原增量 ZIP。','vru-help vr527-keep-full');
         ele(c,'p',this.plugin.v5218DownloadTimeText(),'vru-meta');
-        ele(c,'p','打开页面不代表下载完成；外部百度页面可能需要手动返回 Obsidian。返回后仅在读到新有效原件时进入审核。','vru-meta vr527-keep-full');
+        ele(c,'p',Platform.isAndroidApp?'下载完成后返回 Obsidian，打开控制台点「刷新」查看审核结果。':'打开页面不代表下载完成；外部百度页面可能需要手动返回 Obsidian。返回后仅在读到新有效原件时进入审核。','vru-meta vr527-keep-full');
         button(c,'确认：打开下载页并返回 Obsidian 主页面',()=>{if(!this.plugin.data.shareUrl)return new Notice('请先保存群组长期分享链接',6000);this.openShareBrowser(false);dialog.close();this.close();},true);
         button(c,'取消',()=>dialog.close());};dialog.open();
     }
@@ -2855,7 +2881,7 @@ function createUnifiedPanel() {
         }
         new Notice(firstUse?
           '已尝试打开浏览器首页。请把刚复制的群组链接粘贴到地址栏并回车。':
-          '已尝试打开分享页。下载到手机默认目录即可；返回 Obsidian 后先检测自动接收，失败时使用系统选文件兜底。',7500);
+          Platform.isAndroidApp?'已尝试打开分享页。下载后返回 Obsidian，在控制台点「刷新」审核。':'已尝试打开分享页。下载到手机默认目录即可；返回 Obsidian 后先检测自动接收，失败时使用系统选文件兜底。',7500);
         return true;
       }catch(e){
         new Notice('打开浏览器未完成：'+String(e.message||e)+
@@ -3052,6 +3078,9 @@ function createUnifiedPanel() {
       const parts=/^(\d+)\.0\.(\d+)$/.exec(version);
       const shownVersion=parts?parts[1]+'.'+parts[2].padStart(2,'0'):version;
       ele(headline,'h2','Vault Relay V'+shownVersion+' · 同步控制台');
+      const refresh=button(headline,this._vr710Refreshing?'正在刷新…':'刷新',()=>this.refreshDownloadReview());
+      refresh.disabled=this.active||!p.data.groupId||!p.engine?.state;
+      refresh.title='扫描并归集下载文件，然后打开审核结果';
       ele(c,'p',shownVersion+' · '+device()+" · 增量同步 / 版本保护 / 内容 ZIP 与 回执",'vru-subtitle');
       // Place Help on its own permanent row. Some Obsidian desktop themes
       // can clip a flexible heading's trailing button even when it exists.
@@ -3061,7 +3090,7 @@ function createUnifiedPanel() {
         ()=>new VaultRelayHelpModal(this.app,p).open(),true);
       helpEntry.title='打开完整使用说明与常见问题；不修改任何正式笔记';
       const warning=ele(c,'div',null,'vru-warning');
-      warning.textContent='安全写入：下载并导入会连续引导审核；正式新增、覆盖、删除都需要你明确确认。';
+      warning.textContent=Platform.isAndroidApp?'下载后点「刷新」查看审核；正式笔记的新增、覆盖和删除都需要你确认。':'安全写入：下载并导入会连续引导审核；正式新增、覆盖、删除都需要你明确确认。';
       const mainSection=(title,key,defaultOpen=false)=>{
         const root=ele(c,'details',null,'vru-settings vru-main-section');
         root.open=this._mainOpen[key]??defaultOpen;
@@ -3168,8 +3197,9 @@ function createUnifiedPanel() {
       ele(downloading,'p','在同步空间网页核对并下载原增量 ZIP；失败时重新打开下载入口。下载后可查看本机文件列表。','vru-help vr527-keep-full');
       button(downloading,'查看下载的文件',()=>this.showLocalFiles()).disabled=!groupReady;
       const audit=ele(transfer,'section',null,'vru-transfer-step');ele(audit,'h3','第三步 · 审核与确认导入');
-      button(audit,Platform.isIosApp?"手动从“文件”选择 ZIP / 回执（备用）":"手动选择 ZIP / 回执（备用）",()=>this.pickTransferFiles()).disabled=!groupReady;
+      button(audit,Platform.isAndroidApp?'手动查找／选择 ZIP':Platform.isIosApp?'手动从“文件”选择 ZIP / 回执（备用）':'手动选择 ZIP / 回执（备用）',()=>Platform.isAndroidApp?this.searchDownloadZips():this.pickTransferFiles()).disabled=!groupReady;
       button(audit,'④ 审核与确认导入',()=>{
+        if(Platform.isAndroidApp)return this.refreshDownloadReview();
         return this.run('只读审核与扫描',async()=>{
           if(Platform.isDesktopApp)await p.v5213Discover({receive:true,manual:true});
           new Notice('审核与确认…进行中；正在准备只读审核，正式写入仍需确认。',4500);
@@ -3203,19 +3233,15 @@ function createUnifiedPanel() {
       ele(manualDownloading,'p','下载原增量 ZIP 后，返回查看本机文件列表。','vru-help');
       const manualAudit=ele(more,'section',null,'vru-transfer-step vru-manual-step');
       ele(manualAudit,'h3','第三步 · 审核与确认导入');
-      button(manualAudit,Platform.isIosApp?"手动从“文件”选择 ZIP / 回执（备用）":"手动选择 ZIP / 回执（备用）",()=>this.pickTransferFiles()).disabled=!groupReady;
+      button(manualAudit,Platform.isAndroidApp?'手动查找／选择 ZIP':Platform.isIosApp?'手动从“文件”选择 ZIP / 回执（备用）':'手动选择 ZIP / 回执（备用）',()=>Platform.isAndroidApp?this.searchDownloadZips():this.pickTransferFiles()).disabled=!groupReady;
       ele(manualAudit,'p',Platform.isIosApp?'列表中没有文件时，先从系统“文件”添加授权；灰色入口仍可点击。':
         '通常返回后会查找已下载原件；列表没有文件或目录不可读时，再使用灰色手动选择入口。','vru-help');
-      button(manualAudit,'④ 审核与确认导入',()=>this.run('手动打开只读审核',()=>p.showReviewAfterReceive({reason:'manual-review',forceOpen:true})),true).disabled=!groupReady;
+      button(manualAudit,'④ 审核与确认导入',()=>Platform.isAndroidApp?this.refreshDownloadReview():this.run('手动打开只读审核',()=>p.showReviewAfterReceive({reason:'manual-review',forceOpen:true})),true).disabled=!groupReady;
       button(manualAudit,'查看导入的文件',()=>this.showImportedFiles()).disabled=!groupReady;
       if(Platform.isAndroidApp){
         const searchHelp=ele(manualAudit,'details',null,'vru-secondary-details');
         ele(searchHelp,'summary','仍找不到下载文件？');
-        button(searchHelp,'扫描可读取共享存储（备用）',()=>this.run('安卓下载文件搜索',async()=>{
-          const received=await p.scanMobileReception({reason:'manual',notify:true});
-          if(!received.source?.cancelled)await p.reviewMobileScanResult(received);
-          return received;
-        })).disabled=!groupReady;
+        button(searchHelp,'扫描可读取共享存储（备用）',()=>this.searchDownloadZips()).disabled=!groupReady;
         button(searchHelp,'查看扫描状态',()=>p.showMobileScanProgress());
       }
 
@@ -9693,7 +9719,7 @@ class VaultRelayV4 extends UnifiedBase {
       if(this._mobileScanTimer)clearTimeout(this._mobileScanTimer);
       this._mobileScanTimer=setTimeout(()=>{
         this._mobileScanTimer=null;
-        this.scanMobileReception({reason,notify:false})
+        this.scanMobileReception({reason,notify:false,quietReview:OBS.Platform.isAndroidApp})
           .then(()=>{if(this._vrReviewPending)this.scheduleReadOnlyReview();})
           .catch(e=>this.log('移动端自动扫描失败',String(e.message||e))
             .catch(()=>console.warn('Vault Relay mobile scan:',e)));
@@ -10140,7 +10166,7 @@ class VaultRelayV4 extends UnifiedBase {
     if(!OBS.Platform.isAndroidApp)
       return {state:'not-applicable',copied:0,direct:0,paths:[]};
     const foreground=['manual','review','full'].includes(reason);
-    const full=foreground||reason==='console'||reason==='return';
+    const full=foreground||['console','return','manual-results'].includes(reason);
     if(this._mobileSourcePromise){
       const needsFullScan=full&&this._v5216ScanProgress?.scope!=='all-accessible';
       if(foreground)this.showMobileScanProgress?.({waitingForFull:needsFullScan});
@@ -10260,7 +10286,7 @@ class VaultRelayV4 extends UnifiedBase {
         ['Download','Documents'].some(dir=>sourcePath.startsWith('file:///storage/emulated/0/'+dir+'/'));
       const retryDownloadMove=(past,name,sourcePath)=>publicDownloadZip(name,sourcePath)&&
         (past?.status==='outgoing'||past?.status==='own-history'||
-         past?.status==='batch-received'&&!past.batchCleanupChecked||
+         past?.status==='batch-received'&&(!past.batchCleanupChecked||past.sourceRemoved)||
          (full&&['copied','received','direct'].includes(past?.status)));
       // No file contents read just for discovery. Only candidate ZIP/ACKs that
       // are new/changed by size+mtime are opened, and still require CRC/SHA.
@@ -10277,7 +10303,7 @@ class VaultRelayV4 extends UnifiedBase {
              meta.mtime!==null && past.mtime===meta.mtime &&
              await this.mobileSourceMaySkip(past,row.entry.name)){
             if(['copied','direct','received'].includes(past.status))this.v5218RankHit(row.dir,past.sha256);
-            row.finding.status='已处理，跳过';result.skipped++;continue;
+            row.finding.status=past.detail||'已处理，跳过';row.finding.sha256=past.sha256;result.skipped++;continue;
           }
           jobs.push({...row,meta});
         }catch(err){row.finding.status='读取失败：'+String(err.message||err).slice(0,160);result.errors++;}
@@ -10307,7 +10333,7 @@ class VaultRelayV4 extends UnifiedBase {
              (last.mtime!==null && meta.mtime!==null && last.mtime!==meta.mtime)){
             finding.status='读取时文件发生变化，保留原件';result.pending++;continue;
           }
-          const sha=await Bridge.__testing.sha256(bytes);hashed=sha;
+          const sha=await Bridge.__testing.sha256(bytes);hashed=sha;finding.sha256=sha;
           const past=ledger[key];
           const downloaded=this.v614IsSessionDownload(session,entry.name,past,meta,key);
           const moveOwnSource=publicDownloadZip(entry.name,key);
@@ -10327,12 +10353,14 @@ class VaultRelayV4 extends UnifiedBase {
           const chosen=this.mobileFileFromBytes(entry.name,bytes);
           if(VR5213.isBaiduBatch(chosen.name)){
             if(moveOwnSource)chosen._vr5217Source={kind:'android',path:key};
-            const batch=await this.vrReceiveExternalBatch(chosen,bytes);
+            const fresh=!!past&&(past.sourceRemoved||downloaded||past.size!==meta.size||past.mtime!==meta.mtime);
+            const batch=await this.vrReceiveExternalBatch(chosen,bytes,{fresh});
             if(!batch)throw Error('批量 ZIP 内未找到增量包');
             result.acceptedZips.push(...batch.receipts.map(receipt=>({...receipt,mtime:meta.mtime,batch:true})));
+            finding.batchMembers=batch.receipts.map(({path,sha})=>({path,sha}));
             result.copied+=batch.receipts.length;
             result.errors+=batch.errors;
-            ledger[key]={sha256:sha,status:batch.errors?'batch-partial':'batch-received',batchCleanupChecked:true,
+            ledger[key]={sha256:sha,status:batch.errors?'batch-partial':'batch-received',batchCleanupChecked:true,sourceRemoved:batch.removed,
               size:meta.size,mtime:meta.mtime,at:Date.now()};
             finding.status='已核对内层增量 ZIP '+batch.receipts.length+' 个，失败 '+batch.errors+' 个，'+
               (batch.removed?'已删除外层 ZIP':'外层 ZIP 保留');
@@ -10379,7 +10407,7 @@ class VaultRelayV4 extends UnifiedBase {
             ' → '+stored.path+'；已回读校验 SHA，下载源移动结果请查看文件列表');
         }catch(err){
           finding.status='处理失败：'+String(err.message||err).slice(0,160);result.errors++;
-          if(hashed)ledger[key]={sha256:hashed,status:'rejected',size:meta.size,
+          if(hashed)ledger[key]={sha256:hashed,status:'rejected',detail:finding.status,size:meta.size,
             mtime:meta.mtime,at:Date.now()};
           await this.log('Android 多目录文件拒绝',dir+entry.name+': '+
             String(err.message||err).slice(0,160)+'；正式笔记未改动');
@@ -10445,6 +10473,31 @@ class VaultRelayV4 extends UnifiedBase {
     await this.log("Windows 回执 状态核对",'本次新增登记 '+Math.max(0,after-before)+
       ' 条；累计已接收 '+after+' 条。未满足清理条件的包继续保留；未写入正式笔记');
     return {accepted:Math.max(0,after-before),received:after};
+  }
+
+  async vr710ConfirmForeignReview(file,path){
+    if(!OBS.Platform.isAndroidApp||!/\.zip$/i.test(file.name))return null;
+    let claimed;
+    try{claimed=await ImportManager.claimedGroup(file);}catch(_){return null;}
+    this.assertGroup();const group=this.data.groupId;
+    if(!claimed||claimed===group)return null;
+    if(!window.confirm(file.name+'\n包声明的群组：'+claimed+'\n当前群组：'+group+'\n只在审核页查看这条异常，保留原件，不导入当前库。是否继续？'))return false;
+    const reason='包声明的群组 '+claimed+' 与当前群组 '+group+' 不同，不允许同步导入',issues=this.vrDownloadIssues();
+    issues.set(JSON.stringify(['foreign',file.name,claimed]),{name:file.name,reason,path,status:'其他群组 · 原件保留'});
+    if(issues.size>100)issues.delete(issues.keys().next().value);
+    await this.log('人工查看其他群组 ZIP',file.name+' · '+reason);
+    return true;
+  }
+
+  async vr710CollectForReview(){
+    if(OBS.Platform.isDesktopApp){
+      const dbox=await this.vrCollectDbox();
+      await this.v5213Discover({receive:true,manual:true});
+      return dbox.acceptedZips;
+    }
+    if(OBS.Platform.isAndroidApp&&this._v603Download)this._v603Download.quietReview=true;
+    const received=await this.scanMobileReception({reason:'console',notify:false});
+    return received.local?.acceptedZips||[];
   }
 
   async reviewMobileScanResult(received){
@@ -11043,7 +11096,7 @@ class VaultRelayV4 extends UnifiedBase {
       if(automatic&&this._v603Download!==session)return plan;
       const reviewHashes=automatic?new Set(session.files.values()):(selectedHashes||new Set(acceptedZips.map(zip=>zip.sha)));
       const reviewSelection=new Set((this._v604InboxRows||[]).filter(row=>this.v614IsReviewable(row)&&
-        (reviewHashes.has(row.sha256)||!selectedHashes&&this.v614NeedsReview(row))).map(row=>row.sha256));
+        (reviewHashes.has(row.sha256)||!selectedHashes&&(this.v614NeedsReview(row)||reason==='console-refresh'&&row.state==='duplicate'))).map(row=>row.sha256));
       const existing=this._vrReviewModal;
       if(existing){
         const connected=existing.modalEl?.isConnected;
@@ -12074,13 +12127,15 @@ const VR5215=(()=>{
       if(!imported)review=btn(actions,'审核与确认导入',async()=>{
         const selected=chosen();if(!selected.length)return;review.disabled=true;
         try{
-          const received=[],markdown=[];let failures=[];
+          const received=[],markdown=[];let failures=[],showForeign=false;
           for(const item of selected){try{
             if(item.source==='desktop'){const r=await p.v5213ReceiveDiscovered(item,{manual:true});if(!r||r.busy||r.error)throw Error(r?.error||'接收忙，请重试');if(r.paths)received.push(...r.paths);else if(r.path&&r.status==='received')received.push(r.path);}
             else {const raw=await readItem(p,item),file={name:item.name,size:raw.length,arrayBuffer:async()=>tools.buffer(raw),_vr5217Source:item.source==='android'?{kind:'android',path:item.path}:item.source==='desktop'?{kind:'desktop',path:item.path}:null};
               if(/\.md$/i.test(file.name)){markdown.push(file);continue;}
               if(Platform.isDesktopApp){if(/\.json$/i.test(file.name))await p.importRawAckFile(file);else received.push(...await p.vrReceiveSelectedZip(file,raw));}
               else {
+                const foreign=await p.vr710ConfirmForeignReview(file,item.source==='picker'?null:item.path);
+                if(foreign!==null){showForeign=showForeign||foreign;continue;}
                 const result=await p.importMobileChosenFiles([file]);
                 received.push(...(result?.paths||[]).filter(path=>/\.zip$/i.test(path)));
                 if(result?.errors)throw Error('原件未通过接收校验，请查看操作记录');
@@ -12088,7 +12143,7 @@ const VR5215=(()=>{
           }catch(e){failures.push(item.name+'：'+e.message);}}
           if(markdown.length)panel.v5217OpenMarkdown(markdown);
           if(failures.length)el(m.contentEl,'p','未完成：'+failures.join('；'),'vru-danger vr527-keep-full');
-          if(received.length){new Notice('审核与确认…进行中；正在准备只读审核，正式写入仍需确认。',6500);await p.v614OpenSelectedReview(received);}
+          if(received.length||showForeign){new Notice('审核与确认…进行中；正在准备只读审核，正式写入仍需确认。',6500);await p.v614OpenSelectedReview(received);}
           else if(!failures.length)new Notice('所选原件已处理或无需重复接收；可在第三步检查待审核内容。',6500);
           if(!failures.length)m.close();
         }finally{review.disabled=false;}
@@ -12125,8 +12180,8 @@ const VR5215=(()=>{
         reorder();
         model=selection(rows.length);if(!rows.length)el(list,'p',imported?'暂无可追溯的正式导入文件；接收包和生成包不计入。':'尚未找到可读取原件。可添加外部文件；未发现不代表没有下载。');sync();};
       const picked=new Map();
-      const picker=el(m.modalEl,'input',null,'vru-document-picker');picker.type='file';picker.accept='.zip,.json,.md';picker.multiple=true;
-      picker.addEventListener('change',()=>{for(const f of Array.from(picker.files||[])){if(!/\.(zip|json|md)$/i.test(f.name))continue;const id='已授权文件 / '+f.name+' ['+f.size+']';picked.set(id,{path:id,name:f.name,file:f,source:'picker'});}picker.value='';void load();});
+      const picker=el(m.modalEl,'input',null,'vru-document-picker');picker.type='file';picker.accept='.zip,.json';picker.multiple=true;
+      picker.addEventListener('change',()=>{for(const f of Array.from(picker.files||[])){if(!/\.(zip|json)$/i.test(f.name))continue;const id='已授权文件 / '+f.name+' ['+f.size+']';picked.set(id,{path:id,name:f.name,file:f,source:'picker'});}picker.value='';void load();});
       const load=async()=>{if(loading)return;loading=true;
         if(!imported&&Platform.isAndroidApp){
           status.textContent='扫描进行中…';
@@ -12151,7 +12206,7 @@ const VR5215=(()=>{
         await VR603.fileTimes(p,unique);await render(unique.slice(0,MAX_FILES));
       }catch(e){status.textContent='列表读取未完成：'+e.message+'。可手动添加文件。';}finally{loading=false;sync();}};
       const footer=el(m.contentEl,'div',null,'vru-files-footer');btn(footer,'刷新列表',load);
-      if(!imported)btn(footer,"添加外部 ZIP / MD / 回执",()=>{picker.value='';picker.click();});
+      if(!imported)btn(footer,"添加外部 ZIP / 回执",()=>{picker.value='';picker.click();});
       if(imported)btn(footer,'新知识库入口：接收复制包',()=>panel.v5215ReceiveCopy());btn(footer,'关闭',()=>m.close());m.open();void load();return m;
     };
     async function prepare(p,selected){
@@ -12914,18 +12969,24 @@ const VR5218Mobile=(()=>{
 
 // Progress belongs to a scan session. Completed dialogs keep their own snapshot.
 const VR5218ScanUI=(()=>{
-  const snapshot=s=>({...s,files:(s.files||[]).map(f=>({...f})),unreadablePaths:[...(s.unreadablePaths||[])]});
+  const snapshot=s=>({...s,files:(s.files||[]).map(f=>({...f,batchMembers:f.batchMembers?.map(member=>({...member}))})),unreadablePaths:[...(s.unreadablePaths||[])]});
   function install(P,{Modal,Platform,Notice,MarkdownImportModal,tools}){
     P.prototype.v5218ReviewScanSelection=async function(files,group){
       // Finish the existing safe receive task; do not launch another traversal.
       await this._mobileScanPromise;await this._mobileSourcePromise;
       if(this.data.groupId!==group)throw Error('群组已变化，请重新打开扫描结果');
-      const markdown=[],receivedPaths=[],failures=[];
+      const markdown=[],receivedPaths=[],failures=[];let showForeign=false;
       for(const selected of files){
         try{
         const current=this._v5216ScanProgress?.scanId===selected.scanId?
           this._v5216ScanProgress.files?.find(f=>f.path===selected.path):null;
         const f=current||selected;let raw,source=null;
+        if(f.batchMembers?.length){
+          const rows=await this.v604PrepareInbox();
+          const paths=f.batchMembers.filter(member=>rows.some(row=>row.path===member.path&&row.sha256===member.sha&&this.v614IsReviewable(row))).map(member=>member.path);
+          if(!paths.length)throw Error('此批量 ZIP 的内层包已处理或移走，请刷新审核列表');
+          receivedPaths.push(...paths);continue;
+        }
         if(f.target&&/^VaultRelay-Transfer\/inbox\/[^/\\]+$/.test(f.target)){
           raw=new Uint8Array(await this.app.vault.adapter.readBinary(f.target));
         }else{
@@ -12945,6 +13006,8 @@ const VR5218ScanUI=(()=>{
         const file={name:f.name,size:raw.length,arrayBuffer:async()=>tools.buffer(raw),_vr5217Source:source};
         if(/\.md$/i.test(file.name))markdown.push(file);
         else{
+          const foreign=await this.vr710ConfirmForeignReview(file,f.target||f.path);
+          if(foreign!==null){showForeign=showForeign||foreign;continue;}
           const result=await this.importMobileChosenFiles([file]);
           receivedPaths.push(...(result?.paths||[]));
           if(result?.errors)throw Error('原件未通过接收校验，请查看操作记录');
@@ -12953,7 +13016,54 @@ const VR5218ScanUI=(()=>{
       }
       if(failures.length)new Notice('部分文件未处理：'+failures.join('；'),7500);
       if(markdown.length){const modal=new MarkdownImportModal(this.app,this);modal.files=markdown;modal.open();void modal.refresh();}
-      if(receivedPaths.some(path=>/\.zip$/i.test(path))){this._v5216ScanModal?.close();await this.v614OpenSelectedReview(receivedPaths);}
+      if(showForeign||receivedPaths.some(path=>/\.zip$/i.test(path))){this._v5216ScanModal?.close();await this.v614OpenSelectedReview(receivedPaths);}
+    };
+    P.prototype.vr710ManageScanSelection=async function(files,group,mode){
+      if(!Platform.isAndroidApp||!['recycle','delete'].includes(mode))throw Error('不支持此文件操作');
+      const device=this.engine?.state?.deviceId,a=this.app.vault.adapter;
+      if(this.engine?._v606Applying||this.engine?.busy)throw Error('正在审核或写入笔记，请稍后处理 ZIP');
+      const checkGroup=()=>{if(!device||this.data.groupId!==group||this.engine?.state?.deviceId!==device)throw Error('群组或设备已变化，请重新扫描');};
+      checkGroup();await this._mobileSourcePromise;await this._mobileScanPromise;
+      const rows=await this.v604PrepareInbox(),hash=Bridge.__testing.sha256,failures=[],completed=[];
+      for(const f of files){
+        try{
+          checkGroup();
+          if(!/\.zip$/i.test(f.name)||!f.sha256)throw Error('此文件尚未完成核验，请重新扫描');
+          if(f.batchMembers?.length)throw Error('外层 ZIP 已归集，请在审核页处理对应的内层包');
+          for(const candidate of rows.filter(item=>item.sha256===f.sha256))await this.vr710AssertRemovable(candidate);
+          const row=rows.find(item=>item.path===f.target&&item.sha256===f.sha256);
+          if(row&&await a.exists(row.path)){
+            if(['error','waiting','missing','gone'].includes(row.state))throw Error('接收包状态已变化，请重新扫描');
+            checkGroup();
+            if(row.state==='duplicate'){
+              if(mode==='delete'){await this.v611ConfirmInboxCleanup(row);completed.push(f.path);continue;}
+              throw Error('重复接收包请在审核页使用「跳过并清理本次副本」');
+            }
+            const managed=await this.v71ManageInbox(row,false);
+            if(mode==='delete'){
+              if(await hash(await a.readBinary(managed.path))!==f.sha256)throw Error('回收区副本已变化，未删除');
+              checkGroup();await a.remove(managed.path);
+              if(await a.exists(managed.path))throw Error('未能确认接收包已删除');
+            }
+          }else{
+            if(f.target)throw Error('已归集的目标不存在或与原扫描不一致，请重新扫描');
+            const source={kind:'android',path:f.path};
+            const raw=await this.v5217SourceRead(source);
+            if(await hash(raw)!==f.sha256)throw Error('下载原件已变化，请重新扫描');
+            if(mode==='recycle'){
+              const path='VaultRelay-Transfer/recovery/quarantine/manual-'+Date.now()+'-'+Bridge.__testing.randomHex(8)+'.zip';
+              await VR601.checkedWrite(this,path,raw);checkGroup();
+              await this.log('扫描结果 ZIP 已保存回收副本',f.name+' → '+path);
+            }
+            if(await hash(await this.v5217SourceRead(source))!==f.sha256)throw Error('下载原件已变化，保留原件');
+            checkGroup();await this.v5217SourceDelete(source);
+            if(await this.v5217SourceExists(source)!==false)throw Error('未能确认下载原件已移除');
+          }
+          await this.log(mode==='recycle'?'扫描结果 ZIP 移入回收站':'扫描结果 ZIP 已删除',f.name+'；未写入正式笔记');
+          completed.push(f.path);
+        }catch(error){failures.push(f.name+'：'+String(error.message||error));}
+      }
+      return {completed,failures};
     };
     P.prototype.reportMobileScanProgress=function(value){
       this._v5216ScanProgress={...this._v5216ScanProgress,...value};
@@ -13001,6 +13111,26 @@ const VR5218ScanUI=(()=>{
             Promise.resolve().then(()=>plugin.v5218ReviewScanSelection(files,this.group))
               .catch(e=>new Notice(String(e.message||e),8000)).finally(()=>{this.busy=false;this.refresh();});
           });
+          const fileActions=this.contentEl.createDiv({cls:'vru-row'});
+          const manage=(label,mode)=>{
+            const button=fileActions.createEl('button',{text:label});
+            button.addEventListener('click',async()=>{
+              if(this.busy||this.value.running)return;
+              const files=this.value.files.filter(f=>this.selected.has(f.path)&&/\.zip$/i.test(f.name));
+              if(!files.length)return;
+              const names=files.slice(0,10).map(f=>f.name).join('\n');
+              if(!window.confirm(label+'以下 '+files.length+' 个 ZIP？\n'+names+(files.length>10?'\n……':'')+'\n只处理所选 ZIP，不修改笔记。'))return;
+              this.busy=true;this.refresh();
+              try{
+                const result=await plugin.vr710ManageScanSelection(files,this.group,mode);
+                for(const f of files.filter(f=>result.completed.includes(f.path))){this.selected.delete(f.path);f.completed=true;f.status=mode==='recycle'?'已移入回收站':'已删除';}
+                new Notice(label+'：已处理 '+result.completed.length+' 项'+(result.failures.length?'；'+result.failures.join('；'):''),8500);
+              }catch(e){new Notice(String(e.message||e),8000);}
+              finally{this.busy=false;this.refresh();}
+            });
+            return button;
+          };
+          this.packageActions=[manage('移入回收站','recycle'),manage('确认删除','delete')];
           VR603.controls(this.contentEl,this,()=>this.refresh());
           this.list=this.contentEl.createEl('ul',{cls:'vru-scan-files'});
           this.more=this.contentEl.createEl('button',{text:'显示更多文件'});
@@ -13026,13 +13156,15 @@ const VR5218ScanUI=(()=>{
           this.stop.disabled=!running||!!s.cancelRequested||!!s.waitingForFull;
           this.review.textContent='审核与确认导入（已选 '+this.selected.size+' 项）';
           this.review.disabled=this.busy||!this.selected.size;
+          this.updatePackageActions=()=>{for(const button of this.packageActions||[])button.disabled=this.busy||running||!(s.files||[]).some(f=>this.selected.has(f.path)&&/\.zip$/i.test(f.name));};
+          this.updatePackageActions();
           this.list.empty();const files=s.files||[];
           if(!files.length)this.list.createEl('li',{text:running?'暂未发现传输文件。':'本轮未发现符合命名规则的传输文件。'});
           for(const f of VR603.sorted(files,this,plugin).slice(0,this.limit)){
             const li=this.list.createEl('li');
             const label=li.createEl('label'),check=label.createEl('input');check.type='checkbox';check.checked=this.selected.has(f.path);
-            check.setAttribute('aria-label',f.name);check.disabled=this.busy;
-            check.addEventListener('change',()=>{if(check.checked)this.selected.add(f.path);else this.selected.delete(f.path);this.review.textContent='审核与确认导入（已选 '+this.selected.size+' 项）';this.review.disabled=this.busy||!this.selected.size;});
+            check.setAttribute('aria-label',f.name);check.disabled=this.busy||!!f.completed;
+            check.addEventListener('change',()=>{if(check.checked)this.selected.add(f.path);else this.selected.delete(f.path);this.review.textContent='审核与确认导入（已选 '+this.selected.size+' 项）';this.review.disabled=this.busy||!this.selected.size;this.updatePackageActions();});
             label.createEl('strong',{text:f.name});li.createEl('div',{text:f.status});
             li.createEl('div',{text:f.path,cls:'vru-file-path'});
           }
@@ -14176,7 +14308,7 @@ const VR603=(()=>{
       (prior.size!=null&&metadata?.size!=null&&prior.size!==metadata.size))return true;
    // A file can reappear with the original timestamp after a verified move.
    const moved=record=>record?.sources?.some(source=>source.path===sourcePath&&source.state==='removed');
-   return !!prior.sha256&&(moved(prior.ownReceipt)||Object.values(this.data.v5221Transfers||{}).some(record=>
+   return !!prior.sha256&&(prior.sourceRemoved===true||moved(prior.ownReceipt)||Object.values(this.data.v5221Transfers||{}).some(record=>
      active(this,record)&&record.type==='zip'&&record.sha256===prior.sha256&&moved(record)));
  };
  P.v614RememberInbox=function(path,sha){
@@ -14295,7 +14427,7 @@ const VR603=(()=>{
      await reportDownloadIssue(p,name,reason+' · 移动失败：'+String(error.message||error),path,'原件仍在 Dbox');
    }
  }
- async function receiveDboxWrapper(p,path,name,stat,batch,group,device,handled){
+ async function receiveDboxWrapper(p,path,name,stat,batch,group,device,handled,{fresh=false}={}){
    const adapter=p.app.vault.adapter;
    const key=JSON.stringify([group,device,batch.hash]);
    const book=p.data.vrDboxBatchReceipts ||= {};
@@ -14316,9 +14448,11 @@ const VR603=(()=>{
            if(await T.sha256(await adapter.readBinary(previous.path))===previous.sha){
              p.v614RememberInbox(previous.path,previous.sha);
              receipts.push(previous);
-           }
-         }
-         continue;
+              continue;
+            }
+          }
+          if(!fresh||copy)continue;
+          saved.delete(member.name);
        }
        await retryZip(async()=>{
          const raw=await member.read();
@@ -14391,7 +14525,7 @@ const VR603=(()=>{
    }
    return {receipts,errors:errors.length,stagingErrors};
  }
- P.vrReceiveExternalBatch=async function(file,raw){
+ P.vrReceiveExternalBatch=async function(file,raw,{fresh=false}={}){
    this.assertGroup();
    const group=this.data.groupId,device=own(this);
    let batch;
@@ -14405,7 +14539,7 @@ const VR603=(()=>{
    if(batch?.kind!=='batch')return null;
    return VR601.serial(this,'_vrDboxWork',async()=>{
      await this.ensureLayout();
-     const result=await receiveDboxWrapper(this,null,file.name,null,batch,group,device,new Set());
+     const result=await receiveDboxWrapper(this,null,file.name,null,batch,group,device,new Set(),{fresh});
      const source=file._vr5217Source;
      let removed=false;
      const partial=result.stagingErrors.length>0;
@@ -14560,7 +14694,7 @@ const VR603=(()=>{
  };
  P.v603AutoReviewAllowed=function(){
    const id=this._v603Download?.reviewId;
-   return !!id&&id===this.data.v525PendingAutoReview?.id&&this.v614CanProcessReturn();
+   return !!id&&!this._v603Download?.quietReview&&id===this.data.v525PendingAutoReview?.id&&this.v614CanProcessReturn();
  };
  P.v603ConsoleOpened=function(panel){
    if(this._v603Download?.returned){
@@ -14633,6 +14767,7 @@ const VR603=(()=>{
    const session=this._v603Download;
    if(!session?.left)return {source:{state:'not-requested',errors:0},local:{zip:0,ack:0,errors:0},summary:'未启动下载审核'};
    session.returned=true;
+   if(options.quietReview)session.quietReview=true;
    return this.v603RunReturn();
  };
  // Replace the 6.02 return wrapper with the underlying receive method supplied by build.
@@ -14641,7 +14776,7 @@ const VR603=(()=>{
    if(this._v603ReturnTask)return this._v603ReturnTask;
    if(!this.v614CanProcessReturn())return null;
    const session=this._v603Download,scan=this._v603BaseReception;let progress=null,stopped=false;
-   if(!periodicResult&&typeof document!=='undefined'&&document.visibilityState!=='hidden'&&this.app?.workspace?.getLeavesOfType){
+   if(!session.quietReview&&!periodicResult&&typeof document!=='undefined'&&document.visibilityState!=='hidden'&&this.app?.workspace?.getLeavesOfType){
      progress=new OBS.Modal(this.app);progress.modalEl.addClass('vru-receive-progress');progress.contentEl.createEl('h3',{text:'读取文件中……'});
      const bar=progress.contentEl.createEl('progress');bar.setAttribute('aria-label','读取并校验下载文件');
      const status=progress.contentEl.createEl('p',{text:'正在归集并校验文件。'});progress._status=status;
@@ -14673,6 +14808,13 @@ const VR603=(()=>{
            await new Promise(r=>setTimeout(r,1600));
          }
        }
+       if(session.quietReview){
+         if(this._v603Download===session){
+           if(waiting||partial&&!failures){if(!periodicResult)session.reviewRetryUntil=Date.now()+60_000;}
+           else this.v603FinishDownload(session);
+         }
+         return result;
+       }
        if(reviewable)await this.v604ArmInboxReview();
        if(this._v604ReviewTask||(this.data.v525PendingAutoReview&&this.v603AutoReviewAllowed())){
          if(this._vrReviewTimer){clearTimeout(this._vrReviewTimer);this._vrReviewTimer=null;}
@@ -14696,7 +14838,7 @@ const VR603=(()=>{
      }catch(e){
        if(!periodicResult&&this._v603Download===session){
          this.v603FinishDownload(session);
-         new OBS.Notice('文件读取未完成：'+String(e.message||e),7500);
+         if(!session.quietReview)new OBS.Notice('文件读取未完成：'+String(e.message||e),7500);
        }
        throw e;
      }finally{progress?.close();}
@@ -15271,6 +15413,15 @@ const VR605=(()=>{
     return {...base,items,counts,signature:JSON.stringify([signature,privateItems,[...ignored]]),
       privateCount:privateItems.length,privateItems,v605RecordId:record.id};
   }
+
+  P.vr710AssertRemovable=async function(row){
+    const r=row.transfer;
+    if(['blocked','partial'].includes(row.state)||r?.hasUntrackedInfo)throw Error('仍有未解决的内容，保留包在 inbox');
+    if(!r||!pending(r)||!managed(r)||r.v605ProcessedAt)return;
+    if(r.v70Sealed?.relevant&&!VR71Transport.sealedDone(r))throw Error('受限内容尚未处理，保留包在 inbox');
+    const plan=await contentPlan(this,await this.engine._v605BaseLatest(),r);
+    if(plan.items.some(item=>['conflict','fork','local-error'].includes(item.status)))throw Error('仍有未解决的冲突或错误，保留包在 inbox');
+  };
 
   async function reviewPlan(p,base,queue){
     const expected=reviewBatch(p,queue,base.catalog),parts=[];
@@ -16201,7 +16352,7 @@ const VR606=(()=>{
     if(!p.engine||!p.data.groupId)return;
     await p.v604PrepareInbox();
     if(p.v604HasInboxReview()){
-      await p.showReviewAfterReceive({reason:'workspace-start',forceOpen:true});
+      if(!OBS.Platform.isAndroidApp)await p.showReviewAfterReceive({reason:'workspace-start',forceOpen:true});
       return;
     }
     if(gaps(p).some(x=>!x.resolved)){showGaps(new Panel(p.app,p));return;}
@@ -17913,7 +18064,7 @@ const VR71Review=(()=>{
       }
       if(['own','duplicate','cleanup'].includes(row.state)){
         if(['own','duplicate'].includes(row.state))action(controls,'查看包内正文',()=>VR611.previewReceipt(p,row));
-        action(controls,'确认清理',async()=>{await p.v611ConfirmInboxCleanup(row);await modal.refresh();});
+        action(controls,row.state==='duplicate'?'跳过并清理本次副本':'确认清理',async()=>{await p.v611ConfirmInboxCleanup(row);await modal.refresh();});
       }
       for(const v of p.v70SupplementOptions(row))action(controls,'只补审 '+v.path,async()=>{await p.v70StartSupplement(row,v.versionId);await modal.refresh();});
     }
