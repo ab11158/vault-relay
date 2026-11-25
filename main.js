@@ -2582,25 +2582,64 @@ function createUnifiedPanel() {
       this.review=null;
       if(this.plugin._vrControlPanel===this)this.plugin._vrControlPanel=null;
     }
-    async refreshDownloadReview(){
+    async refreshDownloadReview({showProgress=false,desktopFull=false}={}){
       const p=this.plugin,group=p.data.groupId;
       if(this.active||!group||!p.engine?.state)return;
       this.active=true;this._vr710Refreshing=true;this.render();
+      let progress=null,status;
+      const closeProgress=()=>{const modal=progress;progress=null;modal?.close();};
       try{
-        const acceptedZips=await p.vr710CollectForReview();
+        if(showProgress&&Platform.isAndroidApp){
+          progress=new Modal(this.app);
+          progress.onClose=()=>{progress=null;};
+          progress.modalEl.addClass('vru-receive-progress');
+          progress.contentEl.createEl('h3',{text:'正在准备审核…'});
+          const bar=progress.contentEl.createEl('progress');bar.setAttribute('aria-label','扫描并准备审核');
+          status=progress.contentEl.createEl('p',{text:'正在扫描可访问的目录并核对增量包。'});
+          status.setAttribute('aria-live','polite');
+          progress.open();
+        }
+        let acceptedZips=[];
+        try{acceptedZips=await p.vr710CollectForReview({desktopFull});}
+        catch(error){
+          if(!Platform.isDesktopApp)throw error;
+          const detail=String(error.message||error);
+          await p.log('Windows 下载归集未完成',detail);
+          new Notice('下载扫描未完成：'+detail+'；仍会打开审核页查看已有结果。',8500);
+        }
         if(p._vrControlPanel!==this||p.data.groupId!==group)return;
-        await p.showReviewAfterReceive({reason:'console-refresh',forceOpen:true,acceptedZips});
+        if(progress)status.textContent='正在整理审核列表，正式笔记仍需确认后写入。';
+        await p.showReviewAfterReceive({reason:'console-refresh',forceOpen:true,acceptedZips,
+          ...(progress?{onBeforeOpen:closeProgress}:{})});
       }catch(error){
+        closeProgress();
         await p.log('刷新下载审核未完成',String(error.message||error));
         new Notice('刷新未完成：'+String(error.message||error),7500);
-      }finally{this.active=false;this._vr710Refreshing=false;if(p._vrControlPanel===this)this.render();}
+      }finally{closeProgress();this.active=false;this._vr710Refreshing=false;if(p._vrControlPanel===this)this.render();}
     }
     searchDownloadZips(){
       const p=this.plugin,group=p.data.groupId;
       return this.run('手动查找 ZIP',async()=>{
-        const result=await p.scanMobileReception({reason:'manual-results',notify:false});
-        if(p._vrControlPanel===this&&p.data.groupId===group&&!result.source?.cancelled)p.showMobileScanProgress();
-        return result;
+        const modal=p.showMobileScanProgress({manualResults:true});
+        const paint=value=>{
+          if(modal&&p._v5216ScanModal===modal&&p._vrControlPanel===this&&p.data.groupId===group){
+            modal.value={...modal.value,...value};modal.refresh();
+          }
+        };
+        try{
+          const result=await p.scanMobileReception({reason:'manual-results',notify:false,
+            onSourceScanned:()=>paint({phase:'inbox'})});
+          const source=result.source,files=source.files||[];
+          let inbox=[],inboxError='';
+          if(!source.cancelled&&p.data.groupId===group){
+            try{inbox=await p.vr711ListManualInbox();}catch(error){inboxError=String(error.message||error);}
+          }
+          const byPath=new Map(inbox.map(file=>[file.path,file]));
+          const external=files.map(file=>byPath.delete(file.target)?{...file,inbox:true}:file);
+          paint({...source,scanId:modal?.scanId,files:[...byPath.values(),...external],running:false,
+            inboxPending:result.local?.pending||0,inboxError});
+          return result;
+        }catch(error){paint({running:false,state:'failed'});throw error;}
       });
     }
     pickMobileTransferFiles(){
@@ -3055,9 +3094,10 @@ function createUnifiedPanel() {
           '；正式笔记仍需在审核窗口确认');
         return {paths};
       });
-      if(received?.paths.length){
+      const explicitZip=Platform.isDesktopApp&&items.some(file=>/\.zip$/i.test(file.name));
+      if(received&&(received.paths.length||explicitZip)){
         new Notice('正在准备只读审核，正式写入仍需确认。',5000);
-        try{await this.plugin.v614OpenSelectedReview(received.paths);}
+        try{await this.plugin.v614OpenSelectedReview(received.paths,{openEmpty:explicitZip});}
         catch(e){new Notice('打开审核窗口未完成：'+String(e.message||e),7500);}
       }
     }
@@ -3199,9 +3239,9 @@ function createUnifiedPanel() {
       const audit=ele(transfer,'section',null,'vru-transfer-step');ele(audit,'h3','第三步 · 审核与确认导入');
       button(audit,Platform.isAndroidApp?'手动查找／选择 ZIP':Platform.isIosApp?'手动从“文件”选择 ZIP / 回执（备用）':'手动选择 ZIP / 回执（备用）',()=>Platform.isAndroidApp?this.searchDownloadZips():this.pickTransferFiles()).disabled=!groupReady;
       button(audit,'④ 审核与确认导入',()=>{
-        if(Platform.isAndroidApp)return this.refreshDownloadReview();
+        if(Platform.isAndroidApp)return this.refreshDownloadReview({showProgress:true});
+        if(Platform.isDesktopApp)return this.refreshDownloadReview({desktopFull:true});
         return this.run('只读审核与扫描',async()=>{
-          if(Platform.isDesktopApp)await p.v5213Discover({receive:true,manual:true});
           new Notice('审核与确认…进行中；正在准备只读审核，正式写入仍需确认。',4500);
           return p.showReviewAfterReceive({reason:'manual-review',forceOpen:true});
         });
@@ -3236,7 +3276,7 @@ function createUnifiedPanel() {
       button(manualAudit,Platform.isAndroidApp?'手动查找／选择 ZIP':Platform.isIosApp?'手动从“文件”选择 ZIP / 回执（备用）':'手动选择 ZIP / 回执（备用）',()=>Platform.isAndroidApp?this.searchDownloadZips():this.pickTransferFiles()).disabled=!groupReady;
       ele(manualAudit,'p',Platform.isIosApp?'列表中没有文件时，先从系统“文件”添加授权；灰色入口仍可点击。':
         '通常返回后会查找已下载原件；列表没有文件或目录不可读时，再使用灰色手动选择入口。','vru-help');
-      button(manualAudit,'④ 审核与确认导入',()=>Platform.isAndroidApp?this.refreshDownloadReview():this.run('手动打开只读审核',()=>p.showReviewAfterReceive({reason:'manual-review',forceOpen:true})),true).disabled=!groupReady;
+      button(manualAudit,'④ 审核与确认导入',()=>Platform.isAndroidApp?this.refreshDownloadReview({showProgress:true}):Platform.isDesktopApp?this.refreshDownloadReview({desktopFull:true}):this.run('手动打开只读审核',()=>p.showReviewAfterReceive({reason:'manual-review',forceOpen:true})),true).disabled=!groupReady;
       button(manualAudit,'查看导入的文件',()=>this.showImportedFiles()).disabled=!groupReady;
       if(Platform.isAndroidApp){
         const searchHelp=ele(manualAudit,'details',null,'vru-secondary-details');
@@ -4491,7 +4531,7 @@ class V2Engine{
     for(const [p,known] of Object.entries(this.state.known)){
       // A once-tracked file inside an excluded tree must NEVER become a
       // tombstone simply because scanning now skips its private directory.
-      if(C.isSyncExcludedPath(p)||this.v70Blocks?.(p)||files[p]||known.op==='delete')continue;
+      if(C.isSyncExcludedPath(p)||this.v70Blocks?.(p)||files[p]||known.op==='delete'||this.vrLocalPrivacyDeletion?.(p,known))continue;
       // A missing file has no stable filesystem mtime. Using the clock here
       // would change the plan between preview and commit and falsely reject
       // a legitimate delete. The actual event timestamp is set at commit.
@@ -4753,7 +4793,7 @@ class V2Engine{
     for(const [path,file] of Object.entries(local.files))
       if(file.error)errors.push({path,error:file.error});
     for(const item of plan.items){
-      if(item.status!=='local-deleted'||C.isSyncExcludedPath(item.path))continue;
+      if(item.status!=='local-deleted'||C.isSyncExcludedPath(item.path)||this.vrLocalPrivacyDeletion?.(item.path,this.state.known[item.path]))continue;
       const known=this.state.known[item.path],head=item.version;
       if(!known||known.op!=='upsert'||!head||known.versionId!==head.versionId||head.op!=='upsert')continue;
       deletions.push({path:item.path,op:'delete',size:0,sha256:null,
@@ -7128,7 +7168,7 @@ class MobileEngine{
     const local=await this.scanVault();
     const ready=[],blocked=[],unchanged=[],republishable=[],deletions=[];
     for(const item of plan.items){
-      if(item.status!=='local-deleted'||M.isSyncExcludedPath(item.path))continue;
+      if(item.status!=='local-deleted'||M.isSyncExcludedPath(item.path)||this.vrLocalPrivacyDeletion?.(item.path,this.state.known[item.path]))continue;
       const known=this.state.known[item.path],head=item.version;
       if(!known || known.op!=='upsert'||!head||
          known.versionId!==head.versionId || head.op!=='upsert')continue;
@@ -8114,7 +8154,7 @@ const VR70Privacy=(()=>{
   const normalize=path=>String(path||'').normalize('NFC').toLowerCase();
   const policy=p=>p.data.v70PrivateNotes?.[key(p)]||{notes:[],attachments:[]};
   function exclusions(p){
-    const saved=policy(p),paths=new Set([...saved.notes,...saved.attachments].map(normalize));
+    const saved=policy(p),paths=new Set([...saved.notes,...saved.attachments,...(saved.retainedAttachments||[])].map(normalize));
     if(!saved.notes.length)return paths;
     const cache=p.app.metadataCache;
     for(const path of saved.notes){
@@ -8132,8 +8172,9 @@ const VR70Privacy=(()=>{
     return saved.notes.includes(path)?rule.out.filter(id=>!inherited||inherited.includes(id)):[];
   }
   function attachments(p,path){
-    return [...new Set([...Object.keys(p.app.metadataCache?.resolvedLinks?.[path]||{}),...(policy(p).links?.[path]||[])])]
-      .filter(file=>!/\.(?:md|markdown)$/i.test(file)&&Bridge.__testing.safeRel(file)&&VaultComparison.allowed(file));
+    const saved=policy(p),retained=new Set((saved.retainedAttachments||[]).map(normalize));
+    return [...new Set([...Object.keys(p.app.metadataCache?.resolvedLinks?.[path]||{}),...(saved.links?.[path]||[])])]
+      .filter(file=>!retained.has(normalize(file))&&!/\.(?:md|markdown)$/i.test(file)&&Bridge.__testing.safeRel(file)&&VaultComparison.allowed(file));
   }
   function accepts(p,path,sender){
     return (!VR70Sealed.requiresIdentity(sender)||!!VR70Sealed.state(p).peers[sender])&&
@@ -8177,6 +8218,67 @@ const VR70Privacy=(()=>{
       if(!Array.isArray(index.entries)||index.entries.some(file=>blocked(file.path)))throw Error('待发包包含现已受限的文件，请重新生成');
     }
   }
+  const protectedNote=(p,path)=>policy(p).notes.find(name=>normalize(name)===normalize(path));
+  // A local privacy deletion must not become an ordinary deletion sent to peers.
+  const localDeletion=(p,path,known)=>!!known?.versionId&&p.data.vrLocalDeletedVersions?.[key(p)]?.[path]===known.versionId;
+  function deleted(p,file,{confirmMissing=false}={}){
+    if(!file?.path||!p.engine?.state||p._vrPrivacyRollbackPaths?.has(file.path))return Promise.resolve(false);
+    const identity=key(p),target=normalize(file.path),folder=Array.isArray(file.children);
+    const affected=name=>normalize(name)===target||(folder&&normalize(name).startsWith(target+'/'));
+    const current=policy(p);
+    if(![...current.notes,...(current.retainedAttachments||[])].some(affected)&&
+       !(p._vrPrivacyDeletion&&current.attachments.some(affected)))return Promise.resolve(false);
+    const job=(p._vrPrivacyDeletion||Promise.resolve()).catch(()=>{}).then(async()=>{
+      if(!p.engine?.state||key(p)!==identity)return false;
+      const before=policy(p),a=p.app.vault.adapter;
+      const missing=async names=>{
+        const paths=[];for(const name of names)if(affected(name)&&!await a.exists(name))paths.push(name);
+        return paths;
+      };
+      const removed=await missing(before.notes),removedAssets=await missing(before.retainedAttachments||[]);
+      if(confirmMissing&&!removed.length)throw Error('本机笔记已存在或规则已变化，请刷新审核');
+      if(!removed.length&&!removedAssets.length)return false;
+      const gone=new Set(removed.map(normalize)),goneAssets=new Set(removedAssets.map(normalize));
+      const keep=table=>Object.fromEntries(Object.entries(table||{}).filter(([path])=>!gone.has(normalize(path))));
+      const notes=before.notes.filter(path=>!gone.has(normalize(path))),links=keep(before.links);
+      const retained=new Map((before.retainedAttachments||[]).filter(path=>!goneAssets.has(normalize(path))).map(path=>[normalize(path),path]));
+      const linked=new Set(notes.flatMap(path=>[...(links[path]||[]),...attachments(p,path)]).map(normalize));
+      const detached=removed.flatMap(path=>[...(before.links?.[path]||[]),...attachments(p,path)]);
+      if(removed.length&&!notes.length)detached.push(...before.attachments);
+      const formerlyLinked=new Set(detached.map(normalize));
+      for(const path of new Set(detached)){
+        const id=normalize(path);if(linked.has(id))continue;
+        if(await a.exists(path))retained.set(id,path);else goneAssets.add(id);
+      }
+      for(const path of [...removed,...removedAssets])if(await a.exists(path))throw Error('本机文件已恢复，规则保留');
+      if(!p.engine?.state||key(p)!==identity||policy(p)!==before)throw Error('本机隐私规则已变化，请重新审核');
+      const versions=p.data.vrLocalDeletedVersions ||= {},prior=versions[identity];
+      const localDeletedVersions={...prior};
+      for(const path of Object.keys(p.engine.state.known)){
+        const old=p.engine.state.known[path],id=normalize(path);
+        if((gone.has(id)||goneAssets.has(id))&&old?.op==='upsert'&&old.versionId)localDeletedVersions[path]=old.versionId;
+      }
+      if(Object.keys(localDeletedVersions).length)versions[identity]=localDeletedVersions;
+      const after={...before,notes,links,devices:keep(before.devices),inherited:keep(before.inherited),
+        attachments:before.attachments.filter(path=>!formerlyLinked.has(normalize(path))||linked.has(normalize(path))),
+        retainedAttachments:[...retained.values()]};
+      const secure=p.data.v70DeviceTrust?.[identity],oldKnown=secure?.known;
+      if(oldKnown)secure.known=Object.fromEntries(Object.entries(oldKnown).filter(([path])=>!gone.has(normalize(path))&&!goneAssets.has(normalize(path))));
+      p.data.v70PrivateNotes[identity]=after;
+      try{await p.persistTransport();}catch(error){
+        if(p.data.v70PrivateNotes?.[identity]===after)p.data.v70PrivateNotes[identity]=before;
+        if(oldKnown)secure.known=oldKnown;
+        if(prior)versions[identity]=prior;else delete versions[identity];
+        throw error;
+      }
+      p._v71PolicyRevision=(p._v71PolicyRevision||0)+1;
+      p._vrPrivacyDeletionRevision=(p._vrPrivacyDeletionRevision||0)+1;
+      return true;
+    });
+    p._vrPrivacyDeletion=job;
+    void job.finally(()=>{if(p._vrPrivacyDeletion===job)p._vrPrivacyDeletion=null;}).catch(()=>{});
+    return job;
+  }
   async function renamed(p,file,oldPath){
     if(!file?.path||!oldPath||!p.engine?.state||!VaultComparison.allowed(file.path))return;
     const before=policy(p),old=normalize(oldPath);
@@ -8186,10 +8288,11 @@ const VR70Privacy=(()=>{
       if(current.startsWith(old+'/'))return file.path+'/'+path.split('/').slice(oldPath.split('/').length).join('/');
       return path;
     };
-    if(![...before.notes,...before.attachments].some(path=>move(path)!==path))return;
+    if(![...before.notes,...before.attachments,...(before.retainedAttachments||[])].some(path=>move(path)!==path))return;
     const remap=table=>Object.fromEntries(Object.entries(table||{}).map(([path,value])=>[move(path),value]));
     p.data.v70PrivateNotes[key(p)]={...before,notes:[...new Set(before.notes.map(move))],
-      attachments:[...new Set(before.attachments.map(move))],devices:remap(before.devices),inherited:remap(before.inherited),
+      attachments:[...new Set(before.attachments.map(move))],retainedAttachments:[...new Set((before.retainedAttachments||[]).map(move))],
+      devices:remap(before.devices),inherited:remap(before.inherited),
       links:Object.fromEntries(Object.entries(before.links||{}).map(([path,items])=>[move(path),items.map(move)]))};
     await p.persistTransport();
   }
@@ -8200,7 +8303,7 @@ const VR70Privacy=(()=>{
     return ids;
   }
   function open(p,onClose){return VR71Settings.open(p,onClose);}
-  return {blocks,exclusions,open,recipients,attachments,accepts,keepRestricted,checkOutgoing,renamed,policy,fields,key,parseIds};
+  return {blocks,exclusions,open,recipients,attachments,accepts,keepRestricted,checkOutgoing,renamed,deleted,protectedNote,localDeletion,policy,fields,key,parseIds};
 })();
 // Device trust and encrypted, per-note transport for Vault Relay 7.0.
 const VR70Sealed=(()=>{
@@ -8576,7 +8679,10 @@ const VR70Sealed=(()=>{
           if(await tools.sha256(await adapter.readBinary(entry.path))!==entry.sha256)continue;
           const target=p.app.vault.getAbstractFileByPath(entry.path);
           if(target&&before)await p.app.vault.modifyBinary(target,tools.buffer(before));
-          else if(target)await p.app.vault.delete(target);
+          else if(target){
+            const rollbackPaths=p._vrPrivacyRollbackPaths ||= new Set();rollbackPaths.add(entry.path);
+            try{await p.app.vault.delete(target);}finally{rollbackPaths.delete(entry.path);}
+          }
         }catch(rollback){await p.log('定向写入撤回待处理',entry.path+' · '+String(rollback.message||rollback)).catch(()=>{});}
       }
       throw error;
@@ -9534,6 +9640,9 @@ class VaultRelayV4 extends UnifiedBase {
     this.registerEvent(this.app.vault.on('rename',(file,previous)=>{
       void VR70Privacy.renamed(this,file,previous).catch(error=>new OBS.Notice(String(error.message||error),8000));
     }));
+    this.registerEvent(this.app.vault.on('delete',file=>{
+      void VR70Privacy.deleted(this,file).catch(error=>new OBS.Notice('隐私规则清理未完成：'+String(error.message||error),8000));
+    }));
     this._v525=new V525.V525LiveService(this,{Platform:OBS.Platform,Bridge,Lifecycle,Zip});
     this.v5217WrapEngine();
     VR527UI.observe(this);
@@ -10489,10 +10598,11 @@ class VaultRelayV4 extends UnifiedBase {
     return true;
   }
 
-  async vr710CollectForReview(){
+  async vr710CollectForReview({desktopFull=false}={}){
     if(OBS.Platform.isDesktopApp){
       const dbox=await this.vrCollectDbox();
       await this.v5213Discover({receive:true,manual:true});
+      if(desktopFull)await this.v615CollectDesktopDownloads();
       return dbox.acceptedZips;
     }
     if(OBS.Platform.isAndroidApp&&this._v603Download)this._v603Download.quietReview=true;
@@ -10505,11 +10615,35 @@ class VaultRelayV4 extends UnifiedBase {
     return this.showReviewAfterReceive({reason:'console-inbox',forceOpen:true,acceptedZips});
   }
 
-  async scanMobileReception({reason='manual',notify=true}={}){
+  // Listing only: the preceding receive pass already applied the shared validation rules.
+  async vr711ListManualInbox(){
+    const a=this.app.vault.adapter,dir='VaultRelay-Transfer/inbox',prefix=dir+'/';
+    const files=[];
+    for(const path of (await a.list(dir)).files||[]){
+      if(typeof path!=='string'||!path.startsWith(prefix))continue;
+      const name=path.slice(prefix.length);
+      if(!/^[^/\\:\x00-\x1f]{1,155}$/.test(name)||name.startsWith('.')||!/\.zip$/i.test(name))continue;
+      const stat=await a.stat(path).catch(()=>null),mtime=Number.isFinite(stat?.mtime)?stat.mtime:null;
+      const entry=this.data.mobileInboxLedger?.[path];
+      const known=entry&&stat&&entry.size===stat.size&&entry.mtime===mtime?entry:null;
+      const row={name,path,target:path,mtime,inbox:true};
+      if(!stat){row.status='无法读取或文件已移走';row.unavailable=true;}
+      else if(known?.status==='received'){row.status='已归集，可选中审核';row.sha256=known.sha256;}
+      else if(known?.status==='outgoing'){row.status='本机发出的包，不作为接收包导入';row.unavailable=true;}
+      else if(stat.size<22||mtime!==null&&Date.now()-mtime<4500){row.status='文件尚未稳定，原件保留';row.unavailable=true;}
+      else if(known?.status==='rejected'){row.status='未通过校验：'+known.detail;}
+      else row.status='已在 inbox，可选中重新校验';
+      files.push(row);
+    }
+    return files;
+  }
+
+  async scanMobileReception({reason='manual',notify=true,onSourceScanned}={}){
     if(OBS.Platform.isDesktopApp)throw Error('Windows 接收流程保持原配置');
     const scanIos=OBS.Platform.isIosApp&&['manual','review','full','console','return'].includes(reason);
     const source=scanIos?await this.scanIosVaultDownloads():await this.scanMobileDownloadSource({reason});
     if(source.cancelled)return {source,local:{zip:0,ack:0},summary:'已停止本次搜索；已安全复制的原件保留，未继续接收或打开审核。'};
+    onSourceScanned?.();
     const dbox=await this.vrCollectDbox().catch(async error=>{
       await this.log('Dbox 归集未完成',String(error.message||error));
       return {acceptedZips:[],errors:1,pending:0};
@@ -11025,7 +11159,7 @@ class VaultRelayV4 extends UnifiedBase {
     new Review(this.app,this,item).open();
   }
 
-  async showReviewAfterReceive({reason='manual-review',forceOpen=false,acceptedZips=[],selectedHashes}={}){
+  async showReviewAfterReceive({reason='manual-review',forceOpen=false,acceptedZips=[],selectedHashes,onBeforeOpen}={}){
     this.assertGroup();
     const automatic=reason==='automatic'&&!forceOpen;
     const v525TransferId=automatic?this.data.v525PendingAutoReview?.id:null;
@@ -11115,7 +11249,8 @@ class VaultRelayV4 extends UnifiedBase {
         try{existing.close();}catch(_){}
         this._vrReviewModal=null;
       }
-      const opened=this.openCoreUi('download',{reviewSelection});
+      onBeforeOpen?.();
+      const opened=this.openCoreUi('download',{reviewSelection,showReceiptReview:forceOpen});
       if(!opened){
         this._vrReviewPending=true;
         if(!automatic)new OBS.Notice('只读审核窗口尚未就绪，请稍后重试',6000);
@@ -11909,7 +12044,7 @@ class VaultRelayV4 extends UnifiedBase {
     }catch(_){new OBS.Notice('文件位置：'+relative,11000);}
     return false;
   }
-  openCoreUi(action,{v606NormalUpload=false,reviewSelection}={}){
+  openCoreUi(action,{v606NormalUpload=false,reviewSelection,showReceiptReview=false}={}){
     if(action==='setup'){new OBS.Notice('请在 V5 控制台的「设置与连接检查」修改群组及设备名称',6000);return true;}
     if(action==='merge'&&!OBS.Platform.isDesktopApp){new OBS.Notice('移动端可查看冲突；智能合并在 Windows 上操作',6000);return false;}
     const Type=NativeUi[action]||NativeUi.home;
@@ -11918,7 +12053,7 @@ class VaultRelayV4 extends UnifiedBase {
     instance.v606NormalUpload=v606NormalUpload;
     if(action==='download'){
       if(reviewSelection)instance._v71Selected=reviewSelection;
-      instance._v614ReceiptReview=this.v604HasInboxReview();
+      instance._v614ReceiptReview=showReceiptReview||this.v604HasInboxReview();
       this._vrReviewModal=instance;
       const previousClose=instance.onClose?.bind(instance);
       instance.onClose=()=>{
@@ -13073,15 +13208,18 @@ const VR5218ScanUI=(()=>{
         if(!value.running || now-(m.lastPaint||0)>150){m.lastPaint=now;m.value=snapshot(this._v5216ScanProgress);m.refresh();}
       }
     };
-    P.prototype.showMobileScanProgress=function({waitingForFull=false}={}){
+    P.prototype.showMobileScanProgress=function({waitingForFull=false,manualResults=false}={}){
       if(!Platform.isAndroidApp)return null;
       const plugin=this,current=this._v5216ScanProgress||{};
       const m=this._v5216ScanModal;
-      if(m?.value.waitingForFull&&current.scope!=='all-accessible')return m;
-      const s=snapshot(waitingForFull?{scanId:'waiting-for-full',running:true,waitingForFull:true}:current);
-      if(m?.scanId===s.scanId)return m;
+      if(!manualResults&&(m?.manualResults&&!m.finished||m?.value.waitingForFull&&current.scope!=='all-accessible'))return m;
+      const s=snapshot(manualResults?{scanId:'manual-results',running:true}:waitingForFull?
+        {scanId:'waiting-for-full',running:true,waitingForFull:true}:current);
+      if(!manualResults&&m?.scanId===s.scanId)return m;
       if(m){
         m.scanId=s.scanId;
+        m.manualResults=manualResults;
+        m.group=this.data?.groupId;
         m.value=s;
         m.finished=false;
         m.lastPaint=0;
@@ -13095,6 +13233,7 @@ const VR5218ScanUI=(()=>{
           this.modalEl.classList.add('vru-scan-progress');
           this.contentEl.createEl('h2',{text:'安卓下载文件搜索'});
           this.status=this.contentEl.createEl('p',{cls:'vru-scan-line',attr:{'aria-live':'polite'}});
+          this.progress=this.contentEl.createEl('progress');this.progress.setAttribute('aria-label','正在查找并核对 ZIP');
           this.counts=this.contentEl.createEl('p',{cls:'vru-scan-line'});
           const actions=this.contentEl.createDiv({cls:'vru-scan-actions'});
           this.stop=actions.createEl('button',{text:'停止本次扫描'});
@@ -13145,7 +13284,8 @@ const VR5218ScanUI=(()=>{
           if(!this.status)return;
           const s=this.value,running=!!s.running;
           if(!running)this.finished=true;
-          this.status.textContent=running?(s.waitingForFull?'扫描进行中… 正在等待当前后台扫描结束':s.searchStopped?'已停止继续搜索，正在检查本轮找到的文件…':s.phase==='checking'?'正在校验本轮找到的文件…':'扫描进行中…'):
+          this.progress.hidden=!running||!this.manualResults;
+          this.status.textContent=running?(this.manualResults?(s.phase==='inbox'?'正在归集并核对 inbox 中的 ZIP…':'正在查找可访问目录中的 ZIP…'):s.waitingForFull?'扫描进行中… 正在等待当前后台扫描结束':s.searchStopped?'已停止继续搜索，正在检查本轮找到的文件…':s.phase==='checking'?'正在校验本轮找到的文件…':'扫描进行中…'):
             s.cancelled?'已停止本次扫描。':s.state==='no-native-api'?'宿主未提供目录读取接口，请使用系统选文件。':s.state==='failed'?'扫描失败，结果未完成。':!s.state?'当前没有扫描任务。':
             s.searchStopped?'已停止继续查找；已找到文件检查结束，处理结果及覆盖情况见下方。':s.pendingDirs||s.unreadableDirs?'本轮结束，仍有未覆盖范围。':s.pending||s.errors?'目录遍历完成，部分文件尚未处理成功。':'本轮可读取目录扫描完毕。';
           this.status.title=this.status.textContent;
@@ -13153,28 +13293,33 @@ const VR5218ScanUI=(()=>{
           this.counts.textContent='候选 '+found+' · 归集 '+copied+' · 异常 '+errors;
           this.countDetails.textContent='已查目录 '+(s.scannedDirs||0)+' · 不可读 '+(s.unreadableDirs||0)+' · 待查 '+(s.pendingDirs||0)+' · 待稳定/待处理 '+(s.pending||0);
           this.stop.textContent=running?(s.searchStopped?'已停止继续搜索':'停止本次扫描'):s.cancelled?'已停止':s.state==='failed'?'扫描失败':'扫描完毕';
-          this.stop.disabled=!running||!!s.cancelRequested||!!s.waitingForFull;
+          this.stop.hidden=this.manualResults&&running;
+          this.stop.disabled=this.manualResults||!running||!!s.cancelRequested||!!s.waitingForFull;
           this.review.textContent='审核与确认导入（已选 '+this.selected.size+' 项）';
           this.review.disabled=this.busy||!this.selected.size;
           this.updatePackageActions=()=>{for(const button of this.packageActions||[])button.disabled=this.busy||running||!(s.files||[]).some(f=>this.selected.has(f.path)&&/\.zip$/i.test(f.name));};
           this.updatePackageActions();
           this.list.empty();const files=s.files||[];
           if(!files.length)this.list.createEl('li',{text:running?'暂未发现传输文件。':'本轮未发现符合命名规则的传输文件。'});
-          for(const f of VR603.sorted(files,this,plugin).slice(0,this.limit)){
+          const sorted=VR603.sorted(files,this,plugin);
+          const ordered=this.manualResults?[...sorted.filter(f=>f.inbox),...sorted.filter(f=>!f.inbox)]:sorted;
+          for(const f of ordered.slice(0,this.limit)){
             const li=this.list.createEl('li');
             const label=li.createEl('label'),check=label.createEl('input');check.type='checkbox';check.checked=this.selected.has(f.path);
-            check.setAttribute('aria-label',f.name);check.disabled=this.busy||!!f.completed;
+            check.setAttribute('aria-label',f.name);check.disabled=this.busy||!!f.completed||!!f.unavailable;
             check.addEventListener('change',()=>{if(check.checked)this.selected.add(f.path);else this.selected.delete(f.path);this.review.textContent='审核与确认导入（已选 '+this.selected.size+' 项）';this.review.disabled=this.busy||!this.selected.size;this.updatePackageActions();});
-            label.createEl('strong',{text:f.name});li.createEl('div',{text:f.status});
-            li.createEl('div',{text:f.path,cls:'vru-file-path'});
+            label.createEl('strong',{text:f.name});li.createEl('div',{text:(f.inbox?'Inbox · ':'')+f.status});
+            li.createEl('div',{text:f.inbox?f.target:f.path,cls:'vru-file-path'});
           }
           this.more.hidden=files.length<=this.limit;
-          this.coverage.textContent='按规则排除目录 '+(s.excludedDirs||0)+(s.unreadablePaths?.length?'；未能读取：'+s.unreadablePaths.join('；'):'');
+          this.coverage.textContent='按规则排除目录 '+(s.excludedDirs||0)+(s.unreadablePaths?.length?'；未能读取：'+s.unreadablePaths.join('；'):'')+
+            (s.inboxPending?'；归集或 inbox 仍待处理 '+s.inboxPending+' 项':'')+(s.inboxError?'；无法读取 inbox：'+s.inboxError:'');
         }
         onClose(){if(plugin._v5216ScanModal===this)plugin._v5216ScanModal=null;}
       }
       const modal=new ScanProgress(this.app);
-      modal.scanId=s.scanId;modal.value=s;modal.limit=100;modal.finished=false;modal.selected=new Set();modal.group=this.data?.groupId;
+      modal.scanId=s.scanId;modal.value=s;modal.manualResults=manualResults;
+      modal.limit=100;modal.finished=false;modal.selected=new Set();modal.group=this.data?.groupId;
       this._v5216ScanModal=modal;modal.open();return modal;
     };
   }
@@ -14723,16 +14868,16 @@ const VR603=(()=>{
      if(canOpen()&&this.v604HasInboxReview())await this.showReviewAfterReceive({reason:'console-inbox',forceOpen:true,acceptedZips});
    }).catch(error=>this.log('控制台审核未完成',String(error.message||error)));
  };
- P.v614OpenSelectedReview=async function(paths){
+ P.v614OpenSelectedReview=async function(paths,{openEmpty=false}={}){
    const selected=new Set((paths||[]).filter(path=>/\.zip$/i.test(path)));
    if(!selected.size){
-     if(this.vrDownloadIssues().size)return this.showReviewAfterReceive({reason:'download-and-import',forceOpen:true,selectedHashes:new Set()});
+     if(openEmpty||this.vrDownloadIssues().size)return this.showReviewAfterReceive({reason:'download-and-import',forceOpen:true,selectedHashes:new Set()});
      return null;
    }
    const knownHashes=new Set([...selected].map(path=>this._v614VerifiedInbox?.get(path)).filter(Boolean));
    const rows=await this.v604PrepareInbox();
    const matchingRows=rows.filter(row=>this.v614IsReviewable(row)&&(selected.has(row.path)||knownHashes.has(row.sha256)));
-   if(!matchingRows.length)return null;
+   if(!matchingRows.length&&!openEmpty)return null;
    const selection=new Set(matchingRows.map(row=>row.sha256));
    if(this._v604ReviewTask){
      await this._v604ReviewTask;
@@ -15034,10 +15179,24 @@ const VR604=(()=>{
  // A timer may start review while foreground receipt is still running. Share its real render
  // promise so the foreground progress cannot close before that review finishes or fails.
  const show=P.showReviewAfterReceive;
- P.showReviewAfterReceive=async function(...args){
-   if(this._v604ReviewTask)return this._v604ReviewTask;
-   const task=show.apply(this,args);this._v604ReviewTask=task;
-   try{return await task;}finally{if(this._v604ReviewTask===task)this._v604ReviewTask=null;}
+ P.showReviewAfterReceive=async function(options={}){
+   const running=this._v604ReviewTask;
+   if(running){
+     if(!OBS.Platform.isDesktopApp||!options.forceOpen||running!==this._v604AutomaticReviewTask)return running;
+     const group=this.data.groupId,device=this.engine?.state?.deviceId,panel=this._vrControlPanel,previous=this._vrReviewModal;
+     try{
+       const result=await running;
+       if(options.reason==='console-refresh'&&this._vrReviewModal&&this._vrReviewModal!==previous)return result;
+     }catch(_){} // The automatic caller reports its own failure.
+     if(this.data.groupId!==group||this.engine?.state?.deviceId!==device||panel&&this._vrControlPanel!==panel)return null;
+     return this.showReviewAfterReceive(options);
+   }
+   const task=show.call(this,options);this._v604ReviewTask=task;
+   if(options.reason==='automatic'&&!options.forceOpen)this._v604AutomaticReviewTask=task;
+   try{return await task;}finally{
+     if(this._v604ReviewTask===task)this._v604ReviewTask=null;
+     if(this._v604AutomaticReviewTask===task)this._v604AutomaticReviewTask=null;
+   }
  };
  const journal=P.registerUndoFromNative;
  P.registerUndoFromNative=async function(result,plan,...rest){
@@ -15384,7 +15543,8 @@ const VR605=(()=>{
     for(const local of eligibleVersions(record)){
       if(ignored.has(local.versionId))continue;
       if(excluded.has(local.path.normalize('NFC').toLowerCase())&&!VR70Privacy.accepts(p,local.path,local.originDeviceId)){
-        privateItems.push({path:local.path,versionId:local.versionId,sourceName:record.name});
+        const missingNote=VR70Privacy.protectedNote(p,local.path)&&!await a.exists(local.path);
+        privateItems.push({path:local.path,versionId:local.versionId,sourceName:record.name,missingNote:!!missingNote});
         continue;
       }
       const versions=cat?.byPath?.[local.path]||[];
@@ -15393,8 +15553,9 @@ const VR605=(()=>{
       const localHash=expected?.hashes.has(v.path)?expected.hashes.get(v.path):
         await a.exists(v.path)?await readHash(p,v.path):null;
       const known=expected?.known.get(v.path)||p.engine.state.known[v.path];
+      const localBase=localHash===null&&VR70Privacy.localDeletion(p,v.path,known)?{...known,op:'delete',sha256:null}:known;
       const decision=isDiscarded(p,v)?{status:'discarded',reason:'已确认放弃导入此版本，本机内容已保留。'}:
-        VR606.classify(v,versions,localHash,known,expected?.contested.has(v.path));
+        VR606.classify(v,versions,localHash,localBase,expected?.contested.has(v.path));
       if(decision.status==='conflict'&&known&&!(v.parentVersionId===known.versionId||VR606.isEarlier(versions,known.versionId,v.versionId))){
         const missing=VR606.missing(v,versions);
         if(missing.length)decision.reason+='。缺少前序版本 '+missing.join('、')+'，请先补齐相应增量包';
@@ -15790,8 +15951,10 @@ const VR605=(()=>{
     const e=this.engine;if(!e||e._v605Wrapped)return;e._v605Wrapped=true;const p=this;
     e.v70Blocks=path=>VR70Privacy.blocks(p,path);
     e.v70PrivatePaths=()=>VR70Privacy.exclusions(p);
+    e.vrLocalPrivacyDeletion=(path,known)=>VR70Privacy.localDeletion(p,path,known);
     const latest=e.latestPlan.bind(e);e._v605BaseLatest=latest;e.latestPlan=async function(){
       if(e._v605ActivePlan)return e._v605ActivePlan;
+      if(p._vrPrivacyDeletion)await p._vrPrivacyDeletion;
       const base=await latest(),queue=VR606.order(ordered(p),base.catalog);
       return queue.length?reviewPlan(p,base,queue):withoutDiscarded(p,base);
     };
@@ -15801,6 +15964,7 @@ const VR605=(()=>{
       try{return await runReview(apply,preview,opts);}finally{e._v606Applying=false;}
     };
     const runReview=async(apply,preview,opts={})=>{
+      if(p._vrPrivacyDeletion)await p._vrPrivacyDeletion;
       const base=await latest(),queue=VR606.order(ordered(p),base.catalog);
       if(!queue.length)throw Error('接收队列已变化，请重新审核');
       const batch=reviewBatch(p,queue,base.catalog);
@@ -16831,6 +16995,9 @@ const VR607=(()=>{
     const plan=queuePlan.v605Review?queuePlan:{...queuePlan,items:[]};
     const panel=new Panel(p.app,p);c.addClass('vr607-difference');
     node(c,'h2','审核与确认导入');
+    const available=new Set(reviewRows(p,plan,null).filter(row=>row.pick==='import').map(row=>row.path));
+    for(const row of VR71Review.restrictedRows(p,plan))if(row.v71Sealed?.allowed)available.add(row.path);
+    node(c,'p','可导入 '+available.size,'vru-meta');
     const last=Platform.isDesktopApp?modal.lastDownload:modal.last;
     if(last)node(c,'p',`本次新增 ${last.created} · 更新 ${last.updated} · 删除 ${last.deleted||0} · 失败 ${last.errors.length}`,'vru-meta');
     if(plan.catalog.warnings.length||plan.errors?.length)node(c,'p','版本目录或本机文件有读取异常，请检查后刷新。','vr2-warning');
@@ -17823,6 +17990,7 @@ const VR71Settings=(()=>{
     search.placeholder='搜索笔记';search.setAttribute('aria-label','搜索笔记');
     const count=node(c,'p',undefined,'vru-meta'),list=node(c,'div');
     const selected=new Set(api.policy(p).notes),draft=clone(api.policy(p).devices||{}),sort={};let page=0,revision=0;
+    const deletionRevision=p._vrPrivacyDeletionRevision;
     const files=(p.app.vault.getFiles()||[]).filter(f=>/\.(md|markdown)$/i.test(f.path)&&VaultComparison.allowed(f.path));
     const paths=new Set(files.map(file=>file.path));
     const pending=VR71Review.restrictedRows(p,{v605Parts:[]});
@@ -17836,7 +18004,8 @@ const VR71Settings=(()=>{
       const mine=++revision,snapshot={notes:[...selected],devices:clone(draft)};
       status.textContent='保存中…';
       const job=chain.catch(()=>{}).then(async()=>{
-        if(scope(p)!==identity)throw Error('群组或设备已变化，请重新打开设置');
+        if(p._vrPrivacyDeletion)await p._vrPrivacyDeletion;
+        if(scope(p)!==identity||deletionRevision!==p._vrPrivacyDeletionRevision)throw Error('群组、设备或本机笔记已变化，请重新打开设置');
         if(p.engine?._v606Applying||p._v70Sealing||p._v611Recovering)throw Error('同步处理中，请稍后重试本次设置');
         const before=api.policy(p),links={},attachments=new Set(),devices={};
         for(const path of snapshot.notes){const rule=snapshot.devices[path]||{out:[],in:[]};devices[path]={out:api.parseIds(Array.isArray(rule.out)?rule.out.join(','):rule.out,p),in:api.parseIds(Array.isArray(rule.in)?rule.in.join(','):rule.in,p)};links[path]=api.attachments(p,path);for(const x of links[path])attachments.add(x);}
@@ -17908,7 +18077,7 @@ const VR71Transport=(()=>{
   }
   function install(p){
     const e=p.engine;if(!e||e._v71Wrapped)return;e._v71Wrapped=true;
-    const preview=e.previewUpload.bind(e);e.previewUpload=async()=>{const q=await preview();q.restricted=await restricted(p);q.v71PolicyRevision=p._v71PolicyRevision||0;return q;};
+    const preview=e.previewUpload.bind(e);e.previewUpload=async()=>{if(p._vrPrivacyDeletion)await p._vrPrivacyDeletion;const q=await preview();q.restricted=await restricted(p);q.v71PolicyRevision=p._v71PolicyRevision||0;return q;};
     const wrap=(method,isExport)=>{if(!e[method])return;const base=e[method].bind(e);e[method]=async(...args)=>{
       const opts={...(args[isExport?1:0]||{})},q=isExport?args[0]:await e.previewUpload();
       const selected=opts.selectedPaths??q.ready.map(x=>x.path),privateRows=(q.restricted||await restricted(p)).filter(x=>selected.includes(x.path));
@@ -18096,7 +18265,13 @@ const VR71Review=(()=>{
         if(allowed){action(line,'查看正文',async()=>{node(line,'pre',new TextDecoder().decode(await VR70Sealed.decodeEntry(item.files[0])));});action(line,'确认导入此笔记',async()=>{await p.v70ConfirmSealed(received,item.index,'processed');await modal.refresh();});}
         action(line,'确认忽略此版本',async()=>{await p.v70ConfirmSealed(received,item.index,'ignored');await modal.refresh();});
         action(line,'打开隐私笔记设置',()=>VR70Privacy.open(p,()=>modal.refresh()));
-      }else if(row.v71Private)action(line,'确认忽略此版本',async()=>{await p.v70IgnorePrivateEntry(modal.plan,row.v71Part.v605RecordId,row.v71Private.versionId);await modal.refresh();});
+      }else if(row.v71Private){
+        if(row.v71Private.missingNote)action(line,'确认笔记已删除并清理规则',async()=>{
+          if(typeof window==='undefined'||!window.confirm('仅在你已删除本机笔记时继续。清理本机规则后，同路径内容将重新接受审核；不会直接导入。'))return;
+          await VR70Privacy.deleted(p,{path:row.path},{confirmMissing:true});await modal.refresh();
+        });
+        action(line,'确认忽略此版本',async()=>{await p.v70IgnorePrivateEntry(modal.plan,row.v71Part.v605RecordId,row.v71Private.versionId);await modal.refresh();});
+      }
     }
   }
   const prepare=P.v604PrepareInbox;P.v604PrepareInbox=async function(...args){

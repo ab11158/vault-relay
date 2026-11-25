@@ -33,8 +33,41 @@ function selectedInScan(h,path){
 (async()=>{
   const sender=await host(Windows,A,'Win1');
   await sender.write(NOTE,'From Windows\n');const packet=await publish(sender);
+  const audit=await android();audit.put(packet);
+  const actualList=audit.h.p.getMobileDownloadEntries.bind(audit.h.p);
+  let releaseScan,releaseReview,enteredReview;
+  const scanGate=new Promise(resolve=>{releaseScan=resolve;});
+  const reviewGate=new Promise(resolve=>{releaseReview=resolve;});
+  const reviewReached=new Promise(resolve=>{enteredReview=resolve;});
+  audit.h.p.getMobileDownloadEntries=async (...args)=>{await scanGate;return actualList(...args);};
+  const actualReview=audit.h.p.showReviewAfterReceive.bind(audit.h.p);
+  audit.h.p.showReviewAfterReceive=async (...args)=>{enteredReview();await reviewGate;return actualReview(...args);};
+  const originalOpen=audit.h.p.openCoreUi.bind(audit.h.p);
+  const openedBefore=audit.h.p.app.openedModals.length;
+  const checking=audit.panel.refreshDownloadReview({showProgress:true});
+  const auditProgress=audit.h.p.app.openedModals[openedBefore];
+  const visibleDuringScan=!!auditProgress?.contentEl.querySelector('progress')&&!auditProgress.closed;
+  let closedBeforeAudit=false;
+  audit.h.p.openCoreUi=(action,...args)=>{
+    if(action==='download')closedBeforeAudit=!!auditProgress?.closed;
+    return originalOpen(action,...args);
+  };
+  releaseScan();await reviewReached;
+  const visibleDuringPreparation=!!auditProgress&&!auditProgress.closed;
+  releaseReview();await checking;
+  assert.deepEqual({visibleDuringScan,visibleDuringPreparation,closedBeforeAudit},
+    {visibleDuringScan:true,visibleDuringPreparation:true,closedBeforeAudit:true});
+  assert.equal(audit.h.p.app.openedModals.length,openedBefore+2,'Manual audit opens one progress window and one official review');
+  assert(!audit.h.p._v5216ScanModal,'Manual audit does not open search results');
+  assert(audit.h.p._vrReviewModal._v71Selected.has(sha(packet.bytes)));
+  assert(!await audit.h.adapter.exists(NOTE),'Progress completion cannot import a note');
+  audit.h.p._vrReviewModal.close();
+  console.log('PASS manual audit progress spans scan and preparation and closes before the read-only review');
+
   const first=await android();
+  const openedBeforeRefresh=first.h.p.app.openedModals.length;
   await first.panel.refreshDownloadReview();
+  assert.equal(first.h.p.app.openedModals.length,openedBeforeRefresh+1,'Refresh remains silent and opens only the official review');
   assert(first.h.p._vrReviewModal,'Empty refresh opens the existing review');
   assert.equal(first.h.p._v5216ScanModal,undefined);
   first.h.p._vrReviewModal.close();
@@ -60,6 +93,46 @@ function selectedInScan(h,path){
   await first.h.p.v611ConfirmInboxCleanup(duplicate);
   assert(!await first.h.adapter.exists(duplicate.path));assert.equal(await first.h.adapter.read(NOTE),'From Windows\n');
   console.log('PASS Android quiet return, empty refresh, explicit review, repeat selection, uncheck, and cleanup');
+
+  const already=await android();already.put(packet);
+  already.h.p.v603BeginDownload();already.h.p.v603DownloadLeft();
+  await already.h.p.scanMobileReception({reason:'return',notify:false,quietReview:true});
+  const inboxPath=IN+packet.rec.name;
+  assert(await already.h.adapter.exists(inboxPath),'Background intake leaves the pending ZIP in inbox');
+  already.downloads.clear();
+  const originalRead=already.h.p.getMobileDownloadEntries.bind(already.h.p);
+  let continueScan;const scanningHeld=new Promise(resolve=>{continueScan=resolve;});
+  already.h.p.getMobileDownloadEntries=async (...args)=>{await scanningHeld;return originalRead(...args);};
+  const modalCount=already.h.p.app.openedModals.length;
+  const searching=already.panel.searchDownloadZips();
+  const progress=already.h.p._v5216ScanModal;
+  const liveBar=progress?.contentEl.querySelector('progress');
+  const progressVisible=!!liveBar&&!liveBar.hidden;
+  continueScan();await searching;
+  const results=already.h.p._v5216ScanModal;
+  assert.equal(already.h.p.app.openedModals.length,modalCount+1,'Manual search opens one window');
+  assert.deepEqual({progress:progressVisible,inboxListed:!!results?.value.files.some(file=>file.path===inboxPath)},
+    {progress:true,inboxListed:true},'Manual search shows progress before completion and includes the already gathered Inbox ZIP');
+  assert.equal(results,progress,'The progress window becomes the results window');
+  assert.equal(progress.contentEl.querySelector('progress').hidden,true,'Progress stops when the results are shown');
+  const fromInbox=selectedInScan(already.h,inboxPath);
+  assert.equal(fromInbox.target,inboxPath);
+  assert.equal(fromInbox.sha256,sha(packet.bytes));
+  assert(!already.h.p._vrReviewModal,'The Inbox-only ZIP does not open review by itself');
+  await already.h.p.v5218ReviewScanSelection([fromInbox],group);
+  assert(already.h.p._vrReviewModal?._v71Selected.has(sha(packet.bytes)),'An Inbox-only ZIP can be selected for review');
+  assert(!await already.h.adapter.exists(NOTE),'Selecting the Inbox ZIP does not import the note');
+  already.h.p._vrReviewModal.close();
+  console.log('PASS manual progress becomes results; Inbox-only ZIP is listed and can open read-only review');
+
+  const waiting=await android();waiting.h.p.mobileCapacitorFilesystem=()=>null;
+  await waiting.h.adapter.writeBinary(inboxPath,packet.bytes);
+  await waiting.panel.searchDownloadZips();
+  const unsettled=selectedInScan(waiting.h,inboxPath);
+  assert.match(unsettled.status,/尚未稳定/);assert.equal(unsettled.unavailable,true);
+  assert(waiting.h.p._v5216ScanModal.list.querySelector('input').disabled);
+  assert(await waiting.h.adapter.exists(inboxPath));assert(!await waiting.h.adapter.exists(NOTE));
+  console.log('PASS denied shared storage still lists an unsettled Inbox ZIP without selecting or moving it');
 
   const second=await android();second.put(packet);
   await second.panel.searchDownloadZips();

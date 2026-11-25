@@ -852,6 +852,7 @@
 .vru-scan-progress{max-width:540px!important;width:calc(100vw - 32px)!important}
 .vru-scan-progress p{white-space:normal;overflow-wrap:anywhere}
 .vru-scan-progress .vru-scan-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vru-scan-progress progress:not([hidden]){display:block;width:100%;margin:0.5em 0}
 .vru-scan-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
 .vru-scan-actions button{max-width:100%;white-space:normal;overflow-wrap:anywhere}
 
@@ -1002,6 +1003,10 @@
 .vr761-upload-content > .vr2-review-filters > button {width:auto!important;flex:0 0 auto;height:auto;min-height:32px;padding:5px 10px;font-size:13px;line-height:1.4;margin:0}
 .vr761-upload-content > .vr2-review-filters > .vr2-review-meta {flex:1 1 100%;font-size:12px;line-height:1.5;margin:0;overflow-wrap:anywhere}
 .vr761-upload-content > .vr2-scroll {min-height:64px;max-height:42vh;padding:4px 10px}
+@media (max-width:640px), (max-height:700px) {
+  .modal.vr761-upload > .vr761-upload-content {display:block;overflow-y:auto!important;overscroll-behavior-y:contain;touch-action:pan-y}
+  .vr761-upload-content > .vr2-scroll {min-height:clamp(96px,28dvh,200px);max-height:48dvh;overscroll-behavior-y:auto;touch-action:pan-y}
+}
 .vr761-upload-content .vr2-review-item {padding:8px 0;border-bottom:1px solid var(--background-modifier-border)}
 .vr761-upload-content .vr2-review-item:last-child {border-bottom:0}
 .vr761-upload-content .vr2-review-item > label {display:flex;align-items:flex-start;gap:8px;min-width:0;font-size:14px}
