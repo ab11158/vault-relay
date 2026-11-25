@@ -14619,6 +14619,16 @@ const VR603=(()=>{
    return this.showReviewAfterReceive({reason:'download-and-import',forceOpen:true,selectedHashes:selection});
  };
  const baseScan=scan=>async function(options={}){
+   if(options.reason==='periodic'){
+     const session=this._v603Download;
+     const received=await scan.call(this,options);
+     if(!received.source?.cancelled&&session?.reviewRetryUntil>Date.now()&&
+        this._v603Download===session&&!this._v603ReturnTask&&
+        (typeof document==='undefined'||document.visibilityState!=='hidden')){
+       await this.v603RunReturn(received);
+     }
+     return received;
+   }
    if(options.reason!=='return')return scan.call(this,options);
    const session=this._v603Download;
    if(!session?.left)return {source:{state:'not-requested',errors:0},local:{zip:0,ack:0,errors:0},summary:'未启动下载审核'};
@@ -14627,48 +14637,56 @@ const VR603=(()=>{
  };
  // Replace the 6.02 return wrapper with the underlying receive method supplied by build.
  P.scanMobileReception=baseScan(P._v603BaseReception);
- P.v603RunReturn=async function(){
+ P.v603RunReturn=async function(periodicResult){
    if(this._v603ReturnTask)return this._v603ReturnTask;
    if(!this.v614CanProcessReturn())return null;
    const session=this._v603Download,scan=this._v603BaseReception;let progress=null,stopped=false;
-   if(typeof document!=='undefined'&&document.visibilityState!=='hidden'&&this.app?.workspace?.getLeavesOfType){
+   if(!periodicResult&&typeof document!=='undefined'&&document.visibilityState!=='hidden'&&this.app?.workspace?.getLeavesOfType){
      progress=new OBS.Modal(this.app);progress.modalEl.addClass('vru-receive-progress');progress.contentEl.createEl('h3',{text:'读取文件中……'});
      const bar=progress.contentEl.createEl('progress');bar.setAttribute('aria-label','读取并校验下载文件');
      const status=progress.contentEl.createEl('p',{text:'正在归集并校验文件。'});progress._status=status;
-     progress.contentEl.createEl('button',{text:'停止本次等待'}).addEventListener('click',()=>{stopped=true;this.v603FinishDownload();progress.close();});progress.open();
+     progress.contentEl.createEl('button',{text:'停止本次等待'}).addEventListener('click',()=>{stopped=true;this.v603FinishDownload(session);progress.close();});progress.open();
    }
-   const run=async()=>{let result,lastPending=false,failures=0;
+   const run=async()=>{let result,waiting=false,partial=false,reviewable=false,failures=0;
+     const attempts=periodicResult?1:4;
      try{
-       for(let attempt=0;attempt<4;attempt++){
+       for(let attempt=0;attempt<attempts;attempt++){
          if(stopped||this._v603Download!==session)return result;
-         result=await scan.call(this,{reason:'return',notify:false});
+         // During an empty return check, use the existing lightweight search for follow-up passes.
+         const reason=attempt&&!waiting&&!partial?'periodic':'return';
+         result=periodicResult||await scan.call(this,{reason,notify:false});
+         if(stopped||this._v603Download!==session)return result;
          for(const received of result.local?.acceptedZips||[]){
            this.v614RememberInbox(received.path,received.sha);
            await this.v614QueueSessionReview(session,received.path,received.sha);
          }
          failures=(result.source?.errors||0)+(result.local?.errors||0);
          const pending=(result.source?.pending||0)+(result.local?.pending||0);
-         const partial=['partial','access-denied','no-native-api','source-error','not-configured'].includes(result.source?.state)||result.source?.pendingDirs>0;
-         lastPending=!!pending||partial;
-         if(!lastPending||failures&&!pending)break;
-         if(progress?._status)progress._status.textContent=pending?'等待文件稳定，正在复查……':'本轮还有待查目录，正在继续检查……';
-         if(attempt<3)await new Promise(r=>setTimeout(r,1600));
+         partial=['partial','access-denied','no-native-api','source-error','not-configured'].includes(result.source?.state)||result.source?.pendingDirs>0;
+         const rows=await this.v604PrepareInbox();
+         if(stopped||this._v603Download!==session)return result;
+         waiting=!!pending||rows.some(row=>row.state==='waiting');
+         reviewable=this.vrDownloadIssues().size>0||rows.some(row=>this.v616MatchesDownloadReview(session,row));
+         if(!waiting&&(failures||reviewable&&!partial))break;
+         if(attempt+1<attempts){
+           if(progress?._status)progress._status.textContent=waiting?'等待文件稳定，正在复查……':'正在复查下载文件……';
+           await new Promise(r=>setTimeout(r,1600));
+         }
        }
-       if(stopped||this._v603Download!==session)return result;
-       const rows=await this.v604PrepareInbox();
-       const reviewable=this.vrDownloadIssues().size>0||rows.some(row=>this.v616MatchesDownloadReview(session,row));
        if(reviewable)await this.v604ArmInboxReview();
        if(this._v604ReviewTask||(this.data.v525PendingAutoReview&&this.v603AutoReviewAllowed())){
          if(this._vrReviewTimer){clearTimeout(this._vrReviewTimer);this._vrReviewTimer=null;}
          progress?.close();progress=null;
          await this.showReviewAfterReceive({reason:'automatic'});
        }
-       if(this._v603Download!==session||reviewable)return result;
-       if(failures){
+       if(this._v603Download!==session||reviewable||periodicResult)return result;
+       if(waiting||partial&&!failures){
+         // Resume a recent download from the visible poll without arming unrelated future downloads.
+         session.reviewRetryUntil=Date.now()+60_000;
+         new OBS.Notice('本轮尚有待稳定文件或未覆盖目录；稍后继续，或手动选择文件。',6500);
+       }else if(failures){
          this.v603FinishDownload(session);
          new OBS.Notice('读取完成，有 '+failures+' 项未通过校验，请查看操作记录。',7500);
-       }else if(lastPending){
-         new OBS.Notice('本轮尚有待稳定文件或未覆盖目录；稍后继续，或手动选择文件。',6500);
        }else{
          this.v603FinishDownload(session);
          const notice=OBS.Platform.isIosApp?"没有发现可审核的新包。请用「手动从“文件”选择 ZIP / 回执（备用）」选取下载的文件。":'本轮检查完成，没有新的待审核内容。';
@@ -14676,8 +14694,10 @@ const VR603=(()=>{
        }
        return result;
      }catch(e){
-       this.v603FinishDownload(session);
-       new OBS.Notice('文件读取未完成：'+String(e.message||e),7500);
+       if(!periodicResult&&this._v603Download===session){
+         this.v603FinishDownload(session);
+         new OBS.Notice('文件读取未完成：'+String(e.message||e),7500);
+       }
        throw e;
      }finally{progress?.close();}
    };
