@@ -279,6 +279,7 @@ const VR5213 = (()=>{
     return relative===''||relative!=='..'&&!relative.startsWith('..'+path.sep)&&!path.isAbsolute(relative);
   }
   const managedTransferPath=x=>/(?:^|[\\/])VaultRelay-Transfer[\\/](?:Dbox|inbox|outbox|outgoing|internal|recovery)(?:$|[\\/])/i.test(x);
+  const outgoingTransferPath=x=>/(?:^|[\\/])VaultRelay-Transfer[\\/]outgoing(?:$|[\\/])/i.test(x);
   class Discovery {
     constructor({fs,path,roots,exclude=[],looksLike,visit,now=()=>Date.now()}){
       this.fs=fs;this.path=path;this.roots=roots.map(x=>path.resolve(x));this.exclude=exclude.map(x=>this.key(x));
@@ -510,7 +511,7 @@ const VR5213 = (()=>{
       throw Error('系统无法直接打开此类型，请使用原文件的导出／系统分享入口。');
     };
   }
-  return {Discovery,install,localRoots,downloadRoots,isBaiduBatch,managedTransferPath};
+  return {Discovery,install,localRoots,downloadRoots,isBaiduBatch,managedTransferPath,outgoingTransferPath};
 })();
 
 function loadBridge(){
@@ -10383,6 +10384,7 @@ class VaultRelayV4 extends UnifiedBase {
       return {state:'not-applicable',copied:0,direct:0,paths:[]};
     const foreground=['manual','review','full'].includes(reason);
     const light=reason==='manual-light';
+    const inspectTransferDirs=reason==='manual-full'||reason==='full';
     const full=foreground||['console','return','manual-results','manual-full'].includes(reason);
     if(this._mobileSourcePromise){
       const needsFullScan=full&&this._v5216ScanProgress?.scope!=='all-accessible';
@@ -10410,8 +10412,11 @@ class VaultRelayV4 extends UnifiedBase {
       const add=(path,depth=0)=>{
         try{
           const normalized=this.normalizeMobileSourcePath(path);
-          if(!normalized||seen.has(normalized)||VR5213.managedTransferPath(decodeURIComponent(new URL(normalized).pathname)))return;
-          seen.add(normalized);queue.push({path:normalized,depth});rankDirty=true;
+          if(!normalized||seen.has(normalized))return;
+          const localPath=decodeURIComponent(new URL(normalized).pathname);
+          const managed=VR5213.managedTransferPath(localPath);
+          if(managed&&(!inspectTransferDirs||VR5213.outgoingTransferPath(localPath))){result.excludedDirs++;return;}
+          seen.add(normalized);queue.push({path:normalized,depth,managed});rankDirty=true;
         }catch(_){}
       };
       // Priority order is intentional: previous successful folders first,
@@ -10472,7 +10477,10 @@ class VaultRelayV4 extends UnifiedBase {
           if(entry.isDirectory && !light && (full || current.depth<1)){
             // Do not inspect hidden OS/application-specific subtrees, or the
             // app's private Android/data/obb directories.
-            if(/^(?:\.obsidian|VaultRelay-Transfer|\.|lost\+found)$/i.test(entry.name)){result.excludedDirs++;continue;}
+            if(/^(?:\.obsidian|\.|lost\+found)$/i.test(entry.name)||
+               (!inspectTransferDirs&&/^VaultRelay-Transfer$/i.test(entry.name))){
+              result.excludedDirs++;continue;
+            }
             if(/\/Android\/$/i.test(current.path)&&/^(?:data|obb)$/i.test(entry.name)){result.excludedDirs++;continue;}
             add(current.path+encodeURIComponent(entry.name)+'/',current.depth+1);
           }else if(entry.isFile && (this.mobileDownloadLooksLikeExchange(entry.name)||VR5213.isBaiduBatch(entry.name))){
@@ -10481,6 +10489,13 @@ class VaultRelayV4 extends UnifiedBase {
             seenItems.add(key);
             const finding={name:entry.name,path:key,mtime:entry.mtime??null,status:'已发现，等待检查'};
             result.files.push(finding);
+            // Scan managed storage for visibility. Dbox and inbox retain their
+            // dedicated intake, and stored history never becomes a download.
+            if(current.managed){
+              finding.status='传输目录中的文件，由原有流程管理';
+              finding.unavailable=true;
+              continue;
+            }
             candidates.push({entry,key,dir:current.path,finding});
             result.candidateFiles=candidates.length;
           }
@@ -10729,7 +10744,12 @@ class VaultRelayV4 extends UnifiedBase {
          !(await fs.lstat(dir)).isDirectory()||(await fs.realpath(dir)).toLowerCase()!==dir.toLowerCase())return;
       this.data.v5213DownloadLocations=[...new Set([dir,...(this.data.v5213DownloadLocations||[])])].slice(0,20);
     }else if(OBS.Platform.isAndroidApp){
-      this.v5218RankHit(origin.slice(0,origin.lastIndexOf('/')+1),record.sha256);
+      const dir=this.normalizeMobileSourcePath(origin.slice(0,origin.lastIndexOf('/')+1));
+      if(!dir||VR5213.managedTransferPath(decodeURIComponent(new URL(dir).pathname))){
+        this._vr713ChosenSources.delete(record.sha256);
+        return;
+      }
+      this.v5218RankHit(dir,record.sha256);
     }else return;
     await this.persistTransport();this._vr713ChosenSources.delete(record.sha256);
   }

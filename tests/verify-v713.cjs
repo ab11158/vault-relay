@@ -88,6 +88,61 @@ const DBOX='VaultRelay-Transfer/Dbox/';
   await receive(tablet,packet,false);
   assert.equal(tablet.p.data.downloadDirectoryTarget.path,'/_pcs_.workspace/Updated share','Earlier signed pack cannot roll back the latest directory');
   tablet.p._vrReviewModal.close();
+  const phone=await host(Mobile,null,'Phone',{});await phone.p.joinGroup(gid);
+  const publicRoot='/storage/emulated/0/Download/';
+  const baidu=publicRoot+'BaiduNetdisk/_pcs_.workspace/00Obsidian/VaultRelay-Transfer/';
+  const firstFolder=baidu+'test2/';
+  const otherFolder=publicRoot+'Other Download/Team/VaultRelay-Transfer/Notes/Incoming/';
+  const vaultRoot=publicRoot+'Vault/';
+  const anotherVault=publicRoot+'Another Vault/';
+  const deviceDirs=new Map(),visited=new Set();
+  phone.adapter.getBasePath=()=>vaultRoot.replace('/storage/emulated/0/','/sdcard/').slice(0,-1);
+  phone.p.mobileCapacitorFilesystem=()=>({});
+  phone.p.getMobileDownloadEntries=async uri=>{
+    const dir=decodeURIComponent(new URL(uri).pathname);
+    visited.add(dir);
+    return [...(deviceDirs.get(dir)?.values()||[])];
+  };
+  const put=(folder,item)=>{
+    let dir='/';
+    for(const name of folder.split('/').filter(Boolean)){
+      if(!deviceDirs.has(dir))deviceDirs.set(dir,new Map());
+      deviceDirs.get(dir).set(name,{name,isDirectory:true});
+      dir+=name+'/';
+    }
+    if(!deviceDirs.has(dir))deviceDirs.set(dir,new Map());
+    if(item)deviceDirs.get(dir).set(item.rec.name,{name:item.rec.name,isFile:true,file:resolve=>resolve({
+      size:item.bytes.byteLength,lastModified:old.getTime(),arrayBuffer:async()=>item.bytes
+    })});
+  };
+  put(firstFolder,packet);put(otherFolder,next);
+  put(vaultRoot+'VaultRelay-Transfer/internal/history/',third);
+  put(anotherVault+'VaultRelay-Transfer/recovery/quarantine/',third);
+  put(vaultRoot+'VaultRelay-Transfer/outgoing/',third);
+  const excluded=anotherVault+'VaultRelay-Transfer/Outgoing/archive/';
+  put(excluded,third);put(baidu+'outgoing/',third);
+  phone.p.data.mobileExtraSources=[excluded];
+  const initial=await phone.p.vr713ScanDownloads();
+  assert.equal(initial.source.files.length,0,'Light scan must not walk unlearned folders');
+  const full=await phone.p.vr713ScanDownloads({full:true});
+  assert.deepEqual(full.source.files.filter(row=>!row.unavailable).map(x=>x.name).sort(),[packet.rec.name,next.rec.name].sort());
+  const managed=full.source.files.filter(row=>row.unavailable);
+  assert.equal(managed.length,2,'History and quarantine are listed without re-queueing their ZIPs');
+  assert(managed.every(row=>row.name===third.rec.name&&!row.target));
+  assert(!await phone.adapter.exists('VaultRelay-Transfer/inbox/'+third.rec.name));
+  for(const dir of [vaultRoot+'VaultRelay-Transfer/outgoing/',anotherVault+'VaultRelay-Transfer/Outgoing/',excluded,baidu+'outgoing/'])assert(!visited.has(dir),dir);
+  const pending=phone.p._vr713ChosenSources=new Map();
+  const picked={group:gid,device:phone.p.engine.state.deviceId,origin:excluded+third.rec.name};
+  pending.set(third.rec.sha256,picked);
+  await phone.p.vr713RememberChosenSource({sha256:third.rec.sha256});
+  assert(!phone.p.v5218RankedDirs().some(dir=>dir.includes('/Outgoing/')));
+  assert(!pending.has(third.rec.sha256));
+  for(const item of [packet,next])assert(await phone.adapter.exists('VaultRelay-Transfer/inbox/'+item.rec.name));
+  assert(!await phone.adapter.exists(note),'Finding the package must not import a note');
+  put(firstFolder,third);
+  const learned=await phone.p.vr713ScanDownloads();
+  assert(learned.source.files.some(x=>x.name===third.rec.name&&x.target==='VaultRelay-Transfer/inbox/'+third.rec.name));
+  console.log('PASS Android full scan discovers varying download paths and excludes outgoing and preserves stored ZIPs; light scan reuses discovered paths');
   delete global.document;
   console.log('PASS shared settings, conflict version and local backup across 3 platforms; tablet Dbox light scan and review');
 })().catch(error=>{console.error(error);process.exitCode=1;});
