@@ -40,7 +40,13 @@ const chooserFile=(name,raw)=>({name,size:raw.length,arrayBuffer:async()=>raw});
     const audit=panel.contentEl.querySelectorAll('button').filter(el=>el.textContent==='⑤ 审核与确认导入')[i];
     await openOnce(()=>audit.click());
   }
-  assert.equal(discovery,3);assert.equal(fullDiscovery,0,'Refresh and both audit buttons start with the same light scan');
+  const scanButtons=()=>panel.contentEl.querySelectorAll('button').filter(el=>el.textContent==='④ 扫描下载的增量包');
+  assert.equal(scanButtons().length,2);
+  for(let i=0;i<2;i++){
+    await openOnce(()=>scanButtons()[i].click());
+    assert(!pc.p._v5216ScanModal,'Button ④ does not open manual results');
+  }
+  assert.equal(discovery,5);assert.equal(fullDiscovery,0,'Refresh, ④ and ⑤ start with the same light scan');
   failDiscovery=true;
   await openOnce(()=>button(panel,'⑤ 审核与确认导入').click());
   failDiscovery=false;
@@ -82,6 +88,13 @@ const chooserFile=(name,raw)=>({name,size:raw.length,arrayBuffer:async()=>raw});
   assert(!await pc.adapter.exists(DBOX+packet.rec.name));
   await openOnce(()=>button(panel,'刷新').click(),inspectBlocked);
   await openOnce(()=>panel.receiveTransferFiles([chooserFile(packet.rec.name,packet.bytes)]),inspectBlocked,{progress:false});
+  await panel.refreshDownloadReview();
+  const review=pc.p._vrReviewModal,opened=pc.p.app.openedModals.length,scans=discovery;
+  button(review,'添加外部 ZIP / 回执').click();
+  const input=review.modalEl.querySelector('input');
+  input.files=[chooserFile(packet.rec.name,packet.bytes)];await input.handlers.change();
+  assert.equal(pc.p._vrReviewModal,review);assert.equal(pc.p.app.openedModals.length,opened);
+  assert.equal(discovery,scans);inspectBlocked(review);review.close();
   assert.equal(await pc.adapter.read(NOTE),'Existing Windows version');
   assert(pc.p.data.v70PrivateNotes[scopePc].notes.includes(NOTE));
   delete global.document;
