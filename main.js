@@ -8579,6 +8579,34 @@ const VR70Sealed=(()=>{
     creating.set(p,task);
     try{return await task;}finally{creating.delete(p);}
   }
+  function receiveTrust(p,report){
+    const card=report?.inventory?.identity?.card;
+    if(!card)return {reason:'旧版 ZIP 缺少可核验的发包设备签名，请对端使用新版重发'};
+    const peers=state(p).peers;
+    if(Object.keys(peers).length>1)return {reason:'本组有多台已信任设备，请先在设备管理中只保留一台对端'};
+    const peer=peers[card.deviceId];
+    if(card.groupId!==p.data.groupId||!peer||peer.groupId!==card.groupId||
+      peer.signingKey!==card.signingKey||peer.encryptionKey!==card.encryptionKey)
+      return {reason:'发包设备不是本组当前信任的对端',reject:true};
+    return null;
+  }
+  function receiveTrustError(denial){
+    const error=Error(denial.reject?'已拒收 · '+denial.reason+'。更改信任后请重新下载':denial.reason+'，原件保留');
+    error.code=denial.reject?'VR_TRUST_REJECTED':'VR_TRUST_BLOCKED';
+    return error;
+  }
+  function assertTrustEditable(p){
+    if(p.engine?._v606Applying||p.engine?.busy||p.engine?.publishing||p._v611Recovering||p._v70Sealing)
+      throw Error('同步处理中，请结束后再更改设备信任');
+  }
+  async function untrust(p,id){
+    assertTrustEditable(p);
+    const peers=state(p).peers,card=peers[id];
+    if(!card)return;
+    delete peers[id];
+    try{await p.persistTransport();}catch(error){peers[id]=card;throw error;}
+    p._v71PolicyRevision=(p._v71PolicyRevision||0)+1;
+  }
   async function trust(p,value,expected){
     const card=checkCard(typeof value==='string'?JSON.parse(value):value,p.data.groupId);
     if(card.deviceId===own(p))throw Error('请添加对端设备名片');
@@ -8588,6 +8616,8 @@ const VR70Sealed=(()=>{
     if(card.groupId!==p.data.groupId||card.deviceId===own(p))throw Error('群组或设备已变化');
     const peers=state(p).peers,prior=peers[card.deviceId];
     if(prior&&await fingerprint(prior)!==hash)throw Error('这个设备 ID 已绑定不同密钥，请先核对是否为同一设备');
+    assertTrustEditable(p);
+    if(!prior&&Object.keys(peers).length)throw Error('本组只能信任一台对端，请先解绑当前对端');
     peers[card.deviceId]=card;
     try{await p.persistTransport();}catch(error){if(prior)peers[card.deviceId]=prior;else delete peers[card.deviceId];throw error;}
     return card.deviceId;
@@ -8848,7 +8878,7 @@ const VR70Sealed=(()=>{
       throw error;
     }
   }
-  return {format,inspect,make,trust,ownKeys,fingerprint,state,decodeEntry,apply,packReceipts,registerFeedback,createIdentity,readIdentity,requiresIdentity,signEnvelope,verifyEnvelope};
+  return {format,inspect,make,trust,untrust,receiveTrust,ownKeys,fingerprint,state,decodeEntry,apply,packReceipts,registerFeedback,createIdentity,readIdentity,requiresIdentity,signEnvelope,verifyEnvelope,receiveTrustError};
 })();
 const UnifiedBase = Plugin;
 const OBS={...require('obsidian'),Notice:VR603Notice(require('obsidian').Notice),Modal:VR603Modal(require('obsidian').Modal)};
@@ -14199,7 +14229,7 @@ const VR5219Lifecycle=(()=>{
       const name=this.v5218BaseName?.(input.name)||input.name;
       const checked=/\.zip$/i.test(name)?await this.v601ValidateReceivedPackage(name,raw):null;
       const result=await stage.call(this,input,raw,...args),r=result.transfer;
-      if(checked?.needsAck&&checked.sender!==own(this)){
+      if(checked?.needsAck&&checked.sender!==own(this)&&!VR70Sealed.receiveTrust(this,checked.report)){
         const before={flag:r.v601VerifiedForAck,sender:r.v601AckSender};r.v601VerifiedForAck=true;r.v601AckSender=checked.sender;
         try{await this.persistTransport();}catch(e){r.v601VerifiedForAck=before.flag;r.v601AckSender=before.sender;throw e;}
         await this.v601GenerateTransportAck(r);await this.v5221StageFeedback();
@@ -14904,7 +14934,10 @@ const VR603=(()=>{
    if(await adapter.exists(path))throw Error('外层 ZIP 未能删除');
  }
  async function retryZip(work){
-   try{return await work();}catch(_){return work();}
+   try{return await work();}catch(error){
+     if(error.code==='VR_TRUST_REJECTED'||error.code==='VR_TRUST_BLOCKED')throw error;
+     return work();
+   }
  }
  const batchRecovery='VaultRelay-Transfer/recovery/quarantine/';
  function recoveryZip(name){return batchRecovery+'receive-'+Date.now()+'-'+T.randomHex(8)+'-'+name;}
@@ -15012,7 +15045,8 @@ const VR603=(()=>{
      }catch(error){
        const reason=String(error.message||error);
        errors.push(child.childName+'：'+reason);
-       await isolateDbox(p,child.path,snapshot,reason,checkGroup);
+       if(error.code!=='VR_TRUST_REJECTED'&&error.code!=='VR_TRUST_BLOCKED')
+         await isolateDbox(p,child.path,snapshot,reason,checkGroup);
      }
    }
    checkGroup();
@@ -15163,6 +15197,7 @@ const VR603=(()=>{
          await this.log('Dbox 增量 ZIP 归集',name+(retained?' 已校验并存入 inbox，Dbox 原件保留。':' 已从 Dbox 归集到 inbox。')+' 正式笔记仍需审核确认。');
        }catch(error){
          result.errors++;
+         if(error.code==='VR_TRUST_REJECTED'||error.code==='VR_TRUST_BLOCKED')continue;
          if(expected)await isolateDbox(this,path,stat,String(error.message||error),checkGroup);
          else await this.log('Dbox 增量 ZIP 保留',name+'：'+String(error.message||error));
        }
@@ -15473,7 +15508,10 @@ const VR604=(()=>{
          const prior=records(this).find(r=>r.path===path||r.incomingAliases?.some(x=>x.path===path));
          if(prior&&prior.sha256!==sha)throw Error('已登记同名接收包的 SHA 已变化，原件保留');
          const file={name,size:raw.byteLength,arrayBuffer:async()=>raw};
-         if(await this.mobileReceiptIntact(sha)){
+         if(VR70Sealed.receiveTrust(this,checked.report)&&!this.v611IsHistorySource(sha,checked.sender)){
+           const review=await this.storeDownloadedZip(file);
+           await this.applyDownloaded(review);
+         }else if(await this.mobileReceiptIntact(sha)){
            if(!prior||prior.state==='cleaned'||prior.v618InboxDismissedAt||!this.v5218AliasTracked(path,sha))
              await this.v5217Stage(file,raw,{report:checked.report});
          }
@@ -15684,12 +15722,15 @@ const VR605=(()=>{
     return VR606.batch(eligible,catalog);
   }
   function withoutDiscarded(p,base){
-    if(!Object.keys(p.data.v608DiscardedVersions||{}).length&&!VR70Privacy.exclusions(p).size)return base;
-    const rejected=base.items.filter(item=>isDiscarded(p,item.version)||VR70Privacy.blocks(p,item.path));
+    const refused=new Set(zipRecords(p).filter(record=>record.v71TrustRejectedAt)
+      .flatMap(record=>(record.versions||[]).map(version=>discardedKey(p,version))));
+    const refusedItem=item=>refused.has(discardedKey(p,item.version));
+    if(!refused.size&&!Object.keys(p.data.v608DiscardedVersions||{}).length&&!VR70Privacy.exclusions(p).size)return base;
+    const rejected=base.items.filter(item=>refusedItem(item)||isDiscarded(p,item.version)||VR70Privacy.blocks(p,item.path));
     if(!rejected.length)return base;
     const counts={...base.counts};
     for(const item of rejected)counts[item.status]=Math.max(0,(counts[item.status]||0)-1);
-    return {...base,counts,items:base.items.filter(item=>!isDiscarded(p,item.version)),
+    return {...base,counts,items:base.items.filter(item=>!refusedItem(item)&&!isDiscarded(p,item.version)),
       signature:JSON.stringify([base.signature,rejected.map(item=>discardedKey(p,item.version))])};
   }
   P.vr713ResolveReviewConflict=async function(preview,recordId,version,{keepBackup=false}={}){
@@ -15700,6 +15741,7 @@ const VR605=(()=>{
       const base=await e._v605BaseLatest(),queue=VR606.order(ordered(p),base.catalog);
       const record=queue.find(row=>row.id===recordId);
       if(!record||!preview?.v605Review)throw Error('接收队列已变化，请重新审核');
+      await assertPendingTrust(p,record);
       const fresh=await reviewPlan(p,base,queue),key=discardedKey(p,version);
       const item=fresh.v605Parts.find(part=>part.v605RecordId===recordId)?.items.find(row=>
         row.status==='conflict'&&discardedKey(p,row.version)===key);
@@ -15806,6 +15848,12 @@ const VR605=(()=>{
     const raw=await p.app.vault.adapter.readBinary(row.path);
     if(await hash(raw)!==r.sha256)throw Error('定向 ZIP 已变化，原件保留');
     const {report}=await p.v601ValidateReceivedPackage(r.name,raw);
+    const denial=VR70Sealed.receiveTrust(p,report);
+    if(denial?.reject){
+      await rejectIncoming(p,r,r.sha256);
+      throw VR70Sealed.receiveTrustError(denial);
+    }
+    if(denial)throw VR70Sealed.receiveTrustError(denial);
     if(!report.sealed?.relevant||report.sealed.sender!==r.v70Sealed.sender)throw Error('此包已无法核验');
     return {r,report};
   }
@@ -16066,7 +16114,7 @@ const VR605=(()=>{
     if(r?.v618InboxDismissedAt){
       const name=String(file.name||''),target=IN+r.name;
       if(!validInboxZipPath(IN+name)||!validInboxZipPath(target))throw Error('接收文件名不安全');
-      await this.v601ValidateReceivedPackage(this.v5218BaseName(name),raw);
+      const checked=await this.v601ValidateReceivedPackage(this.v5218BaseName(name),raw);
       await VR601.checkedWrite(this,target,raw);
       const previous={path:r.path,v605InboxOuterPath:r.v605InboxOuterPath,v605StagedOuterPath:r.v605StagedOuterPath,
         v618InboxDismissedAt:r.v618InboxDismissedAt,downloadNames:r.downloadNames};
@@ -16076,6 +16124,13 @@ const VR605=(()=>{
       r.downloadNames=[...new Set([...(r.downloadNames||[]),name])];
       try{await this.persistTransport();}catch(error){Object.assign(r,previous);throw error;}
       await VR5217.installHelpers.moveSource(this,r,options.source||file._vr5217Source||null);
+      if(r.v71TrustRejectedAt&&checked.needsAck&&!VR70Sealed.receiveTrust(this,checked.report)){
+        r.v601VerifiedForAck=true;
+        r.v601AckSender=checked.sender;
+        await this.persistTransport();
+        await this.v601GenerateTransportAck(r);
+        await this.v5221StageFeedback();
+      }
       return {path:target,sha256:digest,transfer:r,created:false,v5218FreshDownload:false};
     }
     if(!r||!r.v605StagedOuterPath&&!done(r))return stageZip.call(this,file,raw,options);
@@ -16100,14 +16155,33 @@ const VR605=(()=>{
   const storeZip=P.storeDownloadedZip;
   P.storeDownloadedZip=async function(file,...args){
     const raw=new Uint8Array(await file.arrayBuffer()),digest=await hash(raw);
-    const prior=zipRecords(this).find(x=>x.sha256===digest&&
-      (managed(x)||done(x)));
+    const prior=zipRecords(this).find(x=>x.sha256===digest&&(managed(x)||done(x)));
+    const {report}=await this.v601ValidateReceivedPackage(this.v5218BaseName?.(file.name)||file.name,raw);
+    const denial=VR70Sealed.receiveTrust(this,report);
+    if(denial&&!done(prior)){
+      if(report.inventory?.identity){
+        await VRSharedInfo.discover(this,report.inventory.identity);
+        VRSharedInfo.notify(this,report.inventory.identity.card.deviceId);
+      }
+      if(!denial.reject){
+        this.vrDownloadIssues().set(JSON.stringify(['trust',digest]),{name:file.name,status:'暂不能接收',reason:denial.reason});
+        throw VR70Sealed.receiveTrustError(denial);
+      }
+      const staged=await this.v5217Stage(file,raw,{source:args[0]?.externalSource||file._vr5217Source||null,report});
+      await rejectIncoming(this,staged.transfer,report.hash);
+      throw VR70Sealed.receiveTrustError(denial);
+    }
     if(prior){
-      const checked=await this.v601ValidateReceivedPackage(this.v5218BaseName?.(file.name)||file.name,raw);
       const staged=await this.v5217Stage(file,raw,{source:file._vr5217Source||null});
-      await VR606.recordReceipt(this,checked.report.inventory,digest,checked.report.fileName);
+      await VR606.recordReceipt(this,report.inventory,digest,report.fileName);
+      if(!denial&&prior.v71TrustRejectedAt){
+        const when=prior.v71TrustRejectedAt;
+        delete prior.v71TrustRejectedAt;
+        try{await this.persistTransport();}catch(error){prior.v71TrustRejectedAt=when;throw error;}
+        this.vrDownloadIssues().delete(JSON.stringify(['trust',digest]));
+      }
       await this.log('重复增量包',file.name+"：已按相同 SHA 归并接收，不生成重复 回执");
-      return {report:checked.report,temporary:staged.path||outerPath(prior),
+      return {report,temporary:staged.path||outerPath(prior),
         bundleId:prior.bundleId,v611AlreadyProcessed:done(prior),v605Duplicate:done(prior)||!!prior.v605ExchangeRestoredAt,transfer:prior};
     }
     const result=await storeZip.call(this,file,...args),resultDigest=result?.report?.hash;
@@ -16119,8 +16193,19 @@ const VR605=(()=>{
 
   const applyZip=P.applyDownloaded;
   P.applyDownloaded=async function(review,...args){
+    const digest=review?.report?.hash;
+    const prior=zipRecords(this).find(x=>x.sha256===digest);
+    if(!done(prior)){
+      const denial=VR70Sealed.receiveTrust(this,review?.report);
+      if(denial?.reject){
+        await rejectIncoming(this,prior,digest);
+        throw VR70Sealed.receiveTrustError(denial);
+      }
+      if(denial)throw VR70Sealed.receiveTrustError(denial);
+    }
     if(review?.v605Duplicate)return {added:0,skipped:review.transfer?.versions?.length||0,duplicate:true};
-    const result=await applyZip.call(this,review,...args),digest=review?.report?.hash;
+    const result=await applyZip.call(this,review,...args);
+    this.vrDownloadIssues().delete(JSON.stringify(['trust',digest]));
     const r=zipRecords(this).find(x=>x.sha256===digest);
     if(r){
       const rec=(this.data.inboundRecords||[]).find(x=>x.sha256===digest);
@@ -16182,6 +16267,45 @@ const VR605=(()=>{
     const dirs=[...new Set(rec.files.map(x=>ST+rec.bundleId+'/'+x.split('/').slice(0,-1).join('/'))),ST+rec.bundleId]
       .sort((x,y)=>y.length-x.length);
     for(const dir of dirs)await emptyDir(p,dir);
+  }
+
+  async function rejectIncoming(p,record,digest){
+    if(!active(p,record)||done(record)||record.sha256!==digest)throw Error('接收记录已变化，请刷新');
+    const a=p.app.vault.adapter;
+    const paths=new Set([outerPath(record),record.path,...(record.incomingAliases||[]).map(row=>row.path)]);
+    const verified=[];
+    for(const path of paths){
+      if(!validInboxZipPath(path)||!await a.exists(path))continue;
+      VR601.physical(p,path);
+      if(await readHash(p,path)===digest)verified.push(path);
+    }
+    const prior={v618InboxDismissedAt:record.v618InboxDismissedAt,v71TrustRejectedAt:record.v71TrustRejectedAt};
+    record.v618InboxDismissedAt=record.v71TrustRejectedAt=Date.now();
+    try{await p.persistTransport();}catch(error){Object.assign(record,prior);throw error;}
+    if((p.data.inboundRecords||[]).some(row=>row.sha256===digest&&row.fileHashes))await cleanStaging(p,record);
+    for(const path of verified){
+      if(await a.exists(path)&&await readHash(p,path)===digest)await a.remove(path);
+      if(await a.exists(path))throw Error('拒收 ZIP 自删失败：'+path);
+      p._v614VerifiedInbox?.delete(path);
+    }
+    await p.log('未信任设备的增量包已拒收',record.name).catch(()=>{});
+    p.vrDownloadIssues().set(JSON.stringify(['trust',digest]),{name:record.name,
+      status:'本机接收副本已删除',reason:'发包设备不是本组当前信任的对端。更改信任后请重新下载'});
+  }
+
+  async function assertPendingTrust(p,record){
+    const path=outerPath(record),a=p.app.vault.adapter;
+    if(!await a.exists(path))throw Error('接收 ZIP 缺失，请重新下载：'+record.name);
+    VR601.physical(p,path);
+    const raw=await a.readBinary(path);
+    if(await hash(raw)!==record.sha256)throw Error('接收 ZIP 内容已变化，请重新审核：'+record.name);
+    const {report}=await p.v601ValidateReceivedPackage(p.v5218BaseName(record.name),raw);
+    const denial=VR70Sealed.receiveTrust(p,report);
+    if(denial?.reject){
+      await rejectIncoming(p,record,record.sha256);
+      throw VR70Sealed.receiveTrustError(denial);
+    }
+    if(denial)throw VR70Sealed.receiveTrustError(denial);
   }
 
   const recycling=new WeakMap();
@@ -16265,6 +16389,7 @@ const VR605=(()=>{
     for(const r of targets||ordered(p)){
       if(!r.versions?.length||!await p.app.vault.adapter.exists(outerPath(r)))break;
       if(await readHash(p,outerPath(r))!==r.sha256)break;
+      await assertPendingTrust(p,r);
       let q;
       try{q=await contentPlan(p,await p.engine._v605BaseLatest(),r);}
       catch(error){if(r.v605ExchangeRestoredAt)throw error;break;}
@@ -16418,6 +16543,7 @@ const VR605=(()=>{
       if(p._vrPrivacyDeletion)await p._vrPrivacyDeletion;
       const base=await latest(),queue=VR606.order(ordered(p),base.catalog);
       if(!queue.length)throw Error('接收队列已变化，请重新审核');
+      for(const record of queue)await assertPendingTrust(p,record);
       const batch=reviewBatch(p,queue,base.catalog);
       const fresh=await reviewPlan(p,base,queue);
       if(!preview?.v605Review||fresh.signature!==preview.signature)throw Error('接收队列或笔记已变化，请重新审核');
@@ -18549,8 +18675,15 @@ const VR71Settings=(()=>{
           });
         }),!!confirmed);
         action(line,'复制 ID',()=>new Panel(p.app,p).copy(idField.value.trim()),status);
-        if(confirmed)node(line,'span','已信任','vru-meta');
-        else if(entry.publicId)action(line,'确认信任',()=>confirm(entry),status);
+        if(confirmed){
+          node(line,'span','已信任','vru-meta');
+          action(line,'解绑',()=>run(()=>VR70Sealed.untrust(p,entry.id)),status);
+        }else if(entry.publicId)action(line,'确认信任',()=>confirm(entry),status);
+        action(line,'删除',()=>run(async()=>{
+          if(!window.confirm('删除此设备记录？已导入的资料和操作日志保留。'))return;
+          await VR70Sealed.untrust(p,entry.id);
+          await update((_row,records)=>records.splice(index,1));
+        }),status);
       });
     }
     box.addEventListener('toggle',()=>{if(box.open)paint();});
