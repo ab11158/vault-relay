@@ -3049,6 +3049,76 @@ function createUnifiedPanel() {
       details.addEventListener('toggle',()=>{this._settingsOpen[key]=details.open;});
       return details;
     }
+    renderMembership(parent){
+      const membership=this.settingsDetails(parent,'会员与权益','membership');
+      membership.classList.add('vru-membership');
+      ele(membership,'p','会员服务筹备中。下表展示正式启用后的权益。当前测试版可继续体验高级操作和隐私笔记，试用、登录和付费尚未开放。','vru-meta');
+      const comparison=ele(membership,'table',null,'vru-membership-table');
+      ele(comparison,'caption','免费版与 VIP 权益对比');
+      const header=ele(ele(comparison,'thead'),'tr');
+      for(const title of ['权益','免费版','VIP'])ele(header,'th',title).scope='col';
+      const body=ele(comparison,'tbody');
+      for(const [feature,free,vip] of [
+        ['费用','免费，免注册','¥3／月或 ¥30／年'],
+        ['同步群组','最多 2 个','可用第 3 个及以上'],
+        ['每组终端','含本机共 2 台，可解绑换绑','可用第 3 台及以上'],
+        ['增量收发与审核导入','可用','可用'],
+        ['高级操作与隐私笔记定向发布','可查看演示','知识库比对、版本与冲突、定向发布等']
+      ]){
+        const line=ele(body,'tr');
+        ele(line,'th',feature).scope='row';
+        ele(line,'td',free);
+        ele(line,'td',vip);
+      }
+      ele(membership,'p','计划提供 30 天全功能试用。开通时验证手机号，试用到期不会自动扣费。','vru-meta');
+      button(row(membership),'查看 VIP 演示',()=>this.showMembershipDemo(),true);
+      const events=this.settingsDetails(membership,'活动','membershipEvents');
+      ele(events,'p','暂无活动','vru-meta');
+    }
+    showMembershipDemo(){
+      const demo=new Modal(this.app);
+      demo.modalEl.addClass('vru-control-modal');
+      demo.setTitle?.('VIP 演示');
+      const content=demo.contentEl;
+      content.addClass('vru-panel');
+      if(!demo.setTitle)ele(content,'h2','VIP 演示');
+      ele(content,'p','以下使用示例资料演示。','vru-meta');
+      const controls=row(content);
+      controls.classList.add('vru-membership-tabs');
+      const preview=ele(content,'div');
+      preview.setAttribute('aria-live','polite');
+      const tabs=[];
+      const scenes=[
+        ['多端同步',[
+          ['电脑','编辑《物理复习提纲》，生成增量 ZIP 并上传。'],
+          ['手机','下载 ZIP，打开审核页查看改动，确认后导入。'],
+          ['更多设备','VIP 计划支持更多群组和每组更多终端。']
+        ]],
+        ['知识库比对',[
+          ['发布端','生成当前知识库的文件清单。'],
+          ['接收端','导入清单，查看仅一端存在和两端内容不同的笔记。'],
+          ['处理差异','查看原文，根据需要选择文件生成新的增量包。']
+        ]],
+        ['教学资料定向开放',[
+          ['老师','将《期中讲义》设为隐私笔记，勾选获授权的学生设备。'],
+          ['发布','照常生成 ZIP。讲义按选定的设备加密。'],
+          ['学生','获授权的设备下载 ZIP，在审核页查看并确认导入。']
+        ]]
+      ];
+      function show(index){
+        tabs.forEach((tab,i)=>tab.setAttribute('aria-pressed',String(i===index)));
+        preview.empty();
+        const steps=ele(preview,'ol',null,'vru-membership-demo');
+        for(const [title,description] of scenes[index][1]){
+          const step=ele(steps,'li');
+          ele(step,'strong',title);
+          ele(step,'p',description);
+        }
+      }
+      scenes.forEach(([title],index)=>tabs.push(button(controls,title,()=>show(index))));
+      show(0);
+      demo.open();
+    }
     renderBaiduSettings(baidu){
       const p=this.plugin;
       const shortPathHelp='如果百度网盘显示「全部文件 > 00Obsidian > VaultRelay-Transfer > test2」，请填写 /00Obsidian/VaultRelay-Transfer/test2。同步空间前缀由插件内部处理，无需手填。';
@@ -3207,6 +3277,7 @@ function createUnifiedPanel() {
       this.renderBaiduSettings(baidu);
       this.renderDownloadLocation(section(set,'本机下载设置'));
       VR606.renderSettings(this,set);
+      this.renderMembership(set);
       const connection=Platform.isDesktopApp?section(baidu,'③ Windows 专用 · 自动收发增量文件'):
         ele(baidu,'details',null,'vru-platform-advanced vru-reception-help');
       if(!Platform.isDesktopApp)ele(connection,'summary','找不到下载文件？');
@@ -3230,7 +3301,8 @@ function createUnifiedPanel() {
           extInput.placeholder='/storage/emulated/0/Documents/';
           button(connection,'保存补充扫描目录',()=>this.run('保存扫描目录',()=>
             p.updateSetting('mobileExtraSources',extInput.value)));
-          ele(connection,'p','通常无需修改这些备用目录。仍未找到原件时可从高级操作手动扫描可读取共享存储；扫描弹窗显示进度，可停止本次搜索。受权限与本轮上限限制，不保证覆盖全部目录。','vru-meta');
+          ele(connection,'p','通常无需修改这些备用目录。仍未找到原件时可在「手动查找／选择 ZIP」中执行全盘扫描；扫描弹窗显示进度，可停止本次搜索。受权限与本轮上限限制，不保证覆盖全部目录。','vru-meta');
+          button(connection,'查看扫描状态',()=>p.showMobileScanProgress());
         }else{
           ele(connection,'p',"iOS / iPadOS 无法遍历其他 App 的私有下载目录。将 Safari 下载位置设为当前知识库的 VaultRelay-Transfer/Dbox 可自动归集增量 ZIP。下载在其他位置时，从系统“文件”手动选择 ZIP 或 回执。",'vru-meta');
         }
@@ -3285,6 +3357,10 @@ function createUnifiedPanel() {
       button(controls,'② 打开百度网盘上传页（备用）',()=>this.openUploadBrowser(),true).disabled=!groupReady;
       if(Platform.isMobileApp)ele(sending,'p',"手机上传默认使用电脑版网页。若页面过窄或没有上传按钮，请在浏览器菜单选择“访问电脑版”；重新打开后核对目录，再选择原增量 ZIP 上传。",'vru-help vr527-keep-full');
       new VaultRelayPreparedZip(this).renderLatestZip(sending);
+      if(!Platform.isDesktopApp){
+        const drafts=this.settingsDetails(sending,'本机草稿','localDrafts');
+        button(drafts,'撤销确定未上传的本机草稿（移动端专用）',()=>this.legacy('withdraw'));
+      }
       const downloading=ele(transfer,'section',null,'vru-transfer-step');ele(downloading,'h3','第二步 · 增量包下载');
       button(downloading,'③ 打开百度网盘同步空间',()=>this.showDownloadEntry(),true).disabled=!groupReady;
       ele(downloading,'p',p.v5218DownloadTimeText(),'vru-meta vru-last-download');
@@ -3304,6 +3380,7 @@ function createUnifiedPanel() {
       const advanced=mainSection('高级操作','advanced');
       advanced.className+=' vru-advanced-root';
       const more=ele(advanced,'details',null,'vru-settings vru-advanced vru-manual-transfer');
+      more.hidden=true;
       ele(more,'summary','手动传输（生成、上传、下载与审核）');
       if(this._advOpen?.upload||this._advOpen?.download)more.open=true;
       more.addEventListener('toggle',()=>{(this._advOpen||={}).upload=more.open;this._advOpen.download=more.open;});
@@ -3312,7 +3389,6 @@ function createUnifiedPanel() {
       button(manualSending,'① 预览并生成增量 ZIP',()=>this.legacy('upload',true),true).disabled=!groupReady;
       button(manualSending,'② 打开百度网盘上传页（备用）',()=>this.openUploadBrowser(),true).disabled=!groupReady;
       ele(manualSending,'p','先预览并确认生成原 ZIP，再到同步空间网页上传。打开网页不代表上传完成。','vru-help');
-      if(!Platform.isDesktopApp)button(manualSending,'撤销确定未上传的本机草稿（移动端专用）',()=>this.legacy('withdraw'));
       const manualDownloading=ele(more,'section',null,'vru-transfer-step vru-manual-step');
       ele(manualDownloading,'h3','第二步 · 增量包下载');
       button(manualDownloading,'③ 打开百度网盘同步空间',()=>this.showDownloadEntry(),true).disabled=!groupReady;
@@ -3325,12 +3401,6 @@ function createUnifiedPanel() {
       button(ele(manualAudit,'div'),'手动查找／选择 ZIP',()=>this.searchDownloadZips()).disabled=!groupReady;
       button(manualAudit,'⑤ 审核与确认导入',()=>this.refreshDownloadReview(),true).disabled=!groupReady;
       button(manualAudit,'查看导入的文件',()=>this.showImportedFiles()).disabled=!groupReady;
-      if(Platform.isAndroidApp){
-        const searchHelp=ele(manualAudit,'details',null,'vru-secondary-details');
-        ele(searchHelp,'summary','仍找不到下载文件？');
-        ele(searchHelp,'p','可在「手动查找／选择 ZIP」的扫描页上选择「全盘扫描」。','vru-help');
-        button(searchHelp,'查看扫描状态',()=>p.showMobileScanProgress());
-      }
 
       const base=ele(advanced,'details',null,'vru-settings vru-advanced');
       ele(base,'summary','知识库管理');
@@ -6007,7 +6077,7 @@ class BackupModal extends Modal{
         if(finalized?.packageResult?.path&&!finalized.packageResult.empty)out.transport=finalized.packageResult;
         VR606.afterUpload(this.p,finalized,this.v606NormalUpload);
       }catch(err){
-        await this.p.log('自动封装/准备未完成',String(err.message||err)+'；同步核心已保留原始交换文件，请到高级操作重试②③');
+        await this.p.log('自动封装/准备未完成',String(err.message||err)+'；同步核心已保留原始交换文件，请到「增量 ZIP 上传下载与导入」重试②③');
         notify('正式内容已生成，但外层 ZIP 准备失败，请查看日志');
       }
       return out;
@@ -7882,7 +7952,7 @@ class ConfirmExportModal extends Modal{
             notice('增量 ZIP 已在本机生成；请按需上传到同步空间。');
           }catch(err){
             await this.p.log('自动封装/准备未完成',String(err.message||err)+
-              '；核心 ZIP 已保留，请在高级操作重试②③');
+              '；核心 ZIP 已保留，请在「增量 ZIP 上传下载与导入」重试②③');
             notice("核心 ZIP 已生成，但外层封装或 回执 准备失败；请查看日志");
           }
           this.close();await this.done(r);
@@ -18588,6 +18658,8 @@ const VR71Settings=(()=>{
     if(!p.engine?.state)return;
     const identity=scope(p),box=node(parent,'details',undefined,'vru-settings vr71-devices');
     node(box,'summary','设备管理');
+    const quota=node(box,'p',undefined,'vru-meta vr71-device-quota');
+    quota.setAttribute('aria-live','polite');
     const status=node(box,'p','', 'vru-meta');status.setAttribute('aria-live','polite');
     const rows=node(box,'div'),shown=[];
     box._vr71ReloadDevices=()=>{if(identity===scope(p))paint(true);};
@@ -18601,7 +18673,10 @@ const VR71Settings=(()=>{
       return job;
     }
     function input(line,label,value,commit,readOnly=false){
-      node(line,'span',label);const field=node(line,'input');field.value=value;field.readOnly=readOnly;field.setAttribute('aria-label',label);
+      const fieldLabel=node(line,'label',undefined,'vr71-device-field');
+      node(fieldLabel,'span',label);
+      const field=node(fieldLabel,'input');
+      field.value=value;field.readOnly=readOnly;field.setAttribute('aria-label',label);
       if(!readOnly){
         const save=async()=>{
           const next=field.value;
@@ -18631,12 +18706,27 @@ const VR71Settings=(()=>{
       },result);
       action(c,'取消',()=>dialog.close());dialog.open();
     }
+    function deviceCard(title,trustLabel){
+      const card=node(rows,'div',undefined,'vr71-device-row');
+      const heading=node(card,'div',undefined,'vr71-device-heading');
+      node(heading,'strong',title);
+      if(trustLabel)node(heading,'span',trustLabel,'vru-meta');
+      const fields=node(card,'div',undefined,'vr71-device-fields');
+      const operations=node(card,'div',undefined,'vr71-device-actions');
+      return {fields,operations};
+    }
     function paint(refreshOnly=false){
+      const count=Object.keys(VR70Sealed.state(p).peers).length;
+      quota.textContent='本组已信任对端 '+count+' / 1 台。'+(count>1?
+        '接收已暂停。对多余设备点「解绑」，只保留本次接收的对端。':
+        '换设备时先解绑当前对端，再信任新对端。解绑会保留设备记录。');
       if(!refreshOnly){
-        rows.empty();shown.length=0;const own=node(rows,'div',undefined,'vr71-device-row');node(own,'strong','本机');
-        input(own,'简称',p.data.deviceShortName||'',value=>run(()=>p.updateSetting('deviceShortName',value),false));
+        rows.empty();shown.length=0;
+        const own=deviceCard('本机');
+        input(own.fields,'简称',p.data.deviceShortName||'',value=>run(()=>p.updateSetting('deviceShortName',value),false));
         const id=p.data.v73Identity?.publicId||p.engine.state.deviceId;
-        input(own,'设备 ID',id,null,true);action(own,'复制 ID',()=>new Panel(p.app,p).copy(id),status);
+        input(own.fields,'设备 ID',id,null,true);
+        action(own.operations,'复制 ID',()=>new Panel(p.app,p).copy(id),status);
       }
       registry(p).forEach((entry,index)=>{
         if(refreshOnly&&shown[index]){
@@ -18644,20 +18734,20 @@ const VR71Settings=(()=>{
           if(fields.id===entry.id)fields.alias._vr71SetIfUnedited(entry.name);
           return;
         }
-        const line=node(rows,'div',undefined,'vr71-device-row');node(line,'strong','对端 '+(index+1));
         const confirmed=entry.id&&trusted(p,entry.id);
+        const {fields,operations}=deviceCard('对端 '+(index+1),confirmed?'已信任':entry.publicId?'未信任':'待填写设备 ID');
         const update=change=>changeDevices(p,records=>{
           const row=records[index];
           if(!row||row.id!==entry.id)throw Error('设备信息已变化，请重新打开');
           return change(row,records);
         });
-        const alias=input(line,'简称',entry.name,value=>run(()=>update(row=>{
+        const alias=input(fields,'简称',entry.name,value=>run(()=>update(row=>{
           const name=value.trim();if(name.length>40||/[\x00-\x1f\x7f]/.test(name))throw Error('设备简称最多 40 字符');
           row.nameSource=name?'manual':'automatic';
           row.name=name||advertisedName(p,row.id)||'';
         })));
         alias.placeholder='留空跟随对端';shown[index]={id:entry.id,alias};
-        const idField=input(line,'设备 ID',entry.publicId||entry.id,value=>run(async()=>{
+        const idField=input(fields,'设备 ID',entry.publicId||entry.id,value=>run(async()=>{
           const publicId=value.trim();
           const {card}=await VR70Sealed.readIdentity(publicId,p.data.groupId);
           if(identity!==scope(p))throw Error('群组或设备已变化，请重新打开');
@@ -18674,12 +18764,10 @@ const VR71Settings=(()=>{
             row.id=card.deviceId;row.publicId=publicId;
           });
         }),!!confirmed);
-        action(line,'复制 ID',()=>new Panel(p.app,p).copy(idField.value.trim()),status);
-        if(confirmed){
-          node(line,'span','已信任','vru-meta');
-          action(line,'解绑',()=>run(()=>VR70Sealed.untrust(p,entry.id)),status);
-        }else if(entry.publicId)action(line,'确认信任',()=>confirm(entry),status);
-        action(line,'删除',()=>run(async()=>{
+        action(operations,'复制 ID',()=>new Panel(p.app,p).copy(idField.value.trim()),status);
+        if(confirmed)action(operations,'解绑',()=>run(()=>VR70Sealed.untrust(p,entry.id)),status);
+        else if(entry.publicId)action(operations,'确认信任',()=>confirm(entry),status);
+        action(operations,'删除',()=>run(async()=>{
           if(!window.confirm('删除此设备记录？已导入的资料和操作日志保留。'))return;
           await VR70Sealed.untrust(p,entry.id);
           await update((_row,records)=>records.splice(index,1));
