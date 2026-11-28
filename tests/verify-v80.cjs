@@ -57,8 +57,12 @@ const testPanel=(Type,h)=>new Type.__testing.panel(h.p.app,h.p);
  const scan=p.vr713ScanDownloads.bind(p);
  p.vr713ScanDownloads=async options=>{
    visited.clear();
+   const progress=options?.full?p.app.openedModals.at(-1):null;
+   const showsFullProgress=progress?.modalEl.classList.contains('vru-receive-progress')&&
+     !progress.closed&&progress.contentEl.textContent.includes('正在全盘扫描')&&
+     !!progress.contentEl.querySelector('progress')&&!progress.contentEl.querySelector('progress').hidden;
    const results=await scan(options);
-   scanned.push({options,results,dirs:[...visited].sort()});
+   scanned.push({options,results,dirs:[...visited].sort(),progress,showsFullProgress});
    return results;
  };
  async function checkEntries(joined,expected){
@@ -74,8 +78,30 @@ const testPanel=(Type,h)=>new Type.__testing.panel(h.p.app,h.p);
      assert.equal(scanned.length,i+1);
      assert.deepEqual(paths(scanned[i].results.source.files),lightPaths,label);
      assert(!scanned[i].dirs.includes(root+'test3/'),label);
-     await button(dialog,'全盘扫描').click();
+     const opened=p.app.openedModals.length;
+     if(!joined&&label.startsWith('④')){
+       const frames=[];
+       const originalFrame=global.requestAnimationFrame;
+       global.requestAnimationFrame=callback=>frames.push(callback);
+       const readingWas=visited.size;
+       try{
+         const fullScan=button(dialog,'全盘扫描').click();
+         assert.equal(p.app.openedModals.length,opened+1);
+         assert.equal(visited.size,readingWas,'Directory reads wait for the progress dialog to paint');
+         assert.equal(frames.length,1);
+         frames.shift()();
+         assert.equal(visited.size,readingWas);
+         frames.shift()();
+         await fullScan;
+       }finally{
+         if(originalFrame===undefined)delete global.requestAnimationFrame;
+         else global.requestAnimationFrame=originalFrame;
+       }
+     }else await button(dialog,'全盘扫描').click();
      assert.equal(scanned.length,i+2);
+     assert(scanned[i+1].showsFullProgress,label+' opens a visible progress dialog before scanning');
+     assert.equal(p.app.openedModals.length,opened+1,label+' opens only one progress dialog');
+     assert(scanned[i+1].progress.closed&&!dialog.closed,label+' closes progress and keeps the results page');
      assert.deepEqual(paths(scanned[i+1].results.source.files),fullPaths,label);
      assert.equal(scanned[i+1].results.source.pendingDirs,0);
      assert(scanned[i+1].dirs.includes(denied));

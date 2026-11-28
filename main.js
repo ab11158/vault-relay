@@ -13642,7 +13642,7 @@ const VR5218ScanUI=(()=>{
           this.counts=this.contentEl.createEl('p',{cls:'vru-scan-line'});
           const actions=this.contentEl.createDiv({cls:'vru-scan-actions'});
           this.full=actions.createEl('button',{text:'全盘扫描',cls:'mod-cta'});
-          this.full.addEventListener('click',()=>this.runSearch(true));
+          this.full.addEventListener('click',()=>this.runSearch(true,{showProgress:true}));
           this.rescan=actions.createEl('button',{text:'刷新'});
           this.rescan.addEventListener('click',()=>this.runSearch(this.lastFull));
           this.stop=actions.createEl('button',{text:'停止本次扫描'});
@@ -13750,7 +13750,7 @@ const VR5218ScanUI=(()=>{
           this.coverage.textContent='按规则排除目录 '+(s.excludedDirs||0)+(s.unreadablePaths?.length?'；未能读取：'+s.unreadablePaths.join('；'):'')+
             (s.inboxPending?'；归集或 inbox 仍待处理 '+s.inboxPending+' 项':'')+(s.inboxError?'；无法读取 inbox：'+s.inboxError:'');
         }
-        async runSearch(full){
+        async runSearch(full,{showProgress=false}={}){
           if(this.searching||this.busy)return;
           this.searching=true;this.lastFull=full;this.finished=false;
           const previous=this.value.files||[];
@@ -13759,7 +13759,25 @@ const VR5218ScanUI=(()=>{
             this.value={...this.value,...value,scanId:this.scanId};this.refresh();
           };
           paint({phase:'discovery',running:true,files:previous,scope:full?'all-accessible':'priority',state:'ok'});
+          let progress;
           try{
+            if(showProgress){
+              progress=new Modal(plugin.app);
+              progress.onClose=()=>{progress=null;};
+              progress.modalEl.addClass('vru-receive-progress');
+              progress.contentEl.createEl('h3',{text:'正在全盘扫描…'});
+              const bar=progress.contentEl.createEl('progress');
+              bar.setAttribute('aria-label','全盘扫描进度');
+              progress.open();
+              // Give the visible WebView a paint before starting directory reads.
+              if(typeof requestAnimationFrame==='function')await new Promise(resolve=>{
+                const fallback=setTimeout(resolve,120);
+                requestAnimationFrame(()=>requestAnimationFrame(()=>{
+                  clearTimeout(fallback);
+                  resolve();
+                }));
+              });
+            }
             const result=await plugin.vr713ScanDownloads({full,onSourceScanned:()=>paint({phase:'inbox'})});
             let inbox=[],inboxError='';
             if(this.group&&!result.source?.cancelled&&plugin.data.groupId===this.group){
@@ -13785,7 +13803,11 @@ const VR5218ScanUI=(()=>{
             return result;
           }catch(error){
             paint({running:false,state:'failed',inboxError:String(error.message||error)});
-          }finally{this.searching=false;this.refresh();}
+          }finally{
+            progress?.close();
+            this.searching=false;
+            this.refresh();
+          }
         }
         onClose(){this.externalFiles.clear();if(plugin._v5216ScanModal===this)plugin._v5216ScanModal=null;}
       }
