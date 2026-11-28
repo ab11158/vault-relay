@@ -1,3 +1,8 @@
+# 8.7.2
+
+- Protect the receiving vault's default and active Obsidian configuration folders from ZIP import and history restore. Validate the target again before writing imported content.
+- Keep the incremental ZIP format and normal note review behavior compatible with 8.7.1.
+
 # 8.7.1
 
 - 社区显示名为 Vault Relay Mix，插件 ID 改为 `vault-relay-mix`，以符合 Obsidian 社区的命名要求。

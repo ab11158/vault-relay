@@ -58,6 +58,18 @@ const VR78Dialogs=(()=>{
   return {mount,unmount};
 })();
 
+// The receiving vault owns its configuration path. Archive entries never do.
+function isObsidianConfigPath(vault,path){
+  if(typeof path!=='string')return false;
+  const key=rel=>rel.normalize('NFC').toLowerCase().split('/').map(part=>part.replace(/[. ]+$/,'')).join('/');
+  const target=key(path);
+  const config=typeof vault?.configDir==='string'?key(vault.configDir.replace(/\/+$/,'')):'';
+  return ['.obsidian',config].some(dir=>dir&&(target===dir||target.startsWith(dir+'/')));
+}
+function assertVaultContentDestination(vault,path){
+  if(isObsidianConfigPath(vault,path))throw Error('Obsidian 配置目录受保护，不能导入或修改：'+path);
+}
+
 const VR761Vault=(()=>{
   const buffer=raw=>{const b=new Uint8Array(raw);return b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength);};
   function markdown(path,raw){
@@ -82,14 +94,17 @@ const VR761Vault=(()=>{
     }
   }
   async function create(vault,path,raw){
+    assertVaultContentDestination(vault,path);
     const parent=path.split('/').slice(0,-1).join('/');if(parent)await folders(vault,parent);
     if(await vault.adapter.exists(path))throw Error('目标刚刚出现，请重新审核：'+path);
+    assertVaultContentDestination(vault,path);
     const value=markdown(path,raw);
     if(value!==null&&typeof vault.create==='function')await vault.create(path,value);
     else await vault.createBinary(path,buffer(raw));
     return indexed(vault,path);
   }
   async function modify(vault,file,raw){
+    assertVaultContentDestination(vault,file.path);
     const value=markdown(file.path,raw);
     if(value!==null&&typeof vault.modify==='function')await vault.modify(file,value);
     else await vault.modifyBinary(file,buffer(raw));
@@ -1592,6 +1607,7 @@ function createImportInspector(JSZip, tools) {
     for(const x of m.entries) {
       if(!x || typeof x.path!=='string'||!safeRel(x.path) ||
          isExcluded(x.path) || entries.has(x.path))fail('正式内容 ZIP 笔记路径不安全或重复');
+      assertVaultContentDestination(context.app.vault,x.path);
       entries.add(x.path);
       if(x.op==='delete') {
         if(x.payload!==null)fail('删除条目仍含内容载荷');
@@ -1634,7 +1650,7 @@ function createImportInspector(JSZip, tools) {
     const names=new Set(),newItems=[],sameItems=[],conflicts=[];
     for(const z of candidates) {
       const rel=z.name.slice(prefix.length);
-      if(!safeRel(rel)||isExcluded(rel)){excluded.push(z.name);continue;}
+      if(!safeRel(rel)||isExcluded(rel)||isObsidianConfigPath(context.app.vault,rel)){excluded.push(z.name);continue;}
       if(names.has(rel.normalize('NFC').toLowerCase()))
         fail('去除知识库根目录后出现重复或大小写冲突路径：'+rel);
       names.add(rel.normalize('NFC').toLowerCase());
@@ -1737,11 +1753,45 @@ function createImportInspector(JSZip, tools) {
     await context.plugin.saveData(context.plugin.data);
     return {...result,notesChanged:false};
   }
+  function assertOrdinaryDestination(context,path) {
+    const vault=context.app.vault;
+    assertVaultContentDestination(vault,path);
+    if(!context.desktop)return;
+    // Also check the resolved parent against this vault's configuration.
+    // A folder link can point there even if the visible ZIP path does not.
+    const fs=require('node:fs'),p=require('node:path');
+    const base=vault.adapter.getBasePath?.()||vault.adapter.basePath;
+    if(!p.isAbsolute(base||''))fail('知识库真实路径不可验证');
+    const root=fs.realpathSync(base);
+    const configs=['.obsidian',vault.configDir].filter(dir=>typeof dir==='string'&&dir);
+    const physicalConfigs=configs.map(dir=>{
+      try{return fs.realpathSync(p.resolve(root,dir));}
+      catch(error){if(error.code!=='ENOENT')throw error;return null;}
+    }).filter(Boolean);
+    let parent=p.resolve(root,...path.split('/'));
+    while(true){
+      try{
+        const resolved=fs.realpathSync(parent);
+        const relative=p.relative(root,resolved).split(p.sep).join('/');
+        assertVaultContentDestination(vault,relative);
+        for(const dir of physicalConfigs){
+          const within=p.relative(dir,resolved);
+          if(!within||(!p.isAbsolute(within)&&within!=='..'&&!within.startsWith('..'+p.sep)))
+            fail('Obsidian 配置目录受保护，不能导入或修改：'+path);
+        }
+        return;
+      }catch(error){
+        if(error.code!=='ENOENT')throw error;
+        parent=p.dirname(parent);
+      }
+    }
+  }
   async function applyOrdinary(report,context) {
     const adapter=context.app.vault.adapter;
     const newFiles=report.newItems;
     const plan=[];
     for(const item of newFiles){
+      assertOrdinaryDestination(context,item.path);
       if(await adapter.exists(item.path)) {
         const current=asBytes(await adapter.readBinary(item.path));
         if((await sha256(current))===item.sha256)continue;
@@ -1759,6 +1809,7 @@ function createImportInspector(JSZip, tools) {
         const at=item.path.lastIndexOf('/');
         if(at!==-1)await ensureVaultFolder(adapter,item.path.slice(0,at));
         if(await adapter.exists(item.path))fail('导入期间出现同名文件，已停止');
+        assertOrdinaryDestination(context,item.path);
         if(typeof context.app.vault.createBinary==='function')
           await context.app.vault.createBinary(item.path,buffer(item.data));
         else await adapter.writeBinary(item.path,buffer(item.data));
@@ -1770,8 +1821,10 @@ function createImportInspector(JSZip, tools) {
       // Only delete newly inserted files when they are still byte-identical.
       for(const item of inserted.reverse()){
         try {
+          assertOrdinaryDestination(context,item.path);
           const existing=asBytes(await adapter.readBinary(item.path));
           if(await sha256(existing)===item.sha256) {
+            assertOrdinaryDestination(context,item.path);
             await adapter.remove(item.path);rolled++;
           }
         }catch(_){}
@@ -4440,6 +4493,7 @@ class V2Engine{
   }
   vaultFile(rel){
     C.safePath(rel);
+    assertVaultContentDestination(this.vault,rel);
     const base=nodeFs.realpathSync(this.vaultPath),candidate=nodePath.resolve(base,...rel.split('/'));
     if(!candidate.startsWith(base+nodePath.sep))throw Error('Vault path traversal');
     let cur=base;
@@ -4456,7 +4510,7 @@ class V2Engine{
       for(const ent of children){
         const rel=prefix?prefix+'/'+ent.name:ent.name;
         if(/\.vrwrite-[a-f0-9]{32}$/.test(ent.name)){excluded++;continue;}
-        if(C.isSyncExcludedPath(rel)||privatePaths?.has(rel.normalize('NFC').toLowerCase())){excluded++;continue;}
+        if(C.isSyncExcludedPath(rel)||isObsidianConfigPath(this.vault,rel)||privatePaths?.has(rel.normalize('NFC').toLowerCase())){excluded++;continue;}
         try{C.safePath(rel);}catch(_){excluded++;continue;}
         if(ent.isSymbolicLink()){excluded++;continue;}
         const full=nodePath.join(dir,ent.name);
@@ -4547,7 +4601,7 @@ class V2Engine{
           entryCount:rec.manifest.entries.length};
         result.packages.push(info);
         for(const entry of rec.manifest.entries){
-          if(C.isSyncExcludedPath(entry.path))continue;
+          if(C.isSyncExcludedPath(entry.path)||isObsidianConfigPath(this.vault,entry.path))continue;
           (result.byPath[entry.path] ||= []).push({...entry,packId:info.packId,packPath:f,packName:name,
             packSha256:info.sha256,originDeviceId:info.originDeviceId,
             originName:rec.manifest.originName||this.state.devices?.[info.originDeviceId]?.name||info.originDeviceId,
@@ -5098,6 +5152,8 @@ class V2Engine{
       const key=this.state.groupId+'|'+v.originDeviceId+'|'+v.versionId+'|'+(v.sha256||'delete');
       let outcome='skipped';
       try{
+        assertVaultContentDestination(this.vault,item.path);
+        assertVaultContentDestination(this.vault,v.path);
         if(item.status==='same'||item.status==='equivalent'||item.status==='absent'){
           outcome=item.status==='equivalent'?'equivalent':'same';counts.equal++;if(item.status==='equivalent')counts.skippedPaths.push(item.path);
           this.state.known[item.path]={op:v.op,sha256:v.sha256,versionId:v.versionId,
@@ -5124,6 +5180,7 @@ class V2Engine{
           if(this.vault){
             const file=this.vault.getAbstractFileByPath(v.path);
             if(!file||file.children||currentDigest(target)!==item.localHash)throw Error('Deletion source changed');
+            assertVaultContentDestination(this.vault,v.path);
             await this.vault.delete(file);
           }else nodeFs.unlinkSync(target);
           if(exists(target))throw Error('Deletion failed');
@@ -6873,7 +6930,7 @@ class MobileEngine{
             createdAtUtc:rec.manifest.createdAtUtc,sha256:rec.sha256});
           c.count++;
           for(const e of rec.manifest.entries){
-            if(M.isSyncExcludedPath(e.path))continue;
+            if(M.isSyncExcludedPath(e.path)||isObsidianConfigPath(this.vault,e.path))continue;
             (c.byPath[e.path] ||= []).push({...e,
             packId:rec.manifest.packId,packName:name,packPath:file,packSha256:rec.sha256,
             originDeviceId:rec.manifest.originDeviceId,
@@ -6888,7 +6945,7 @@ class MobileEngine{
   async scanVault(){
     const map=M.obj(),errors=[],privatePaths=this.v70PrivatePaths?.();
     for(const f of this.vault.getFiles()){
-      if(!f||M.isSyncExcludedPath(f.path)||privatePaths?.has(f.path.normalize('NFC').toLowerCase()))continue;
+      if(!f||M.isSyncExcludedPath(f.path)||isObsidianConfigPath(this.vault,f.path)||privatePaths?.has(f.path.normalize('NFC').toLowerCase()))continue;
       try{M.safePath(f.path);}catch(_){continue;}
       if(f.stat?.size>M.MAX_FILE){errors.push({path:f.path,error:'文件超过 128 MiB'});continue;}
       try{
@@ -7030,6 +7087,8 @@ class MobileEngine{
         if(!v)continue;
         if(deleteOnly&&!['delete-review','absent'].includes(item.status))continue;
         try{
+          assertVaultContentDestination(this.vault,item.path);
+          assertVaultContentDestination(this.vault,v.path);
           if((item.status==='delete-review'||item.status==='absent') && v.op==='delete'){
             if(item.status==='delete-review'){
               if(!allowDeletes)continue; // Physical deletion ALWAYS requires opt-in.
@@ -7048,6 +7107,7 @@ class MobileEngine{
               const still=this.vault.getAbstractFileByPath(item.path);
               if(!still||await M.sha(await this.vault.readBinary(still))!==item.localHash)
                 throw Error('删除前本机文件发生变化');
+              assertVaultContentDestination(this.vault,item.path);
               if(typeof this.vault.delete==='function')
                 await this.vault.delete(still); // Keep Obsidian metadata/cache in sync.
               else await this.adapter.remove(item.path); // Offline adapter harness.
@@ -8760,6 +8820,7 @@ const VR70Sealed=(()=>{
         const {entry,before}=file;
         try{
           if(await tools.sha256(await adapter.readBinary(entry.path))!==entry.sha256)continue;
+          assertVaultContentDestination(p.app.vault,entry.path);
           const target=p.app.vault.getAbstractFileByPath(entry.path);
           if(target&&before)await p.app.vault.modifyBinary(target,tools.buffer(before));
           else if(target){
@@ -11732,6 +11793,7 @@ class VaultRelayV4 extends UnifiedBase {
     if(['.obsidian','vaultrelay-transfer'].includes(bits[0].toLowerCase()))
       throw Error('插件内部路径不能作为正式笔记');
     if(bits.some(x=>x.length>255))throw Error('文件名过长');
+    assertVaultContentDestination(this.app.vault,path);
     return path;
   }
   v5ToArray(raw){return raw instanceof Uint8Array?raw:new Uint8Array(raw);}
@@ -12656,7 +12718,22 @@ const VR5215=(()=>{
       await walk('');const config=await fs.lstat(path.join(root,'.obsidian'));if(!config.isDirectory()||config.isSymbolicLink())throw Error('目标不是含 .obsidian 的知识库目录');
       return {name:root,async read(rel){safePath(rel);const dir=rel.split('/').slice(0,-1).join('/');try{await walk(dir);const full=path.join(root,...rel.split('/')),st=await fs.lstat(full);if(!st.isFile()||st.isSymbolicLink()||st.size>MAX_BYTES)throw Error('目标不是普通文件或超过读取上限');return bytes(await fs.readFile(full));}catch(e){if(e.code==='ENOENT')return null;throw e;}},async write(rel,raw){safePath(rel);await walk(rel.split('/').slice(0,-1).join('/'),true);const full=path.join(root,...rel.split('/'));const h=await fs.open(full,'wx');try{await h.writeFile(raw);}finally{await h.close();}}};
     }
-    function currentTarget(p){const a=p.app.vault.adapter;return {name:p.app.vault.getName(),async read(rel){if(!await a.exists(rel))return null;return bytes(await a.readBinary(rel));},async write(rel,raw){if(await a.exists(rel))throw Error('目标并发出现同名文件');const parent=rel.split('/').slice(0,-1).join('/');if(parent)await p.v5EnsureFolder(parent);if(await a.exists(rel))throw Error('目标并发变化');await p.app.vault.createBinary(rel,tools.buffer(raw));}};}
+    function currentTarget(p){
+      const vault=p.app.vault,a=vault.adapter;
+      return {name:vault.getName(),async read(rel){
+        assertVaultContentDestination(vault,rel);
+        if(!await a.exists(rel))return null;
+        return bytes(await a.readBinary(rel));
+      },async write(rel,raw){
+        assertVaultContentDestination(vault,rel);
+        if(await a.exists(rel))throw Error('目标并发出现同名文件');
+        const parent=rel.split('/').slice(0,-1).join('/');
+        if(parent)await p.v5EnsureFolder(parent);
+        if(await a.exists(rel))throw Error('目标并发变化');
+        assertVaultContentDestination(vault,rel);
+        await vault.createBinary(rel,tools.buffer(raw));
+      }};
+    }
     async function copyPlan(items,target,folder){
       const prefix=folder.trim()?safePath(folder.trim())+'/':'';const plan=[];
       for(const item of items){const path=safePath(prefix+item.path),old=await target.read(path);plan.push({...item,path,status:old===null?'新增':await tools.sha256(old)===item.sha256?'相同跳过':'冲突'});}return plan;
@@ -13432,7 +13509,7 @@ const VRFirstPackage={
     if(!tools.sourceZipInfo(name))throw Error('请选取发送端生成的原始增量 ZIP。');
     const group=await ImportManager.claimedGroup(archive);
     if(!group)throw Error('无法从所选 ZIP 读取群组 ID。');
-    const context={plugin:{data:{groupId:group},engine:{state:{deviceId:null}}},app:null,desktop:OBS.Platform.isDesktopApp};
+    const context={plugin:{data:{groupId:group},engine:{state:{deviceId:null}}},app:plugin.app,desktop:OBS.Platform.isDesktopApp};
     const report=await ImportManager.inspect(archive,context);
     const sender=report.inventory?.identity?.card.deviceId;
     const contents=(report.contents||[]).filter(part=>part.path.startsWith('content/'));
@@ -16022,6 +16099,7 @@ const VR605=(()=>{
     if(cat?.warnings?.length)throw Error('版本目录存在异常，接收包保留，先修复后再处理');
     for(const local of eligibleVersions(record)){
       if(ignored.has(local.versionId))continue;
+      assertVaultContentDestination(p.app.vault,local.path);
       if(VRLocalConflictBackup.contains(p,local.path)){
         items.push({path:local.path,version:local,status:'history-only',reason:'本机备份保留原样。',recordId:record.id,recordName:record.name});
         continue;
@@ -16424,7 +16502,7 @@ const VR605=(()=>{
   // remain unchanged.
   P.v605InstallEngine= function(){
     const e=this.engine;if(!e||e._v605Wrapped)return;e._v605Wrapped=true;const p=this;
-    e.v70Blocks=path=>VRLocalConflictBackup.contains(p,path)||VR70Privacy.blocks(p,path);
+    e.v70Blocks=path=>isObsidianConfigPath(p.app.vault,path)||VRLocalConflictBackup.contains(p,path)||VR70Privacy.blocks(p,path);
     e.v70PrivatePaths=()=>VRLocalConflictBackup.syncExclusions(p);
     e.vrLocalPrivacyDeletion=(path,known)=>VR70Privacy.localDeletion(p,path,known);
     const latest=e.latestPlan.bind(e);e._v605BaseLatest=latest;e.latestPlan=async function(){
@@ -17838,6 +17916,7 @@ const VR611=(()=>{
   }
   const basePlan=p=>(p.engine._v605BaseLatest||p.engine.latestPlan.bind(p.engine))();
   async function current(p,path){
+    assertVaultContentDestination(p.app.vault,path);
     VR601.physical(p,path);
     if(!await p.app.vault.adapter.exists(path))return {bytes:null,sha256:null};
     const bytes=await p.v5Read(path);return {bytes,sha256:await p.v5Hash(bytes)};
