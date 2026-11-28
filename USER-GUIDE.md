@@ -1,6 +1,6 @@
 # Vault Relay 使用说明
 
-本说明适用于 **Vault Relay Mix 8.7.1**。建议先在测试知识库完成一轮发送、审核和导入，再用于日常知识库。
+本说明适用于 **Vault Relay Mix 8.7.2**。建议先在测试知识库完成一轮发送、审核和导入，再用于日常知识库。
 
 ## 一、插件特点和功能介绍
 
@@ -19,7 +19,7 @@
 
 ### 1. 安装或升级
 
-1. 社区目录上架后，搜索 **Vault Relay Mix** 安装。手动安装时，从 [GitHub 8.7.1 发布页](https://github.com/ab11158/vault-relay/releases/tag/8.7.1) 下载 `main.js`、`manifest.json`、`styles.css`，放入当前知识库的 `.obsidian/plugins/vault-relay-mix/`。如果修改过 Obsidian 的配置文件夹名称，请使用该配置文件夹下的 `plugins`。
+1. 社区目录上架后，搜索 **Vault Relay Mix** 安装。手动安装时，从 [GitHub 8.7.2 发布页](https://github.com/ab11158/vault-relay/releases/tag/8.7.2) 下载 `main.js`、`manifest.json`、`styles.css`，放入当前知识库的 `.obsidian/plugins/vault-relay-mix/`。如果修改过 Obsidian 的配置文件夹名称，请使用该配置文件夹下的 `plugins`。
 2. 以前安装过 `vault-relay-v4` 的设备，先按下文迁移。以后升级同一 ID 的版本时，替换这三个安装文件并保留 `data.json` 和知识库里的 `VaultRelay-Transfer`。
 3. 首次配置时，在第一台设备 A 的「设置与连接检查」创建群组，填写群组名称、群组简称和本机简称，并保存圈②上传目录和圈③同步空间下载目录。
 
