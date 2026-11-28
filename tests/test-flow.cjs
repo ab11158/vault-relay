@@ -112,22 +112,52 @@ async function main(){
  assert.equal(a.p.data.deviceId,A);assert.equal(a.p.engine.state.deviceId,A);assert.equal(a.p.data.desktopTransportEnabled,false);
  await a.write('Notes/Meeting.md','Monday\n');
  const p1=await publish(a);checks.push('Real Windows core generates native ZIP, verified outgoing carrier and clears only outbox work ZIP');
+ const zipTools=Windows.__testing.tools,entries=zipTools.zipDecode(p1.bytes);
+ const manifest=JSON.parse(Buffer.from(entries.get('manifest.json')).toString('utf8'));
+ const legacyName='ack/old-test-feedback.json',legacyAck=Buffer.from('{}');
+ manifest.files.push({path:legacyName,bytes:legacyAck.length,sha256:await zipTools.sha256(legacyAck)});
+ entries.set(legacyName,legacyAck);entries.set('manifest.json',Buffer.from(JSON.stringify(manifest)));
+ const legacyZip=zipTools.zipEncode([...entries].map(([name,data])=>({name,data})));
+ for(const target of [a,b]){
+   await assert.rejects(target.p.v601ValidateReceivedPackage(p1.rec.name,legacyZip),/旧版 ACK/);
+   await assert.rejects(target.p.importRawAckFile({arrayBuffer:async()=>{throw Error('旧文件不应被读取');}}),/旧版 ACK/);
+   assert(!await target.adapter.exists('VaultRelay-Transfer/inbox/'+p1.rec.name));
+ }
+ const queued=await host(Windows,A,'Windows queued legacy upgrade');
+ const mirror=fs.mkdtempSync(path.join(results,'mirror-'));
+ const retiredName=p1.rec.name.replace(/[0-9a-f](?=\.zip$)/,c=>c==='a'?'b':'a');
+ const standaloneName=p1.rec.name.replace(/^VR-[^-]+/,'ack-Win1Red1').replace(/\.zip$/,'.json');
+ for(const [name,bytes] of [[retiredName,legacyZip],[standaloneName,legacyAck],[p1.rec.name,p1.bytes]]){
+   const outgoing='VaultRelay-Transfer/outgoing/'+name;
+   await queued.write(outgoing,bytes);
+   queued.p.data.pendingOutboundFiles[name]={name,path:outgoing,sha256:sha(bytes)};
+ }
+ queued.p.cloudConfig=()=>({cloud:mirror});
+ queued.p.data.desktopTransportEnabled=true;
+ assert.equal((await queued.p.flushQueuedOutbound()).published,1);
+ assert.deepEqual(fs.readdirSync(mirror),[p1.rec.name]);
+ assert(await queued.adapter.exists('VaultRelay-Transfer/outgoing/'+retiredName));
+ assert(await queued.adapter.exists('VaultRelay-Transfer/outgoing/'+standaloneName));
+ checks.push('Retired ACK files and ACK-bearing ZIPs cannot be received or republished, and fresh ZIPs still send');
  const staged=await receive(b,p1,false);assert(!await b.adapter.exists('Notes/Meeting.md'));
- assert(await b.adapter.exists('VaultRelay-Transfer/inbox/'+p1.rec.name));assert.equal(Object.keys(b.p.v5218ContentAckState().generated).length,1);checks.push('Fully verified receipt immediately creates one ACK while formal notes remain untouched until confirmation');
+ assert(await b.adapter.exists('VaultRelay-Transfer/inbox/'+p1.rec.name));
+ const assertNoAck=h=>{
+   assert.equal(Object.keys(h.p.v5218ContentAckState().generated).length,0);
+   assert(!h.files().some(x=>/(?:^|\/)ack-[^/]+\.json$/i.test(x.path)));
+ };
+ assertNoAck(b);checks.push('Verified receipt leaves note untouched and creates no ACK file');
  await receive(b,p1);assert.equal(fs.readFileSync(b.abs('Notes/Meeting.md'),'utf8'),'Monday\n');
- const ackFiles=(await b.adapter.list('VaultRelay-Transfer/outbox')).files.filter(x=>x.endsWith('.json'));
- assert.equal(ackFiles.length,1);assert.match(path.basename(ackFiles[0]),/^ack-Win1Red1-/);assert(!ackFiles.some(x=>x.endsWith('R.json')));
- assert.equal(b.p.data.inboundRecords[0].stagingState,'cleaned');checks.push('Confirmed mobile import keeps the original source-named ACK and cleans inbox + staging');
- const generationCount=Object.keys(b.p.v5218ContentAckState().generated).length;
- await receive(b,p1);assert.equal(Object.keys(b.p.v5218ContentAckState().generated).length,generationCount);checks.push('Repeated import does not create extra feedback documents');
+ assertNoAck(b);assert.equal(b.p.data.inboundRecords[0].stagingState,'cleaned');
+ await receive(b,p1);assertNoAck(b);checks.push('Confirm and repeat still clean inbox without generating ACK');
  await b.write('Notes/Phone.md','from phone\n');const p2=await publish(b);
  assert.equal((await b.adapter.list('VaultRelay-Transfer/outbox')).files.length,0);
+ const reply=Windows.__testing.tools.zipDecode(p2.bytes);
+ assert(![...reply.keys()].some(name=>name.startsWith('ack/')));
  await receive(a,p2);
  const paired=(await a.p.v5218PackageRows()).packages.find(x=>x.record.sha256===p1.rec.sha256);
- assert(paired.matches.length>0,'Phone ordinary ACK pairs exact Windows carrier');
- assert.equal(Object.keys(a.p.v5218AckReceiptState().generatedFiles).length,0);
- assert(!a.files().some(x=>/R\.json$/.test(x.path)));checks.push('Phone carrier returns ordinary ACK; Windows verifies pairing and never creates ACK-R');
- b.p=await b.restart();assert.equal((await b.p.pendingNativeAckEntries()).length,0);assert.equal((await b.adapter.list('VaultRelay-Transfer/outbox')).files.length,0);checks.push('Restart preserves completed ACK bundling and does not regenerate removed JSON');
+ assert.equal(paired.matches.length,0);assert.equal(paired.inventoryReceipts[0][1].state,'processed');
+ assertNoAck(a);b.p=await b.restart();assertNoAck(b);
+ checks.push('Reply pairs through sync and restart never creates a work JSON');
  await a.write('Notes/Meeting.md','Tuesday\n');const p3=await publish(a);await receive(b,p3);
  assert.equal(fs.readFileSync(b.abs('Notes/Meeting.md'),'utf8'),'Tuesday\n');
  const bb=b.files().filter(x=>x.path.startsWith('VaultRelay-Transfer/recovery/backups/'));
@@ -149,8 +179,8 @@ async function main(){
  const conflict=await host(Mobile,A,'ContentCompare');await conflict.write('Notes/Phone.md','local divergent body');await receive(conflict,p2,false);
  const cq=await conflict.p.engine.latestPlan();assert(cq.items.some(x=>x.status==='conflict'&&x.path==='Notes/Phone.md'));
  assert.equal(fs.readFileSync(conflict.abs('Notes/Phone.md'),'utf8'),'local divergent body');
- assert(conflict.files().some(x=>x.path.startsWith('VaultRelay-Transfer/inbox/')&&x.path.endsWith('.zip')));assert.equal((await conflict.adapter.list('VaultRelay-Transfer/outbox')).files.filter(x=>x.endsWith('.json')).length,1);
- checks.push('Unrelated local edits produce a conflict and a receipt ACK without rewriting notes');
+ assert(conflict.files().some(x=>x.path.startsWith('VaultRelay-Transfer/inbox/')&&x.path.endsWith('.zip')));assertNoAck(conflict);
+ checks.push('Unrelated local edits produce a conflict without rewriting notes or generating ACK');
  const nativeEntry=Windows.__testing.tools.zipDecode(p1.bytes),nativeRole=[...nativeEntry.keys()].find(x=>x.startsWith('content/')),work='VaultRelay-Transfer/outbox/'+nativeRole.slice(8);
  await a.write(work,Buffer.from('changed work file'));await assert.rejects(a.p.v601CleanPackWork(p1.rec),/变化/);assert.equal(fs.readFileSync(a.abs(work),'utf8'),'changed work file');
  checks.push('Changed work bytes are retained, even when carrier itself is valid');

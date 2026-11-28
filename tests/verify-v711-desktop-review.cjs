@@ -90,7 +90,7 @@ const chooserFile=(name,raw)=>({name,size:raw.length,arrayBuffer:async()=>raw});
   await openOnce(()=>panel.receiveTransferFiles([chooserFile(packet.rec.name,packet.bytes)]),inspectBlocked,{progress:false});
   await panel.refreshDownloadReview();
   const review=pc.p._vrReviewModal,opened=pc.p.app.openedModals.length,scans=discovery;
-  button(review,'添加外部 ZIP / 回执').click();
+  button(review,'添加外部 ZIP').click();
   const input=review.modalEl.querySelector('input');
   input.files=[chooserFile(packet.rec.name,packet.bytes)];await input.handlers.change();
   assert.equal(pc.p._vrReviewModal,review);assert.equal(pc.p.app.openedModals.length,opened);

@@ -23,7 +23,27 @@ async function unified(){
  await receive(c,one,false);await normal(c);assert.equal(await c.adapter.read('Public.md'),'public payload');assert(!await c.adapter.exists('Private.md'));assert(!await c.adapter.exists('Never.md'));
  await a.write('Private.md','private payload second');const two=await packet(a,['Private.md']);assert.equal(a.p.data.bundleRecords.length,2);assert(![...Windows.__testing.tools.zipDecode(two.bytes).keys()].some(x=>x.startsWith('content/')));
  await receive(b,two,false);row=(await b.p.v604PrepareInbox()).find(x=>x.sha256===two.rec.sha256);await b.p.v70ConfirmSealed(row,0,'processed');assert.equal(await b.adapter.read('Private.md'),'private payload second');
- console.log('PASS unified mixed and private-only carrier; denied third device; cancel preservation; separate confirmations; current policy');
+ await b.write('Private reply.md','only shared with Windows');
+ policy(b,['Private.md','Private reply.md'],{'Private.md':{out:[],in:[A]},'Private reply.md':{out:[A],in:[]}});
+ const reply=await packet(b,['Private reply.md']);
+ const tools=Windows.__testing.tools,replyParts=tools.zipDecode(reply.bytes);
+ const readJson=data=>JSON.parse(new TextDecoder().decode(data));
+ const replyManifest=readJson(replyParts.get('manifest.json'));
+ assert.equal(replyManifest.files.length,1);
+ const [member]=replyManifest.files;
+ assert.match(member.path,/^private\//);
+ const inner=tools.zipDecode(replyParts.get(member.path));
+ const innerManifest=readJson(inner.get('manifest.json'));
+ assert(!Object.hasOwn(innerManifest,'feedback'));
+ const sync=readJson(replyParts.get('sync-inventory.json'));
+ assert.deepEqual(sync.sealedReceipts.map(receipt=>receipt.recipient),[A]);
+ assert(!JSON.stringify(sync).includes(two.rec.name));
+ await receive(a,reply,false);
+ assert.equal(two.rec.v70Receipts[B].state,'processed');
+ assert(!await a.adapter.exists('Private reply.md'));
+ await assert.rejects(Windows.__testing.v70.sealed.inspect(a.p,file(reply),{bytes:replyParts.get(member.path)},
+   {...innerManifest,feedback:[]},member.path),/旧版 ACK/);
+ console.log('PASS unified mixed and private-only carrier with sync-only receipt; denied third device; cancel preservation; separate confirmations; current policy');
 }
 async function autosave(){
  const h=await host(IOS,B,'Settings'),peer=await host(Windows,A,'Settings peer');await pair(h,peer);

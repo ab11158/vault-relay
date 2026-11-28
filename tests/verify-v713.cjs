@@ -4,9 +4,9 @@ const fs=require('node:fs');
 const {host,publish,receive,Windows,Mobile,IOS}=require('./test-flow.cjs');
 const find=(root,label)=>root.querySelectorAll('button').find(x=>x.textContent===label);
 const chooseExternal=async(modal,files)=>{
-  find(modal.contentEl,'添加外部 ZIP / 回执').click();
+  find(modal.contentEl,'添加外部 ZIP').click();
   const input=modal.modalEl.querySelectorAll('input').find(x=>x.type==='file');
-  assert(input?.accept.startsWith('.zip,.json'));
+  assert(input?.accept.startsWith('.zip,')&&!input.accept.includes('.json'));
   input.files=files;
   await input.handlers.change();
 };
@@ -62,7 +62,19 @@ async function verifyUploadDirectory(){
     const replyShared=readShared(reply);
     assert.deepEqual(replyShared.uploadDirectory,{path:replyPath,space:'synchronization'});
     assert(!replyShared.downloadPath);
+    await assert.rejects(source.p.v5218RecycleFile(first.rec.id,'send-zip'),/接收凭据/);
+    const replyFiles=Windows.__testing.tools.zipDecode(reply.bytes);
+    assert(![...replyFiles.keys()].some(name=>name.startsWith('ack/')));
     await receive(source,reply,false);
+    const sourceRecord=source.p.data.bundleRecords.find(record=>record.id===first.rec.id);
+    assert.equal(sourceRecord.v70Receipts[tablet.p.data.deviceId]?.state,'verified');
+    assert.equal(sourceRecord.v70Receipts[tablet.p.data.deviceId]?.signed,true);
+    assert.equal(source.p.vrSyncRecycleEvidence(sourceRecord).length,1);
+    const recycled=await source.p.v5218RecycleFile(first.rec.id,'send-zip');
+    assert(!await source.adapter.exists(first.rec.stored.path));
+    assert(await source.adapter.exists(recycled.path));
+    await source.p.v5218RestoreFile(recycled.id);
+    assert(await source.adapter.exists(first.rec.stored.path));
     assert.equal(source.p.data.cloudDirectoryTarget.path,uploadPath,'An incoming upload directory must never replace one already set');
     assert.equal(source.p.data.downloadDirectoryTarget.path,downloadPath);
 
@@ -295,24 +307,12 @@ async function verifyUploadDirectory(){
   assert.deepEqual(scopes,[false,true,true],'The system picker must not trigger another directory scan');
   manualReview.close();
 
-  const ackPath=(await external.adapter.list('VaultRelay-Transfer/outbox')).files.find(path=>path.endsWith('.json'));
-  assert(ackPath,'A valid received package generates an independent receipt');
-  const ack=await external.adapter.readBinary(ackPath);
-  const sourcePanel=new Windows.__testing.panel(sender.p.app,sender.p);
-  sourcePanel.render=()=>{};sender.p._vrControlPanel=sourcePanel;
-  await sourcePanel.searchDownloadZips();
-  const ackScan=sender.p._v5216ScanModal;
-  const beforeAck=(await sender.p.v5218PackageRows()).packages;
-  assert(!beforeAck.some(row=>row.matches.length));
-  await chooseExternal(ackScan,[{name:ackPath.split('/').pop(),size:ack.length,arrayBuffer:async()=>ack}]);
-  const ackCheck=ackScan.contentEl.querySelectorAll('input').find(x=>x.getAttribute('aria-label')===ackPath.split('/').pop());
-  ackCheck.checked=true;ackCheck.handlers.change();
-  await find(ackScan.contentEl,'审核与确认导入（已选 1 项）').click();
-  assert.equal(sender.p._v5216ScanModal,ackScan,'An independent receipt leaves the scan page open');
-  assert(!sender.p._vrReviewModal);
-  assert((await sender.p.v5218PackageRows()).packages.some(row=>row.matches.length),'The selected receipt pairs with its source package');
-  ackScan.close();
-  console.log('PASS iPad manual refresh preserves scope and selection; external ZIPs route to one read-only review, and a standalone receipt is handled in place');
+  const oldAck={name:packet.rec.name.replace(/^VR-[^-]+/,'ack-Win1Red1').replace(/\.zip$/,'.json'),size:200,arrayBuffer:async()=>{throw Error('Standalone ACK must not be read');}};
+  assert(!external.p.mobileDownloadLooksLikeExchange(oldAck.name));
+  const externalBefore=manual.externalFiles.size;
+  await chooseExternal(manual,[oldAck]);
+  assert.equal(manual.externalFiles.size,externalBefore);
+  console.log('PASS iPad manual refresh preserves scope and selection; external ZIPs route to one read-only review and standalone ACK is ignored');
 
   const phone=await host(Mobile,null,'Phone',{});await phone.p.joinGroup(gid);
   const publicRoot='/storage/emulated/0/Download/';
