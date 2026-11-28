@@ -6,7 +6,7 @@ Vault Relay is free to use. You can transfer ZIPs through the Baidu Netdisk webs
 
 ## Installation
 
-Once Vault Relay is listed in Obsidian Community Plugins, you can install it there. For manual installation, extract `main.js`, `manifest.json`, and `styles.css` from the [8.7.2 release](https://github.com/ab11158/vault-relay/releases/tag/8.7.2) into the vault's plugins folder under `vault-relay-mix`. Requires Obsidian 1.5.0 or later. If you are upgrading from the original `vault-relay-v4` ID, [migrate your existing settings before enabling Vault Relay Mix](USER-GUIDE.md#从旧插件-id-迁移).
+Once Vault Relay is listed in Obsidian Community Plugins, you can install it there. For manual installation, extract `main.js`, `manifest.json`, and `styles.css` from the [8.7.3 release](https://github.com/ab11158/vault-relay/releases/tag/8.7.3) into the vault's plugins folder under `vault-relay-mix`. Requires Obsidian 1.5.0 or later. If you are upgrading from the original `vault-relay-v4` ID, [migrate your existing settings before enabling Vault Relay Mix](USER-GUIDE.md#从旧插件-id-迁移).
 
 ## Network and file access
 

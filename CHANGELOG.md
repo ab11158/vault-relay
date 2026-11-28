@@ -1,3 +1,8 @@
+# 8.7.3
+
+- 跨知识库复制统一使用 VR-Copy ZIP。先在源库生成复制包，再在 Obsidian 打开目标库，选择 ZIP、预览并确认。
+- 复制包只能写入当前知识库。预览及确认写入时校验当前库的实际配置目录和目标路径。同名不同内容的文件继续按冲突处理，源文件和复制包保留。
+
 # 8.7.2
 
 - Protect the receiving vault's default and active Obsidian configuration folders from ZIP import and history restore. Validate the target again before writing imported content.

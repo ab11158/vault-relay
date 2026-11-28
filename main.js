@@ -12709,28 +12709,28 @@ const VR5215=(()=>{
       }
       if(Object.values(zip.files).some(f=>!f.dir&&!allowed.has(f.name)))throw Error('复制包包含未声明内容');return items;
     }
-    async function nativeTarget(root){
-      const fs=require('node:fs').promises,path=require('node:path');if(!path.isAbsolute(root))throw Error('请填写目标知识库的绝对路径');root=path.resolve(root);
-      async function walk(rel,create=false){let cursor=path.parse(root).root;
-        const segments=path.relative(cursor,root).split(path.sep).filter(Boolean).concat(rel?rel.split('/'):[]);
-        for(const part of segments){cursor=path.join(cursor,part);let st;try{st=await fs.lstat(cursor);}catch(e){if(e.code!=='ENOENT'||!create)throw e;await fs.mkdir(cursor);st=await fs.lstat(cursor);}
-          if(st.isSymbolicLink()||!st.isDirectory())throw Error('目标路径包含链接或非目录');}return cursor;}
-      await walk('');const config=await fs.lstat(path.join(root,'.obsidian'));if(!config.isDirectory()||config.isSymbolicLink())throw Error('目标不是含 .obsidian 的知识库目录');
-      return {name:root,async read(rel){safePath(rel);const dir=rel.split('/').slice(0,-1).join('/');try{await walk(dir);const full=path.join(root,...rel.split('/')),st=await fs.lstat(full);if(!st.isFile()||st.isSymbolicLink()||st.size>MAX_BYTES)throw Error('目标不是普通文件或超过读取上限');return bytes(await fs.readFile(full));}catch(e){if(e.code==='ENOENT')return null;throw e;}},async write(rel,raw){safePath(rel);await walk(rel.split('/').slice(0,-1).join('/'),true);const full=path.join(root,...rel.split('/'));const h=await fs.open(full,'wx');try{await h.writeFile(raw);}finally{await h.close();}}};
-    }
     function currentTarget(p){
       const vault=p.app.vault,a=vault.adapter;
-      return {name:vault.getName(),async read(rel){
+      const check=rel=>{
+        safePath(rel);
         assertVaultContentDestination(vault,rel);
+        VR601.physical(p,rel);
+      };
+      return {name:vault.getName(),async read(rel){
+        check(rel);
         if(!await a.exists(rel))return null;
+        const stat=await a.stat(rel);
+        if(!stat||stat.type!=='file'||stat.size>MAX_BYTES)throw Error('目标不是普通文件或超过读取上限');
+        check(rel);
         return bytes(await a.readBinary(rel));
       },async write(rel,raw){
-        assertVaultContentDestination(vault,rel);
+        check(rel);
         if(await a.exists(rel))throw Error('目标并发出现同名文件');
+        check(rel);
         const parent=rel.split('/').slice(0,-1).join('/');
         if(parent)await p.v5EnsureFolder(parent);
         if(await a.exists(rel))throw Error('目标并发变化');
-        assertVaultContentDestination(vault,rel);
+        check(rel);
         await vault.createBinary(rel,tools.buffer(raw));
       }};
     }
@@ -12752,7 +12752,7 @@ const VR5215=(()=>{
       const out=el(m.contentEl,'div');let plan=null,copying=false;
       const confirm=btn(m.contentEl,'确认复制',async()=>{if(!plan||copying)return;copying=true;confirm.disabled=true;folder.disabled=true;
         try{const result=await applyCopy(plan,target);out.replaceChildren();el(out,'p','已复制 '+result.written.length+'，相同跳过 '+result.skipped.length+'，失败 '+result.errors.length+'。源文件保留。');for(const error of result.errors)el(out,'p',error,'vru-danger');
-          if(target.current&&result.written.length){p.data.v5215ImportHistory||=[];p.data.v5215ImportHistory.unshift({groupId:p.data.groupId,createdAt:new Date().toISOString(),items:plan.filter(x=>result.written.includes(x.path)).map(x=>({path:x.path,action:'create',afterSha:x.sha256}))});p.data.v5215ImportHistory=p.data.v5215ImportHistory.slice(0,100);await p.persistTransport();}
+          if(result.written.length){p.data.v5215ImportHistory||=[];p.data.v5215ImportHistory.unshift({groupId:p.data.groupId,createdAt:new Date().toISOString(),items:plan.filter(x=>result.written.includes(x.path)).map(x=>({path:x.path,action:'create',afterSha:x.sha256}))});p.data.v5215ImportHistory=p.data.v5215ImportHistory.slice(0,100);await p.persistTransport();}
         }finally{copying=false;plan=null;folder.disabled=false;}
       },true);confirm.disabled=true;
       folder.addEventListener('input',()=>{plan=null;confirm.disabled=true;out.replaceChildren();});
@@ -12760,21 +12760,14 @@ const VR5215=(()=>{
       btn(m.contentEl,'关闭',()=>m.close());m.open();return m;
     }
     Panel.prototype.v5215CopyTo=async function(selected){
-      const panel=this,p=this.plugin,items=await prepare(p,selected),m=dialog(this.app,'复制到… · 选择目标知识库');
+      const panel=this,p=this.plugin,items=await prepare(p,selected),m=dialog(this.app,'生成跨知识库复制包');
       el(m.contentEl,'p','复制选中原件或笔记及附件。笔记组中的共享附件会按实际路径去重。');
       for(const item of selected.filter(x=>x.source==='vault'&&/\.md$/i.test(x.path))){
         const related=await groups(p,[item]),pickedPaths=new Set(selected.map(x=>x.path));
         const omitted=related[0]?.children.filter(x=>!pickedPaths.has(x.path))||[],missing=related[0]?.missing||[];
         if(omitted.length||missing.length)el(m.contentEl,'p','附件提示 · '+item.path+'：未勾选 '+omitted.map(x=>x.path).join('、')+'；缺失／未解析 '+missing.join('、')+'。需要时请返回勾选完整笔记组。','vru-warning vr527-keep-full');
       }
-      if(Platform.isDesktopApp){
-        const input=el(m.contentEl,'input');input.placeholder='目标知识库目录（包含 .obsidian）';input.setAttribute('aria-label','目标知识库入口');
-        try{const fs=require('node:fs'),path=require('node:path'),registry=JSON.parse(fs.readFileSync(path.join(require('node:os').homedir(),'AppData/Roaming/obsidian/obsidian.json'),'utf8'));
-          const select=el(m.contentEl,'select');el(select,'option','选择已有知识库…').value='';for(const v of Object.values(registry.vaults||{}))if(v.path){const option=el(select,'option',v.path);option.value=v.path;}select.addEventListener('change',()=>input.value=select.value);
-        }catch(_){el(m.contentEl,'p','无法读取知识库列表时，可填写目标目录。');}
-        btn(m.contentEl,'进入目标知识库复制预览',async()=>{const target=await nativeTarget(input.value);if(target.name.toLowerCase()===String(p.app.vault.adapter.getBasePath?.()).toLowerCase())throw Error('请选另一个知识库');previewCopy(panel,items,target);m.close();},true);
-      }
-      el(m.contentEl,'p','手机跨知识库：生成复制包 → 导出到系统“文件”／共享存储 → 在目标知识库打开 Vault Relay → 查看导入的文件 → 新知识库入口：接收复制包 → 选择目标目录、预览、确认。手机不能直接遍历或写入另一个 App／知识库的私有目录。','vr527-keep-full');
+      el(m.contentEl,'p','生成复制包后，在 Obsidian 打开目标知识库，再进入 Vault Relay 的「查看导入的文件 → 新知识库入口：接收复制包」，选择 ZIP、预览并确认。','vr527-keep-full');
       let exported=null;
       btn(m.contentEl,'生成跨知识库复制包',async()=>{const raw=await encodeCopy(items),path='VaultRelay-Transfer/exports/'+tools.namedArtifact('VR-Copy',p.data.groupShortName,p.data.deviceShortName,'zip');await p.v5StorePrivate(path,raw);exported={path,content:raw};el(m.contentEl,'p','复制包已生成：'+path,'vru-file-path');share.disabled=false;});
       const share=btn(m.contentEl,'导出复制包／系统分享',()=>{if(exported)panel.sharePreparedFile(exported,'application/zip','复制到新的知识库');},true);share.disabled=true;
@@ -12783,7 +12776,7 @@ const VR5215=(()=>{
     Panel.prototype.v5215ReceiveCopy=function(){
       const panel=this,m=dialog(this.app,'新知识库入口 · 接收复制包');el(m.contentEl,'p','请确认当前已打开目标知识库：'+this.plugin.app.vault.getName()+'。选择源知识库导出的 VR-Copy ZIP；随后仍需预览和确认。');
       const input=el(m.modalEl,'input',null,'vru-document-picker');input.type='file';input.accept='.zip';
-      input.addEventListener('change',()=>{const file=input.files?.[0];input.value='';if(file)void (async()=>{if(file.size>MAX_BYTES+1024*1024)throw Error('复制包过大');const items=await decodeCopy(bytes(await file.arrayBuffer()));const target=Platform.isDesktopApp?await nativeTarget(panel.plugin.app.vault.adapter.getBasePath()):currentTarget(panel.plugin);target.current=true;previewCopy(panel,items,target);m.close();})().catch(e=>new Notice('无法接收复制包：'+e.message,8000));});
+      input.addEventListener('change',()=>{const file=input.files?.[0];input.value='';if(file)void (async()=>{if(file.size>MAX_BYTES+1024*1024)throw Error('复制包过大');const items=await decodeCopy(bytes(await file.arrayBuffer()));const target=currentTarget(panel.plugin);previewCopy(panel,items,target);m.close();})().catch(e=>new Notice('无法接收复制包：'+e.message,8000));});
       btn(m.contentEl,'选择知识库复制包',()=>input.click(),true);btn(m.contentEl,'关闭',()=>m.close());m.open();return m;
     };
     // Ordinary ZIP imports write real notes but older versions did not journal them.
@@ -12792,7 +12785,7 @@ const VR5215=(()=>{
       if(report.kind==='ordinary'){const items=[];for(const x of report.newItems||[])if(await this.app.vault.adapter.exists(x.path)&&await this.v5Hash(await this.v5Read(x.path))===x.sha256)items.push({path:x.path,action:'create',afterSha:x.sha256});
         if(items.length){this.data.v5215ImportHistory||=[];this.data.v5215ImportHistory.unshift({groupId:this.data.groupId,createdAt:new Date().toISOString(),items});this.data.v5215ImportHistory=this.data.v5215ImportHistory.slice(0,100);await this.persistTransport();}}
       return result;};
-    return {prepare,readItem,encodeCopy,decodeCopy,nativeTarget,copyPlan,applyCopy};
+    return {prepare,readItem,encodeCopy,decodeCopy,currentTarget,copyPlan,applyCopy};
   }
   return {install,safePath,selection,importedRecords,references,groups,downloadTarget,androidList,scanUnbound};
 })();
