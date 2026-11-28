@@ -3,17 +3,17 @@ Vault Relay License
 Copyright (c) 2026 Vault Relay contributors. All rights reserved.
 
 Permission is granted to download, install, and use the unmodified Vault Relay
-8.7.0 release in Obsidian without charge, and to keep backup copies for that
-purpose. Voluntary sponsorship does not affect this permission. Earlier grants
+8.7.0 and 8.7.1 releases in Obsidian free of charge, and to keep backup copies
+for that purpose. Voluntary sponsorship does not affect this permission. Earlier grants
 to use the unmodified 5.2.8, 5.2.9, and 5.2.10 test builds for evaluation and the
 unmodified 8.0 release in Obsidian remain in effect, including backup copies
 for those purposes. The Obsidian Community directory may list Vault Relay and
-make the unmodified 8.7.0 release available for installation through Obsidian.
+make the unmodified 8.7.1 release available for installation through Obsidian.
 
 Except as expressly permitted above, or as necessary to use GitHub's platform
 features under its applicable terms, no permission is granted to copy or adapt
-original Vault Relay code for inclusion in other plugins, redistribute or
-sublicense it, sell it, or publish modified versions. Public availability of
+original Vault Relay code for use in other applications or plugins, or to
+redistribute, sublicense, sell, or publish modified versions of that code. Public availability of
 the source does not grant an open-source license. All rights not expressly
 granted are reserved by their respective owners.
 

@@ -77,7 +77,7 @@ async function host(P,id,name,initial){
    return plugin;
  };
  await start(p);
- return {p,base,abs,adapter,files,workspaceEvents,layouts,saved:()=>saved,restart:async()=>{const next=new P(app);next.loadData=p.loadData;next.saveData=p.saveData;return start(next);},write:async(p,s)=>{await fs.promises.mkdir(path.dirname(abs(p)),{recursive:true});await fs.promises.writeFile(abs(p),s);}};
+ return {p,base,abs,adapter,files,workspaceEvents,layouts,saved:()=>saved,restart:async(configure)=>{const next=new P(app);next.loadData=p.loadData;next.saveData=p.saveData;configure?.(next);return start(next);},write:async(p,s)=>{await fs.promises.mkdir(path.dirname(abs(p)),{recursive:true});await fs.promises.writeFile(abs(p),s);}};
 }
 async function publish(h){
  const q=await h.p.engine.previewUpload();assert.equal(q.errors.length,0);assert.equal(q.catalogWarnings.length,0);

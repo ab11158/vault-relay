@@ -1,6 +1,6 @@
 # Vault Relay 使用说明
 
-本说明适用于 **Vault Relay 8.7 测试版**。建议先在测试知识库完成一轮发送、审核和导入，再用于日常知识库。
+本说明适用于 **Vault Relay Mix 8.7.1**。建议先在测试知识库完成一轮发送、审核和导入，再用于日常知识库。
 
 ## 一、插件特点和功能介绍
 
@@ -19,9 +19,17 @@
 
 ### 1. 安装或升级
 
-1. 从 GitHub 发布页下载插件包，把 `main.js`、`manifest.json`、`styles.css` 放入知识库的 `.obsidian/plugins/vault-relay-v4/`。使用 BRAT 时可选版本 `8.7`。
-2. 升级时替换上述三个文件，保留 `data.json` 和知识库里的 `VaultRelay-Transfer`。然后重新启用插件。
-3. 在第一台设备 A 的「设置与连接检查」创建群组，填写群组名称、群组简称、本机简称，并分别保存圈②上传目录和圈③同步空间下载目录。先让参与测试的设备使用同一插件版本。
+1. 社区目录上架后，搜索 **Vault Relay Mix** 安装。手动安装时，从 [GitHub 8.7.1 发布页](https://github.com/ab11158/vault-relay/releases/tag/8.7.1) 下载 `main.js`、`manifest.json`、`styles.css`，放入当前知识库的 `.obsidian/plugins/vault-relay-mix/`。如果修改过 Obsidian 的配置文件夹名称，请使用该配置文件夹下的 `plugins`。
+2. 以前安装过 `vault-relay-v4` 的设备，先按下文迁移。以后升级同一 ID 的版本时，替换这三个安装文件并保留 `data.json` 和知识库里的 `VaultRelay-Transfer`。
+3. 首次配置时，在第一台设备 A 的「设置与连接检查」创建群组，填写群组名称、群组简称和本机简称，并保存圈②上传目录和圈③同步空间下载目录。
+
+#### 从旧插件 ID 迁移
+
+每台设备的每个已有同步知识库分别操作，使用它自己的 `data.json`。
+
+1. 在 Obsidian 的「第三方插件」停用旧 **Vault Relay**。备份旧目录 `.obsidian/plugins/vault-relay-v4/` 和库内的 `VaultRelay-Transfer`。如果新插件已经启用过，也先停用并备份它的配置。
+2. 安装 **Vault Relay Mix**，先保持停用。用能访问知识库配置目录的文件管理器，将旧目录里的 `data.json` 复制到 `.obsidian/plugins/vault-relay-mix/data.json`。该文件含本机设备私钥，请在本机保管。原来的 `VaultRelay-Transfer` 留在当前知识库原位置。
+3. 重新打开 Obsidian，启用 **Vault Relay Mix**。在「设置与连接检查」核对群组 ID、设备 ID 和百度网盘目录，并在「隐私笔记」核对原设置。继续使用前先检查一个已知增量包的审核结果。自定义插件快捷键可在 Obsidian 的「快捷键」中重新设置。
 
 ### 2. 设置百度网盘目录和 Safari 下载位置
 
