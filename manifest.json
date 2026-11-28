@@ -1,9 +1,12 @@
 {
   "id": "vault-relay-v4",
   "name": "Vault Relay",
-  "version": "7.15",
+  "version": "8.0",
   "minAppVersion": "1.5.0",
   "description": "Sync vaults with a shared GroupID, verify downloaded ZIPs, and review changes before importing.",
   "author": "Vault Relay",
-  "isDesktopOnly": false
+  "isDesktopOnly": false,
+  "fundingUrl": {
+    "自愿赞助 Vault Relay": "https://afdian.com/a/ab11158"
+  }
 }

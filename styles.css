@@ -852,6 +852,7 @@
 .vru-control-modal .vru-log-toolbar button{margin-left:auto}
 
 /* 5.2.16 optional reception and live Android search status. */
+.vru-panel .vru-manual-transfer[hidden]{display:none!important}
 .vru-control-modal .vru-manual-transfer .vru-transfer-step{margin:14px 0;padding:12px;border:1px solid var(--background-modifier-border);border-radius:10px}
 .vru-reception-help{margin-top:12px}
 .vru-scan-progress{max-width:540px!important;width:calc(100vw - 32px)!important}
@@ -941,10 +942,15 @@
 
 /* 7.1 device settings, mixed review and inline history. */
 .vr71-devices{min-width:0}
-.vr71-device-row{display:grid;grid-template-columns:4em 3em minmax(5em,.7fr) 4.2em minmax(10em,1.5fr) auto;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--background-modifier-border)}
-.vr71-device-row input{width:100%;min-width:0;box-sizing:border-box}
-.vr71-device-row input[readonly]{color:var(--text-muted);font-family:var(--font-monospace)}
-.vr71-device-row button{white-space:normal;height:auto;min-height:32px}
+.vr71-device-row{min-width:0;padding:12px;margin:8px 0;border:1px solid var(--background-modifier-border);border-radius:8px}
+.vr71-device-heading,.vr71-device-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.vr71-device-heading{justify-content:space-between}
+.vr71-device-fields{display:flex;flex-wrap:wrap;gap:8px 12px;margin-block:8px}
+.vr71-device-field{display:grid;gap:4px;min-width:0;flex:1 1 9em}
+.vr71-device-field:last-child{flex:2 1 16em}
+.vr71-device-field input{width:100%;min-width:0;box-sizing:border-box}
+.vr71-device-field input[readonly]{color:var(--text-muted);font-family:var(--font-monospace)}
+.vr71-device-actions button{flex:0 0 auto;width:auto;white-space:nowrap;height:auto;min-height:36px;padding-inline:10px}
 .vr71-private-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:12px 4px;border-bottom:1px solid var(--background-modifier-border);min-width:0}
 .vr71-private-row>label{display:flex;gap:8px;min-width:0;flex:1 1 70%;overflow-wrap:anywhere}
 .vr71-private-row .vr70-rule-fields{flex-basis:100%;width:100%;box-sizing:border-box}
@@ -962,10 +968,6 @@
 .vr607-difference .vr71-source{grid-column:1/-1;grid-row:2;margin:0;font-size:.83em;overflow-wrap:anywhere}
 .vr71-restricted pre{white-space:pre-wrap;overflow:auto;max-height:35vh}
 @media(max-width:640px){
- .vr71-device-row{grid-template-columns:3.5em minmax(0,1fr) auto;gap:6px}
- .vr71-device-row>strong{grid-column:1/-1}
- .vr71-device-row>input[aria-label="简称"]{grid-column:2/-1}
- .vr71-device-row button{grid-column:3;grid-row:3}
  .vr70-rule-fields label{grid-template-columns:minmax(0,1fr)}
  .vr70-rule-fields{padding-inline-start:0}
  .vr71-history-section .vr607-actions button{white-space:normal;max-width:100%;height:auto;min-height:36px}
@@ -990,7 +992,6 @@
 .vr73-console .vru-panel button:active:not(:disabled) {transform:translateY(1px);box-shadow:inset 0 1px 3px rgba(0,0,0,.15)}
 .vr73-console .vru-panel button:focus-visible {outline:2px solid var(--interactive-accent);outline-offset:2px}
 .vr73-console .vru-panel .vru-transfer-step .setting-item {padding-block:7px}
-.vr71-device-row > :nth-child(7) {grid-column:5/-1;justify-self:start}
 .vr73-device-picker {min-width:0;padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:6px}
 .vr73-device-picker > summary {cursor:pointer;overflow-wrap:anywhere}
 .vr73-device-options {max-height:12em;overflow:auto;padding:4px}
@@ -998,7 +999,6 @@
 .vr73-device-options input[type=checkbox] {width:auto;flex:none}
 .vr73-note-zoom .workspace-leaf-content[data-type=markdown] :is(.markdown-preview-view,.markdown-source-view) {touch-action:pan-x pan-y;zoom:var(--vr73-note-scale,1)}
 @media (max-width:640px) {
-  .vr71-device-row > :nth-child(7) {grid-column:2/-1;grid-row:4}
 }
 
 /* Keep the upload file list close to the filters, including mobile themes. */
@@ -1078,3 +1078,7 @@
 
 .vr603-dismissible-notice:has(.vr713-notice-close) { position: relative; padding-inline-end: 2em; }
 .vr713-notice-close { position: absolute; inset-block-start: 0.3em; inset-inline-end: 0.35em; min-width: 1.5em; min-height: 1.5em; padding: 0; background: transparent; color: inherit; border: 0; box-shadow: none; }
+
+@media(max-width:600px){
+ .vr71-device-fields label{grid-template-columns:minmax(0,1fr)}
+}
