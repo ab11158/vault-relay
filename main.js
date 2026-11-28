@@ -10379,7 +10379,7 @@ class VaultRelayV4 extends UnifiedBase {
             throw Error('目录类型识别耗时过长，未完成覆盖；请缩小扫描范围或使用系统选文件');
           const chunk=await Promise.all(listing.files.slice(offset,offset+8).map(async x=>{
           const name=typeof x==='string'?x:x?.name;
-          let type=typeof x==='string'?'unknown':String(x?.type||'unknown');
+          let type=typeof x==='string'?'unknown':String(x?.type||'unknown'),mtime=x?.mtime??null;
           if(typeof name!=='string'||name.length>255 ||
              !/^[^\/\\:\x00-\x1f]{1,255}$/.test(name) ||
              name==='.' || name==='..' || /[. ]$/.test(name) ||
@@ -10391,13 +10391,13 @@ class VaultRelayV4 extends UnifiedBase {
             try{
               const st=await this.mobileCapTry(fs,'stat',
                 this.mobileCapPathOptions(path,name,{scanOnly}),v=>v&&typeof v.type==='string');
-              type=String(st.type||'unknown');
+              type=String(st.type||'unknown');mtime=st.mtime??st.lastModified??mtime;
             }catch(_){/* Treat an unresolved unknown as a file, not an assumed directory. */}
           }
           const directory=/directory/i.test(type);
           const unknownType=!/^(?:file|directory)$/i.test(type);
           return {
-            name,isFile:!directory,isDirectory:directory,unknownType,
+            name,isFile:!directory,isDirectory:directory,unknownType,mtime,
             file:(resolve,reject)=>{
               this.mobileCapStat(fs,path,name).then(stat=>{
                 resolve({
@@ -10570,7 +10570,7 @@ class VaultRelayV4 extends UnifiedBase {
             const key=current.path+encodeURIComponent(entry.name);
             if(seenItems.has(key))continue;
             seenItems.add(key);
-            const finding={name:entry.name,path:key,mtime:entry.mtime??null,status:'已发现，等待检查'};
+            const finding={name:entry.name,path:key,mtime:entry.mtime??entry.lastModified??null,status:'已发现，等待检查'};
             result.files.push(finding);
             // Scan managed storage for visibility. Dbox and inbox retain their
             // dedicated intake, and stored history never becomes a download.
@@ -12418,7 +12418,14 @@ const VR5215=(()=>{
   }
   function selection(size){
     const selected=new Set();let anchor=null;
-    return {selected,toggle(i,on,shift=false){if(shift&&anchor!==null){for(let n=Math.min(i,anchor);n<=Math.max(i,anchor);n++)on?selected.add(n):selected.delete(n);}else on?selected.add(i):selected.delete(i);anchor=i;},all(on){selected.clear();if(on)for(let n=0;n<size;n++)selected.add(n);anchor=null;},
+    return {selected,resetAnchor(){anchor=null;},toggle(i,on,shift=false,order=null){
+      const from=order?order.indexOf(anchor):anchor,to=order?order.indexOf(i):i;
+      const ids=shift&&from!==null&&from>=0&&to>=0
+        ?order?order.slice(Math.min(from,to),Math.max(from,to)+1):Array.from({length:Math.abs(to-from)+1},(_,n)=>Math.min(from,to)+n)
+        :[i];
+      for(const id of ids)if(on)selected.add(id);else selected.delete(id);
+      anchor=i;
+    },all(on){selected.clear();if(on)for(let n=0;n<size;n++)selected.add(n);anchor=null;},
       invert(){for(let n=0;n<size;n++)if(selected.has(n))selected.delete(n);else selected.add(n);anchor=null;}};
   }
   function importedRecords(data){
@@ -12622,7 +12629,13 @@ const VR5215=(()=>{
       const invert=el(m.contentEl,'button','反选');invert.type='button';
       invert.addEventListener('click',e=>{e.preventDefault();model.invert();sync();});
       let sortGroups=[];const sorting={};
-      const reorder=()=>{for(const g of VR603.sorted(sortGroups,sorting,p))list.append(...g.nodes);};
+      let sortedIds=[];
+      const reorder=()=>{
+        const ordered=VR603.sorted(sortGroups,sorting,p);
+        sortedIds=ordered.flatMap(g=>g.ids);
+        for(const group of ordered)list.append(...group.nodes);
+        model.resetAnchor();
+      };
       const listTools=el(m.contentEl,'div',null,'vru-row');listTools.append(allLabel,invert);
       VR603.controls(listTools,sorting,reorder);
       if(Platform.isDesktopApp)el(m.contentEl,'p','Shift 连选 · Ctrl / ⌘ + A 全选','vru-meta');
@@ -12631,21 +12644,25 @@ const VR5215=(()=>{
         for(const g of lastGroups){const n=g.ids.filter(i=>model.selected.has(i)).length;g.check.checked=n===g.ids.length;g.check.indeterminate=n>0&&n<g.ids.length;}};
       all.addEventListener('change',()=>{model.all(all.checked);sync();});
       m.modalEl.addEventListener('keydown',e=>{const editing=e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT'&&!['checkbox','radio','button'].includes(e.target.type);if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='a'&&!editing){e.preventDefault();model.all(true);sync();}if(e.key==='Escape')m.close();});
-      const addRow=(parent,item)=>{const i=rows.length;rows.push(item);const label=el(parent,'label',null,'vru-selectable-file'),check=el(label,'input');check.type='checkbox';check.setAttribute('aria-label',item.path);inputs.push(check);
+      const addRow=(parent,item)=>{const i=rows.length;rows.push(item);
+        const block=el(parent,'div',null,'vr603-file-section');
+        const label=el(block,'label',null,'vru-selectable-file vr603-file-title'),check=el(label,'input');check.type='checkbox';check.setAttribute('aria-label',item.path);inputs.push(check);
         const text=el(label,'span',(item.name||item.path.split('/').pop())+(item.shared?' · 共享附件':item.attachment?' · 附件':''),'vru-file-path');text.title=item.path+'\n'+(VR603.time(item,p)===null?'时间未记录':new Date(VR603.time(item,p)).toLocaleString());
-        const details=el(parent,'details',null,'vru-file-location'),summary=el(details,'summary','路径与操作');
+        const details=VR603.fileDetails(block,'路径与操作');
         el(details,'p',item.path,'vru-file-full-path');
         if(!imported)p.v5217RenderLocation(details,item);
-        check.addEventListener('click',e=>{model.toggle(i,check.checked,e.shiftKey);sync();});
-        return i;};
+        check.addEventListener('click',e=>{model.toggle(i,check.checked,e.shiftKey,sortedIds);sync();});
+        return {id:i,block};};
       const render=async items=>{list.replaceChildren();sortGroups=[];rows=[];inputs=[];lastGroups=[];model=selection(0);
+        const addSingle=item=>{const {id,block}=addRow(list,item);sortGroups.push({...item,ids:[id],nodes:[block]});};
         if(imported){const grouped=await groups(p,items);if(closed)return;
           for(const g of grouped){if(g.children.length>1||g.missing.length){const d=el(list,'details',null,'vru-note-group'),summary=el(d,'summary'),check=el(summary,'input');check.type='checkbox';el(summary,'span',g.title+' · '+(g.children.length-1)+' 个附件');
-            const ids=g.children.map(item=>addRow(d,item));check.addEventListener('click',e=>{e.stopPropagation();for(const i of ids)model.toggle(i,check.checked);sync();});lastGroups.push({ids,check});
+            const ids=g.children.map(item=>addRow(d,item).id);
+            sortGroups.push({...g.children[0],ids,nodes:[d]});
+            check.addEventListener('click',e=>{e.stopPropagation();for(const i of ids)model.toggle(i,check.checked);model.resetAnchor();sync();});lastGroups.push({ids,check});
             if(g.missing.length)el(d,'p','缺失／未解析引用：'+g.missing.join('、'),'vru-warning vr527-keep-full');
-          }else addRow(list,g.children[0]);}
-        }else for(const item of items)addRow(list,item);
-        for(let i=0;i<list.children.length;){const node=list.children[i],next=list.children[i+1],group=node.tagName==='LABEL'&&next?.classList.contains('vru-file-location')?[node,next]:[node];const label=node.matches?.('.vru-selectable-file')?node:node.querySelector?.('.vru-selectable-file');const idx=label?inputs.indexOf(label.querySelector('input')):-1;const item=rows[idx]||{};sortGroups.push({...item,nodes:group});i+=group.length;}
+          }else addSingle(g.children[0]);}
+        }else for(const item of items)addSingle(item);
         reorder();
         model=selection(rows.length);if(!rows.length)el(list,'p',imported?'暂无可追溯的正式导入文件；接收包和生成包不计入。':'尚未找到可读取原件。可添加外部文件；未发现不代表没有下载。');sync();};
       const picked=new Map();
@@ -13699,8 +13716,14 @@ const VR5218ScanUI=(()=>{
             return button;
           };
           this.packageActions=[manage('移入回收站','recycle'),manage('确认删除','delete')];
-          VR603.controls(this.contentEl,this,()=>this.refresh());
-          this.list=this.contentEl.createEl('ul',{cls:'vru-scan-files'});
+          this.fileSelection=VR603.fileSelection(this.contentEl,{
+            selected:()=>this.selected,
+            keys:()=>this.busy||this.value.running?[]:this.selectableFiles,
+            visible:()=>this.selectableVisible,
+            changed:()=>this.updateSelectionControls(),
+          });
+          VR603.controls(this.fileSelection.tools,this,()=>{this.fileSelection.resetAnchor();this.refresh();});
+          this.list=this.contentEl.createEl('ul',{cls:'vru-scan-files vr603-file-list'});
           this.more=this.contentEl.createEl('button',{text:'显示更多文件'});
           this.more.addEventListener('click',()=>{this.limit+=100;this.refresh();});
           const details=this.contentEl.createEl('details');
@@ -13730,29 +13753,40 @@ const VR5218ScanUI=(()=>{
           this.stop.textContent=running?(s.searchStopped?'已停止继续搜索':'停止本次扫描'):s.cancelled?'已停止':s.state==='failed'?'扫描失败':'扫描完毕';
           this.stop.hidden=this.manualResults&&running;
           this.stop.disabled=this.manualResults||!running||!!s.cancelRequested||!!s.waitingForFull;
-          this.review.textContent='审核与确认导入（已选 '+this.selected.size+' 项）';
-          this.review.disabled=this.busy||!this.selected.size;
-          this.updatePackageActions=()=>{for(const button of this.packageActions||[])button.disabled=!this.group||this.busy||running||!(s.files||[]).some(f=>this.selected.has(f.path)&&/\.zip$/i.test(f.name));};
-          this.updatePackageActions();
+          this.updateSelectionControls=()=>{
+            this.review.textContent='审核与确认导入（已选 '+this.selected.size+' 项）';
+            this.review.disabled=this.busy||running||!this.selected.size;
+            for(const button of this.packageActions||[])button.disabled=!this.group||this.busy||running||!(s.files||[]).some(f=>this.selected.has(f.path)&&/\.zip$/i.test(f.name));
+          };
+          this.updateSelectionControls();
+          const expanded=new Set([...this.list.children].filter(row=>row.querySelector('details')?.open).map(row=>row._vrScanFilePath));
           this.list.empty();const files=[...(s.files||[]),...this.externalFiles.values()];
           if(!files.length)this.list.createEl('li',{text:running?'暂未发现传输文件。':'本轮未发现符合命名规则的传输文件。'});
-          const sorted=VR603.sorted(files,this,plugin);
-          const ordered=this.manualResults?[...sorted.filter(f=>f.inbox),...sorted.filter(f=>!f.inbox)]:sorted;
-          for(const f of ordered.slice(0,this.limit)){
-            const li=this.list.createEl('li');
-            const label=li.createEl('label'),check=label.createEl('input');check.type='checkbox';check.checked=this.selected.has(f.path);
-            check.setAttribute('aria-label',f.name);check.disabled=this.busy||!!f.completed||!!f.unavailable;
-            check.addEventListener('change',()=>{if(check.checked)this.selected.add(f.path);else this.selected.delete(f.path);this.review.textContent='审核与确认导入（已选 '+this.selected.size+' 项）';this.review.disabled=this.busy||!this.selected.size;this.updatePackageActions();});
-            label.createEl('strong',{text:f.name});li.createEl('div',{text:(f.inbox?'Inbox · ':'')+f.status});
-            if(!f.externalFile)li.createEl('div',{text:f.inbox?f.target:f.path,cls:'vru-file-path'});
+          const ordered=VR603.sorted(files,this,plugin);
+          const selectable=items=>items.filter(f=>!f.completed&&!f.unavailable).map(f=>f.path);
+          const visible=ordered.slice(0,this.limit);
+          this.selectableFiles=selectable(ordered);this.selectableVisible=selectable(visible);
+          this.fileSelection.clearInputs();
+          for(const f of visible){
+            const li=this.list.createEl('li',{cls:'vr603-file-section'});
+            li._vrScanFilePath=f.path;
+            const label=li.createEl('label',{cls:'vr603-file-title'}),check=label.createEl('input');check.type='checkbox';
+            check.setAttribute('aria-label',f.name);check.disabled=this.busy||running||!!f.completed||!!f.unavailable;
+            this.fileSelection.attach(check,f.path);
+            label.createEl('strong',{text:f.name});
+            const details=VR603.fileDetails(li);
+            details.parentNode.open=expanded.has(f.path);
+            details.createEl('div',{text:(f.inbox?'Inbox · ':'')+f.status});
+            if(!f.externalFile)details.createEl('div',{text:f.inbox?f.target:f.path,cls:'vru-file-path'});
           }
+          this.fileSelection.sync();
           this.more.hidden=files.length<=this.limit;
           this.coverage.textContent='按规则排除目录 '+(s.excludedDirs||0)+(s.unreadablePaths?.length?'；未能读取：'+s.unreadablePaths.join('；'):'')+
             (s.inboxPending?'；归集或 inbox 仍待处理 '+s.inboxPending+' 项':'')+(s.inboxError?'；无法读取 inbox：'+s.inboxError:'');
         }
         async runSearch(full,{showProgress=false}={}){
           if(this.searching||this.busy)return;
-          this.searching=true;this.lastFull=full;this.finished=false;
+          this.searching=true;this.lastFull=full;this.finished=false;this.fileSelection.resetAnchor();
           const previous=this.value.files||[];
           const paint=value=>{
             if(plugin._v5216ScanModal!==this||this.group!==plugin.data.groupId)return;
@@ -14219,7 +14253,7 @@ VaultRelayV4.prototype.v5218PackageRows=async function(){
   return {packages};
 };
 VaultRelayV4.prototype.v5218OpenPackageManager=function(){
-  const p=this,m=new OBS.Modal(this.app);m.modalEl.classList.add('vru-control-modal','vru-package-manager');let busy=false,closed=false,view='all';const sorting={};
+  const p=this,m=new OBS.Modal(this.app);m.modalEl.classList.add('vru-control-modal','vru-package-manager');let busy=false,closed=false,view='all';const sorting={},picked=new Set();
   m.onClose=()=>{closed=true;};
   const button=(parent,label,fn,disabled=false)=>{const b=parent.createEl('button',{text:label});b.disabled=disabled;b.addEventListener('click',async()=>{
     if(busy||b.disabled)return;busy=true;b.disabled=true;try{await fn();}catch(e){new OBS.Notice(String(e.message||e),8500);}finally{busy=false;if(!closed)await render();}
@@ -14227,7 +14261,6 @@ VaultRelayV4.prototype.v5218OpenPackageManager=function(){
   const sectionTime=value=>{if(!value)return '生成时间未记录';const n=typeof value==='number'?value:Date.parse(value);return Number.isFinite(n)?new Date(n).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}):String(value);};
   async function render(){
     const data=await p.v5218PackageRows();if(closed)return;const c=m.contentEl;c.empty();c.createEl('h2',{text:'增量包管理'});
-    VR603.controls(c,sorting,()=>render());
     const filters=c.createDiv({cls:'vru-location-actions'});
     const category=x=>x.recycle?.status==='purged'||(['deleted','withdrawn','legacy-feedback-held'].includes(x.record.status)||String(x.record.status||'').startsWith('withdrawn-'))?'finished':x.recycle?.status==='recycled'?'recycled':x.matches.length||x.inventoryReceipts?.length?'paired':'unpaired';
     const groups={unpaired:[],paired:[],recycled:[],finished:[]};
@@ -14238,8 +14271,15 @@ VaultRelayV4.prototype.v5218OpenPackageManager=function(){
       button(filters,label+'（'+lists[key].length+'）',()=>{view=key;},view===key);
     }
     if(!OBS.Platform.isDesktopApp)c.createEl('p',{text:'当前设备可查看配对状态；安全回收操作请在 Windows 端进行。'});
-    for(const item of VR603.sorted(lists[view],sorting,p)){
-      const r=item.record,box=c.createDiv({cls:'vru-package-row'});box.createEl('strong',{text:r.name});
+    const ordered=()=>VR603.sorted(lists[view],sorting,p),blocks=new Map();
+    const selection=VR603.fileSelection(c,{selected:()=>picked,keys:()=>ordered().map(item=>item.record.id)});
+    VR603.controls(selection.tools,sorting,()=>{selection.resetAnchor();for(const item of ordered())list.append(blocks.get(item));});
+    const list=c.createDiv();
+    for(const item of ordered()){
+      const r=item.record,section=list.createDiv({cls:'vru-package-row vr603-file-section'});
+      const label=section.createEl('label',{cls:'vr603-file-title'}),check=label.createEl('input');check.type='checkbox';check.setAttribute('aria-label',r.name);
+      label.createEl('strong',{text:r.name});selection.attach(check,r.id);blocks.set(item,section);
+      const box=VR603.fileDetails(section);
       box.createEl('p',{text:'生成时间：'+sectionTime(r.createdAt||r.at||r.createdAtUtc)+' · 版本数量：'+(r.versions||[]).length});
       const contentState=p.v5218ContentAckState();
       const valid=item.feedbackFiles.filter(d=>d.entries.some(a=>item.matches.some(m=>m.ackId===a.ackId)))
@@ -14274,6 +14314,7 @@ VaultRelayV4.prototype.v5218OpenPackageManager=function(){
         },!OBS.Platform.isDesktopApp);
       }
     }
+    selection.sync();
     if(!data.packages.length)c.createEl('p',{text:'暂无本机生成的增量 ZIP。'});
     button(c,'刷新',()=>{});button(c,'关闭',()=>m.close());
   }
@@ -15492,12 +15533,51 @@ const VR603=(()=>{
  function setting(row,item){row.settingEl._v603File=item;return row;}
  function summary(counts){return Object.entries(counts||{}).map(([k,v])=>(labels[k]||k)+'：'+v).join(' · ');}
  function timestamp(x){if(x==null||x==='')return null;const n=typeof x==='number'?x:Date.parse(x);return Number.isFinite(n)&&n>0?n:null;}
- function time(row,p){const x=row.record||row;for(const v of [x.mtime,x.lastModified,x.eventAtUtc,x.version?.eventAtUtc,x.createdAtUtc,x.createdAt,x.at,x.file?.lastModified,x.version?.createdAtUtc,x.path?p?.app?.vault?.getAbstractFileByPath?.(x.path)?.stat?.mtime:null]){const t=timestamp(v);if(t!==null)return t;}return null;}
+ function time(row,p){const x=row.record||row;for(const v of [x.mtime,x.lastModified,x.eventAtUtc,x.version?.eventAtUtc,x.createdAtUtc,x.createdAt,x.at,x.date,x.transfer?.at,x.file?.lastModified,x.version?.createdAtUtc,x.path?p?.app?.vault?.getAbstractFileByPath?.(x.path)?.stat?.mtime:null]){const t=timestamp(v);if(t!==null)return t;}return null;}
  function name(row){const x=row.record||row;return String(x.name||x.path||x.title||'');}
  function sorted(rows,state={},p){const mode=state._v603Sort||{key:'time',dir:-1};return rows.map((r,i)=>({r,i})).sort((a,b)=>{
    if(mode.key==='time'){const x=time(a.r,p),y=time(b.r,p);if(x===null&&y!==null)return 1;if(y===null&&x!==null)return -1;if(x!==y&&x!==null)return (x-y)*mode.dir;}
    const n=name(a.r).localeCompare(name(b.r),'zh-CN',{numeric:true,sensitivity:'base'});return n*(mode.key==='name'?mode.dir:1)||a.i-b.i;
  }).map(x=>x.r);}
+ function fileDetails(parent,label='详情与处理'){
+   const details=parent.createEl('details',{cls:'vr603-file-details'});
+   details.createEl('summary',{text:label});
+   return details.createDiv({cls:'vr603-file-detail-body'});
+ }
+ function fileSelection(parent,{selected,keys,visible=keys,changed=()=>{},anchor={},allButton=false}){
+   const tools=parent.createDiv({cls:'vru-row vr603-file-tools'});
+   const all=allButton?tools.createEl('button',{text:'全选'}):tools.createEl('label',{cls:'vr603-all-files'}).createEl('input');
+   all.type=allButton?'button':'checkbox';
+   if(!allButton)all.parentNode.createEl('span',{text:'全选'});
+   const invert=tools.createEl('button',{text:'反选'});invert.type='button';
+   const count=tools.createEl('span',{cls:'vru-meta'});
+   const inputs=new Map();
+   const resetAnchor=()=>{anchor.key=null;};
+   const sync=()=>{
+     const scope=keys(),picked=selected(),n=scope.filter(key=>picked.has(key)).length;
+     all.disabled=invert.disabled=!scope.length;
+     all.checked=scope.length>0&&n===scope.length;
+     all.indeterminate=n>0&&!all.checked;
+     const text='已选 '+n+' 项';if(count.textContent!==text)count.textContent=text;
+     for(const [input,key] of inputs)input.checked=picked.has(key);
+   };
+   const set=(key,on)=>{const picked=selected();if(on)picked.add(key);else picked.delete(key);};
+   const done=()=>{sync();return changed();};
+   all.addEventListener(allButton?'click':'change',()=>{for(const key of keys())set(key,allButton||all.checked);resetAnchor();return done();});
+   invert.addEventListener('click',()=>{const picked=selected();for(const key of keys())set(key,!picked.has(key));resetAnchor();return done();});
+   const attach=(input,key)=>{
+     inputs.set(input,key);let extend=false;
+     input.addEventListener('click',event=>{extend=!!event.shiftKey;});
+     input.addEventListener('change',()=>{
+       if(input.disabled||!keys().includes(key)){extend=false;sync();return;}
+       const order=visible(),from=order.indexOf(anchor.key),to=order.indexOf(key),on=input.checked;
+       if(extend&&from>=0&&to>=0)for(const item of order.slice(Math.min(from,to),Math.max(from,to)+1))set(item,on);
+       else set(key,on);
+       anchor.key=key;extend=false;return done();
+     });
+   };
+   return {tools,attach,sync,resetAnchor,clearInputs:()=>inputs.clear()};
+ }
  function controls(parent,state,update){const area=parent.createEl('span',{cls:'vr603-sort-controls'});state._v603Sort ||= {key:'time',dir:-1};
    for(const [key,label]of [['time','时间'],['name','文件名']]){const b=area.createEl('button');const paint=()=>{b.textContent=label+(state._v603Sort.key===key?(state._v603Sort.dir===1?' ↑':' ↓'):'');b.setAttribute('aria-label',label+'排序');};paint();b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();const current=state._v603Sort;state._v603Sort={key,dir:current.key===key?-current.dir:key==='time'?-1:1};for(const c of area.children){const target=c.getAttribute('aria-label')==='时间排序'?'time':'name';c.textContent=(target==='time'?'时间':'文件名')+(target===key?(state._v603Sort.dir===1?' ↑':' ↓'):'');}update();});}return area;
  }
@@ -15526,7 +15606,7 @@ const VR603=(()=>{
      const area=this.contentEl.createDiv({cls:'vr603-review-sort'});controls(area,this,()=>this.paintDetails?this.paintDetails():this.render());if(this.details?.parentNode)this.details.parentNode.insertBefore(area,this.details);
    }return out;};
  }
- return {summary,label,fileRow,setting,sorted,controls,time,fileTimes,enhanceLists,proof,saveProof,coverAncestors};
+ return {summary,label,fileRow,setting,sorted,controls,time,fileTimes,enhanceLists,fileDetails,fileSelection,proof,saveProof,coverAncestors};
 })();
 
 // 6.04: inbox is the receipt work queue. Receiving never applies formal notes.
@@ -17332,7 +17412,7 @@ const VR607=(()=>{
       confirm.textContent=picked.length?'确认跳过（'+picked.length+'）':'确认跳过';
     };
   }
-  function renderRows(parent,rows,state,{tabs,selected,updateActions,inspect,openSpace,discard,resolve,p}){
+  function renderRows(parent,rows,state,{tabs,selected,updateActions,inspect,openSpace,discard,resolve,p,reviewRoot=parent.parentNode}){
     const filters=node(parent,'div',undefined,'vr607-filters');
     const tool=node(parent,'div',undefined,'vr607-tools');
     const all=node(tool,'label');const allCheck=node(all,'input');allCheck.type='checkbox';
@@ -17346,7 +17426,7 @@ const VR607=(()=>{
     let anchor=null;
     const ignored=button(filters,'显示已忽略',()=>{state.showIgnored=!state.showIgnored;draw();});
     const tabButtons=tabs.map(([id,title])=>[id,title,button(filters,title,()=>{
-      state.filter=id;state.showIgnored=false;state.limit=120;anchor=null;draw();const restricted=parent.parentNode?.querySelector('.vr71-restricted');if(restricted)restricted.open=id==='restricted';
+      state.filter=id;state.showIgnored=false;state.limit=120;anchor=null;draw();const restricted=reviewRoot?.querySelector('.vr71-restricted');if(restricted)restricted.open=id==='restricted';
     })]);
     function matches(row,tab){return tab==='all'?row.kind!=='skipped':row.kind===tab;}
     function draw(){
@@ -17650,7 +17730,7 @@ const VR607=(()=>{
       const actions=node(c,'div',undefined,'vr607-actions');
       const cancel=button(actions,'返回审核',()=>dialog.close());
       const confirm=button(actions,'确认取消导入',async()=>{
-        if(confirm.disabled)return;
+        if(confirm.disabled||!VR71Review.requireCurrentReview(modal,plan))return;
         confirm.disabled=cancel.disabled=true;
         try{
           const {cleanupPending}=await p.v608DiscardReviewVersion(plan,item.recordId,item.version);
@@ -17676,7 +17756,7 @@ const VR607=(()=>{
       const actions=node(c,'div',undefined,'vr607-actions');
       const cancel=button(actions,'取消',()=>dialog.close());
       const go=button(actions,'确认处理',async()=>{
-        if(go.disabled)return;
+        if(go.disabled||!VR71Review.requireCurrentReview(modal,plan))return;
         go.disabled=true;cancel.disabled=true;
         try{
           const run=()=>Platform.isDesktopApp?p.engine.applyPlan(plan,{selectedReviewPaths:paths}):
@@ -17702,7 +17782,7 @@ const VR607=(()=>{
     node(c,'h2','审核与确认导入');
     const available=new Set(reviewRows(p,plan,null).filter(row=>row.pick==='import').map(row=>row.path));
     for(const row of VR71Review.restrictedRows(p,plan))if(row.v71Sealed?.allowed)available.add(row.path);
-    node(c,'p','可导入 '+available.size,'vru-meta');
+    const availableCount=node(c,'p','可导入 '+available.size,'vru-meta');
     const last=Platform.isDesktopApp?modal.lastDownload:modal.last;
     if(last)node(c,'p',`本次新增 ${last.created} · 更新 ${last.updated} · 删除 ${last.deleted||0} · 失败 ${last.errors.length}`,'vru-meta');
     if(plan.catalog.warnings.length||plan.errors?.length)node(c,'p','版本目录或本机文件有读取异常，请检查后刷新。','vr2-warning');
@@ -17765,8 +17845,10 @@ const VR607=(()=>{
     const activePeers=queuePlan.v605Review?VR606.reviewPeers(p,plan):[];
     if(activePeers.length)modal._v607PeerDocs=activePeers;
     const peers=queuePlan.v605Review?activePeers:modal._v607PeerDocs||[];
-    const peerArea=node(c,'div',undefined,'vr607-peer');
-    const body=node(c,'div'),actions=node(c,'div',undefined,'vr607-actions vr609-actions');
+    const reviewContent=node(c,'div',undefined,'vr607-review-content');
+    modal._v71ReviewResults=[availableCount,reviewContent];
+    const peerArea=node(reviewContent,'div',undefined,'vr607-peer');
+    const body=node(reviewContent,'div'),actions=node(reviewContent,'div',undefined,'vr607-actions vr609-actions');
     const count=node(actions,'span');
     const transfers=node(actions,'div',undefined,'vr607-actions');
     const openSpace=()=>panel.openSyncSpaceBrowser();
@@ -17781,7 +17863,7 @@ const VR607=(()=>{
         node(content,'p','将覆盖本机正文并登记为新版本。'+(keepBackup?'原稿将在同一目录生成「（本机备份）」笔记，仅保留在本机。':''));
         button(content,'返回审核',()=>confirm.close());
         const go=button(content,'确认导入',async()=>{
-          if(go.disabled)return;go.disabled=true;
+          if(go.disabled||!VR71Review.requireCurrentReview(modal,preview))return;go.disabled=true;
           try{await p.vr713ResolveReviewConflict(preview,item.recordId,item.version,{keepBackup});confirm.close();await modal.refresh();}
           catch(error){warn(error);}finally{go.disabled=false;}
         },'mod-cta');
@@ -17795,14 +17877,14 @@ const VR607=(()=>{
       });
     });
     const apply=button(actions,'预览确认处理',()=>confirmImport(modal,[...selection.import]),'mod-cta');
-    const updatePending=pendingActions(c,{openSpace,inspect,discard,resolve,p});
-    const updateSkip=skipActions(c,modal,draw);
+    const updatePending=pendingActions(reviewContent,{openSpace,inspect,discard,resolve,p});
+    const updateSkip=skipActions(reviewContent,modal,draw);
     const state=modal._v607State||={};
     const selection={import:new Set(reviewRows(p,plan,null).filter(row=>row.pick==='import').map(row=>row.path)),send:new Set()};
     const canVerify=!selection.import.size&&plan.items.some(row=>['same','absent','history-only'].includes(row.status));
     function draw(){
       body.empty();
-      renderRows(body,reviewRows(p,plan,report),state,{p,selected:selection,
+      renderRows(body,reviewRows(p,plan,report),state,{p,selected:selection,reviewRoot:c,
         tabs:[['all','全部差异'],['import','可导入'],['send','本机独有'],['pending','待处理'],['restricted','受限'],['skipped','已跳过']],
         openSpace,discard,resolve,inspect,updateActions:context=>{
           const {filter}=context;
@@ -18972,10 +19054,15 @@ const VR71Review=(()=>{
     const rows=(modal.p._v604InboxRows||[]).filter(r=>r.sha256&&!['error','missing','waiting','gone','cleaned'].includes(r.state));
     if(!modal._v71Selected){modal._v71Selected=new Set(rows.slice().sort((a,b)=>(b.mtime||b.transfer?.at||0)-(a.mtime||a.transfer?.at||0)).slice(0,1).map(r=>r.sha256));}
     const valid=new Set(rows.map(r=>r.sha256));for(const id of modal._v71Selected)if(!valid.has(id))modal._v71Selected.delete(id);
-    modal.p._v71ReviewSelection=new Set(modal._v71Selected);return rows;
+    return rows;
   }
   for(const Type of new Set([NativeUi.download]))if(Type?.prototype){
-    const refresh=Type.prototype.refresh;Type.prototype.refresh=async function(...args){await this.p.v604PrepareInbox();select(this);return refresh.apply(this,args);};
+    const refresh=Type.prototype.refresh;Type.prototype.refresh=async function(...args){
+      await this.p.v604PrepareInbox();
+      select(this);
+      this.p._v71ReviewSelection=new Set(this._v71Selected);
+      return refresh.apply(this,args);
+    };
     const close=Type.prototype.onClose;Type.prototype.onClose=function(...args){delete this.p._v71ReviewSelection;return close?.apply(this,args);};
   }
   async function manage(p,row,archive){
@@ -19003,6 +19090,15 @@ const VR71Review=(()=>{
     p._v604InboxRows=(p._v604InboxRows||[]).filter(r=>r.sha256!==row.sha256);return {path:target,report};
   }
   P.v71ManageInbox=function(row,archive){return manage(this,row,archive);};
+  function currentSelection(modal){
+    const applied=modal.p._v71ReviewSelection, selected=modal._v71Selected;
+    return !applied||!selected||(applied.size===selected.size&&[...selected].every(id=>applied.has(id)));
+  }
+  function requireCurrentReview(modal,plan){
+    if(currentSelection(modal)&&modal.plan===plan)return true;
+    new OBS.Notice('审核范围已变化，请刷新后重新确认。',5000);
+    return false;
+  }
   function queue(modal){
     const p=modal.p;if(!p)return;
     const issues=p.vrDownloadIssues();
@@ -19020,17 +19116,33 @@ const VR71Review=(()=>{
     if(!p._v604InboxRows?.length)return;
     const heading=modal.contentEl.querySelector('h2,h3');
     const rows=select(modal),box=node(modal.contentEl,'div',undefined,'vru-inbox-results');node(box,'h3','接收增量包');
-    const tools=node(box,'div',undefined,'vr607-actions'),checks=[];
-    action(tools,'全选',async()=>{modal._v71Selected=new Set(rows.map(r=>r.sha256));select(modal);await modal.refresh();});
-    action(tools,'反选',async()=>{modal._v71Selected=new Set(rows.filter(r=>!modal._v71Selected.has(r.sha256)).map(r=>r.sha256));select(modal);await modal.refresh();});
-    node(tools,'span','已选 '+modal._v71Selected.size+' 个包');
+    const order=modal._vrInboxFileSort||={},anchor=modal._vrInboxFileAnchor||={};
+    const selectable=new Set(rows.map(r=>r.sha256)),items=new Map();
+    const sorted=()=>VR603.sorted(p._v604InboxRows,order,p);
+    const keys=()=>[...new Set(sorted().filter(row=>selectable.has(row.sha256)).map(row=>row.sha256))];
+    const selection=VR603.fileSelection(box,{selected:()=>modal._v71Selected,keys,anchor,allButton:true,
+      changed:showReviewState});
+    const pending=node(box,'p','选择已更改。点击「刷新」更新审核内容。','vru-meta');
+    pending.setAttribute('role','status');
+    function showReviewState(){
+      const changed=!currentSelection(modal);
+      pending.hidden=!changed;
+      for(const result of modal._v71ReviewResults||[])result.hidden=changed;
+    }
+    VR603.controls(selection.tools,order,()=>{
+      selection.resetAnchor();
+      for(const row of sorted())list.insertBefore(items.get(row),null);
+    });
     const list=node(box,'div',undefined,'vr71-packages');
-    for(const row of VR603.sorted(p._v604InboxRows,modal,p)){
-      const line=node(list,'div',undefined,'vru-package-row'),label=node(line,'label'),check=node(label,'input');check.type='checkbox';check.checked=modal._v71Selected.has(row.sha256);check.disabled=!rows.includes(row);checks.push(check);
-      node(label,'strong',row.name);check.addEventListener('change',async()=>{if(check.checked)modal._v71Selected.add(row.sha256);else modal._v71Selected.delete(row.sha256);select(modal);await modal.refresh();});
-      node(line,'p',row.reason||row.state,'vru-meta');if(row.sender)node(line,'p','来源 '+row.sender,'vru-meta');
-      const controls=node(line,'div',undefined,'vr607-actions');
-      if(['error','missing'].includes(row.state))VR605.renderErrorActions(modal,line,row);
+    for(const row of sorted()){
+      const line=node(list,'div',undefined,'vru-package-row vr603-file-section'),label=node(line,'label',undefined,'vr603-file-title');
+      const check=node(label,'input');check.type='checkbox';check.setAttribute('aria-label',row.name);
+      check.disabled=!selectable.has(row.sha256);if(!check.disabled)selection.attach(check,row.sha256);
+      items.set(row,line);node(label,'strong',row.name);
+      const details=VR603.fileDetails(line);
+      node(details,'p',row.reason||row.state,'vru-meta');if(row.sender)node(details,'p','来源 '+row.sender,'vru-meta');
+      const controls=node(details,'div',undefined,'vr607-actions');
+      if(['error','missing'].includes(row.state))VR605.renderErrorActions(modal,details,row);
       if(row.sha256&&!['waiting','missing','error','cleaned','gone'].includes(row.state)){
         action(controls,'导入历史版本页',async()=>{await manage(p,row,true);modal._v71Selected.delete(row.sha256);await modal.refresh();});
         action(controls,'删除',async()=>{if(typeof window!=='undefined'&&!window.confirm('将此待审核 ZIP 移入本机回收区？正式笔记保持现状。'))return;await manage(p,row,false);modal._v71Selected.delete(row.sha256);await modal.refresh();});
@@ -19041,6 +19153,8 @@ const VR71Review=(()=>{
       }
       for(const v of p.v70SupplementOptions(row))action(controls,'只补审 '+v.path,async()=>{await p.v70StartSupplement(row,v.versionId);await modal.refresh();});
     }
+    selection.sync();
+    showReviewState();
     if(heading)heading.after(box);else modal.contentEl.prepend(box);
     action(modal.contentEl,'取消审核',()=>modal.close());
   }
@@ -19063,6 +19177,8 @@ const VR71Review=(()=>{
   function render(modal,base){
     select(modal);base();const p=modal.p,rows=restrictedRows(p,modal.plan);
     const area=node(modal.contentEl,'details',undefined,'vru-settings vr71-restricted');node(area,'summary','受限（'+rows.length+'）');
+    modal._v71ReviewResults?.push(area);
+    area.hidden=!currentSelection(modal);
     area.open=modal._v607State?.filter==='restricted';
     for(const row of rows){const line=node(area,'div',undefined,'vru-package-row');node(line,'strong',row.path);node(line,'p',row.label);node(line,'p',row.reason,'vru-meta');
       if(row.v71Sealed){const {r,item,allowed}=row.v71Sealed,received={path:r.v605InboxOuterPath||r.path,sha256:r.sha256};
@@ -19091,7 +19207,7 @@ const VR71Review=(()=>{
   const clean=P.v611CleanHistorySource;P.v611CleanHistorySource=async function(path,sha,sender){if(this.data.v71History?.[scope(this)]?.[sha])return;return clean.call(this,path,sha,sender);};
   function isHistoryPath(p,path){return Object.values(p.data.v71History?.[scope(p)]||{}).some(r=>r.path===path&&path.startsWith(ARCH+p.data.groupId+'/'));}
   async function historyAlias(p,path){return path;}
-  return {queue,render,restrictedRows,select,manage,isHistoryPath,historyAlias};
+  return {queue,render,restrictedRows,select,manage,isHistoryPath,historyAlias,requireCurrentReview};
 })();
 
 // Group changes archive the exact local transport state and shared working folders.

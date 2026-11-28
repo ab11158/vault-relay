@@ -1082,3 +1082,31 @@
 @media(max-width:600px){
  .vr71-device-fields label{grid-template-columns:minmax(0,1fr)}
 }
+
+/* File lists keep the filename and checkbox outside the fold. */
+.vr603-file-tools { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.vr603-all-files,.vr603-file-title { display:flex; align-items:flex-start; gap:.55em; }
+.vr603-file-title { overflow-wrap:anywhere; }
+.vr603-file-title > input { flex:none; }
+.vr603-file-list { list-style:none; padding-inline-start:0!important; }
+.vr603-file-section { padding-block:.6em; border-bottom:1px solid var(--background-modifier-border); }
+.vr603-file-details { margin-block-start:.3em; margin-inline-start:1.5em; }
+.vr603-file-details > summary { cursor:pointer; }
+.vr603-file-detail-body { padding-inline-start:.75em; border-inline-start:1px solid var(--background-modifier-border); overflow-wrap:anywhere; }
+
+:is(.vr603-file-title,.vr603-all-files,.vru-file-select-all) > input[type=checkbox] {
+  appearance:none!important; -webkit-appearance:none!important;
+  display:inline-block!important; flex:0 0 20px!important;
+  min-width:20px!important; width:20px!important; min-height:20px!important; height:20px!important;
+  border:2px solid var(--text-muted,#777)!important; border-radius:4px!important;
+  background:var(--background-modifier-hover,#8885)!important;
+}
+:is(.vr603-file-title,.vr603-all-files,.vru-file-select-all) > input[type=checkbox]:checked {
+  border-color:var(--interactive-accent,#8055d9)!important;
+  background:var(--interactive-accent,#8055d9)!important;
+}
+:is(.vr603-file-title,.vr603-all-files,.vru-file-select-all) > input[type=checkbox]::before,
+:is(.vr603-file-title,.vr603-all-files,.vru-file-select-all) > input[type=checkbox]::after {content:none!important; display:none!important}
+@media (forced-colors:active) {
+  :is(.vr603-file-title,.vr603-all-files,.vru-file-select-all) > input[type=checkbox] {appearance:auto!important; -webkit-appearance:auto!important}
+}

@@ -121,6 +121,34 @@ const testPanel=(Type,h)=>new Type.__testing.panel(h.p.app,h.p);
    return all;
  }
  const unboundCoverage=await checkEntries(false);
+ // The manual scan result list must use the visible order for Shift, without rescanning.
+ const manual=await (async()=>{
+   panel.render();await button(panel,'手动查找／选择 ZIP').click();return p._v5216ScanModal;
+ })();
+ manual.value={...manual.value,files:[
+   {path:'z',name:'Z.zip',mtime:100,status:'已发现'},
+   {path:'a',name:'A.zip',mtime:300,status:'已发现'},
+   {path:'c',name:'C.zip',mtime:400,status:'已发现'},
+   {path:'b',name:'B.zip',mtime:200,status:'已删除',completed:true},
+ ]};
+ manual.selected.clear();manual.refresh();
+ const visible=()=>manual.list.children.map(row=>row.querySelector('input'));
+ assert.deepEqual(visible().map(box=>box.attrs['aria-label']),['C.zip','A.zip','B.zip','Z.zip']);
+ manual.list.children[0].querySelector('details').open=true;
+ const sort=manual.contentEl.querySelectorAll('button').find(x=>x.attrs['aria-label']==='文件名排序');
+ const scanCount=scanned.length;
+ await sort.handlers.click({preventDefault(){},stopPropagation(){}});
+ const [first,disabledBox,middle,last]=visible();
+ assert.deepEqual(visible().map(box=>box.attrs['aria-label']),['A.zip','B.zip','C.zip','Z.zip']);
+ assert(manual.list.children[2].querySelector('details').open);
+ assert(disabledBox.disabled);
+ const toggle=(box,on,shiftKey=false)=>{box.checked=on;box.handlers.click({shiftKey});box.handlers.change();};
+ toggle(first,true);toggle(last,true,true);
+ assert.deepEqual([...manual.selected].sort(),['a','c','z']);assert(middle.checked);
+ await button(manual,'反选').click();assert.equal(manual.selected.size,0);
+ const all=manual.fileSelection.tools.querySelector('input');all.checked=true;all.handlers.change();
+ assert.deepEqual([...manual.selected].sort(),['a','c','z']);
+ assert.equal(scanned.length,scanCount);manual.close();
  assert.equal(metadataReads,0);assert(!p.data.groupId);
  assert(!await phone.adapter.exists('VaultRelay-Transfer/inbox/'+name));
  assert(!await phone.adapter.exists('Fresh.md'));

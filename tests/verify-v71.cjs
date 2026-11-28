@@ -41,12 +41,36 @@ async function archiveAndSelection(){
  const a=await host(Windows,A,'Inbox sender'),b=await host(IOS,B,'Inbox target');await a.write('First.md','first');const one=await publish(a);await receive(b,one,false);await a.write('Second.md','second');const two=await publish(a);await receive(b,two,false);
  await b.p.v604PrepareInbox();const modal=new IOS.__testing.NativeUi.download(b.p.app,b.p);await modal.refresh();
  assert.deepEqual([...modal._v71Selected],[two.rec.sha256]);assert(!(await b.p.engine.latestPlan()).items.some(x=>x.recordName===one.rec.name));
- await find(modal,'button','全选').handlers.click();assert.equal(modal._v71Selected.size,2);assert((await b.p.engine.latestPlan()).items.some(x=>x.path==='First.md'));
+ const packList=modal.contentEl.querySelector('.vr71-packages'),reviewResults=modal.contentEl.querySelector('.vr607-review-content');
+ const sections=packList.querySelectorAll('.vr603-file-section');
+ assert.equal(sections.length,2,'Each ZIP has its own section');
+ for(const section of sections){const details=section.querySelector('details');assert(details&&!details.open);assert(section.querySelector('input'));}
+ const plan=modal.plan,preview=find(modal,'button','预览确认处理（1）');
+ assert(preview&&!preview.disabled);await preview.click();const oldConfirmation=b.p.app.openedModals.at(-1);
+ await find(modal,'button','全选').click();assert.equal(modal._v71Selected.size,2);
+ assert.equal(modal.plan,plan,'Changing selection preserves the current plan until manual refresh');
+ assert(reviewResults.hidden);assert(!(await b.p.engine.latestPlan()).items.some(x=>x.path==='First.md'));
+ await find(oldConfirmation,'button','确认处理').click();
+ assert(!(await b.adapter.exists('Second.md')),'A stale confirmation must not write any note');oldConfirmation.close();
+ await find(modal,'button','刷新').click();
+ assert((await b.p.engine.latestPlan()).items.some(x=>x.path==='First.md'));
+ assert(!modal.contentEl.querySelector('.vr607-review-content').hidden);
+ await find(modal,'button','反选').click();assert.equal(modal._v71Selected.size,0);
+ const sort=modal.contentEl.querySelectorAll('button').find(b=>b.attrs['aria-label']==='文件名排序');
+ const list=modal.contentEl.querySelector('.vr71-packages');
+ list.children[0].querySelector('details').open=true;
+ await sort.handlers.click({preventDefault(){},stopPropagation(){}});
+ assert(list.children.some(x=>x.querySelector('details').open),'Sorting preserves expanded details');
+ const sorted=list.querySelectorAll('input');
+ assert.deepEqual(sorted.map(x=>x.attrs['aria-label']),[one.rec.name,two.rec.name].sort((a,b)=>a.localeCompare(b,'zh-CN',{numeric:true,sensitivity:'base'})));
+ sorted[0].checked=true;sorted[0].handlers.click({});sorted[0].handlers.change();
+ sorted[1].checked=true;sorted[1].handlers.click({shiftKey:true});sorted[1].handlers.change();
+ assert.equal(modal._v71Selected.size,2,'Shift selects the range in displayed order');
  modal.close();const row=(await b.p.v604PrepareInbox()).find(r=>r.sha256===one.rec.sha256);await b.p.v71ManageInbox(row,true);assert(!await b.adapter.exists(IN+one.rec.name));assert(!await b.adapter.exists('First.md'));
  const archived=b.p.data.v71History[JSON.stringify([group,B])][one.rec.sha256];assert(await b.adapter.exists(archived.path));assert(b.p.v611IsHistorySource(one.rec.sha256,A));
  const source=await IOS.__testing.v611.readHistory(b.p,archived.path);assert.equal(new TextDecoder().decode(await IOS.__testing.v611.historicalBytes(b.p,source.items[0])),'first');
  const next=(await b.p.v604PrepareInbox()).find(r=>r.sha256===two.rec.sha256);await b.p.v71ManageInbox(next,false);assert(!await b.adapter.exists(IN+two.rec.name));assert(!await b.adapter.exists('Second.md'));assert(!(await b.p.engine.latestPlan()).v605Review);
- console.log('PASS newest default, select-all aggregate, archive without import, delete without receipt or note writes');
+ console.log('PASS newest default, grouped ZIP list, selection and sorting, manual refresh, stale confirmation blocked, archive and delete');
 }
 async function groups(){
  const h=await host(IOS,B,'Group swap');await h.write('Note.md','body');const old=group,id=h.p.data.deviceId;await h.write(IN+'old.txt','old inbox');await h.p.v71UnbindGroup();assert.equal(h.p.data.deviceId,id);assert(!h.p.data.groupId);assert(!h.p.engine);assert(!await h.adapter.exists(IN+'old.txt'));
