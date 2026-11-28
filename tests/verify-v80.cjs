@@ -113,8 +113,7 @@ const testPanel=(Type,h)=>new Type.__testing.panel(h.p.app,h.p);
      if(!joined){
        assert(dialog.value.files.some(f=>f.path.endsWith('/test3/'+name)));
        if(!label.startsWith('手动'))assert(dialog.heading.textContent==='审核与确认导入'&&dialog.groupHint.textContent.includes('可导入 0'));
-       dialog.selected.add(dialog.value.files[0].path);dialog.refresh();
-       await dialog.review.click();assert(!p.engine&&!p._vrReviewModal);
+       assert(!p.engine&&!p._vrReviewModal,'Scanning on its own must not join or open a bound review');
      }
      dialog.close();
    }

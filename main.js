@@ -2199,9 +2199,9 @@ function createUnifiedPanel() {
       }
       part("插件特色",["通过百度网盘网页或 App 传输增量 ZIP，省去自建同步服务器的费用，无需申请百度网盘 API 或开通百度网盘会员。","全部功能免费使用。爱发电赞助完全自愿，不影响功能、更新或问题反馈。","支持多端增量同步、知识库比对和隐私笔记定向开放。"],[]);
       part("一、升级与安全规则",["升级时保留本机 data.json，其中有群组、设备身份、隐私设置和同步记录。","上传前预览，接收后审核。普通 回执 在下载或手动接收包完整校验后生成，每包每设备一份，不证明笔记已导入。随包回执区分已校验、已确认处理和按规则忽略，清理仍需核对凭据。","outbox 为封装工作区，outgoing 保存传输成品，inbox 归集接收原件；内部版本保存在 internal/core。"],[]);
-      part("二、百度设置：只填短路径，两种目录入口",["上传和下载目录填写 /示例目录/共享区 这样的短路径，内部只补齐一次 /_pcs_.workspace。不要把 Windows 盘路径填到网盘目录框。", "上传入口使用百度 /disk/main，下载入口使用 /disk/synchronization。上传与下载目录独立按群组保存；输入框编辑不会立即保存，只读取已保存的当前目录配置。", "云端清单与自动下载尚未接入，仍需在网盘选择文件。浏览器电脑版由用户设置，插件不能强制切换网页模式。Windows 自动运输另使用已配置的本地同步目录。", "圈③按网盘里的实际目录名称填写，例如 /00Obsidian/VaultRelay-Transfer/test3。创建端先保存圈③，再生成首包。接收端先手动加入同一群组，圈③尚未配置时，可在首包通过接收校验后带入目录。"],[]);
+      part("二、百度设置：只填短路径，两种目录入口",["上传和下载目录填写 /示例目录/共享区 这样的短路径，内部只补齐一次 /_pcs_.workspace。不要把 Windows 盘路径填到网盘目录框。", "上传入口使用百度 /disk/main，下载入口使用 /disk/synchronization。上传与下载目录独立按群组保存；输入框编辑不会立即保存，只读取已保存的当前目录配置。", "云端清单与自动下载尚未接入，仍需在网盘选择文件。浏览器电脑版由用户设置，插件不能强制切换网页模式。Windows 自动运输另使用已配置的本地同步目录。", "圈③按网盘里的实际目录名称填写，例如 /00Obsidian/VaultRelay-Transfer/test3。创建端先保存圈③，再生成首包。接收端可选取首包加入群组，圈③尚未配置时，可在首包通过接收校验后带入目录。"],[]);
       part("三、第一步：生成与上传 ZIP / 回执",["扫描自动选择安全新增和修改；本机已删除候选单独确认发布删除版本。","本轮内容 ZIP 与可选普通 回执 生成传输 ZIP，保存到 outgoing；承载包、版本副本及账本核验完成后，清理 outbox 对应工作文件。","生成或本地排队不代表已上传云端。没有新内容时待回传普通 回执 保留。"],[]);
-      part("四、第二步：从同步空间下载原件",["从百度网盘网页或 App 下载。在系统「设置 → App → Safari 浏览器 → 下载 → 其他」选择当前知识库中的 VaultRelay-Transfer/Dbox。旧版系统可从「设置 → Safari 浏览器」进入。 如果无法选择 Dbox，可用「文件」在下载后移动原 ZIP。","如果 iPhone／iPad 的百度网盘 App 未显示同步空间，发送端可用微信等发送原 ZIP。接收端用「保存到‘文件’」保存到当前库的 Dbox 后点刷新，也可用「查看下载的文件 → 添加外部 ZIP / 回执」选取。未加入群组时可先查找 ZIP。用群组 ID 加入后，再审核导入。","下载或手动接收的原件归集到 inbox，整包及内层内容校验通过即生成一份普通 回执；笔记仍须审核确认导入。","校验工作副本位于 internal/staging，正式版本位于 internal/core；正式笔记仍需审核确认。"],[]);
+      part("四、第二步：从同步空间下载原件",["从百度网盘网页或 App 下载。在系统「设置 → App → Safari 浏览器 → 下载 → 其他」选择当前知识库中的 VaultRelay-Transfer/Dbox。旧版系统可从「设置 → Safari 浏览器」进入。 如果无法选择 Dbox，可用「文件」在下载后移动原 ZIP。","如果 iPhone／iPad 的百度网盘 App 未显示同步空间，发送端可用微信等发送原 ZIP。接收端用「保存到‘文件’」保存到当前库的 Dbox 后点刷新，也可用「查看下载的文件 → 添加外部 ZIP / 回执」选取。未加入群组时可选中一份普通增量 ZIP，确认加入包所属群组后继续审核导入。","下载或手动接收的原件归集到 inbox，整包及内层内容校验通过即生成一份普通 回执；笔记仍须审核确认导入。","校验工作副本位于 internal/staging，正式版本位于 internal/core；正式笔记仍需审核确认。"],[]);
       part("五、第三步：审核与确认导入",["确认导入前重核本机内容和版本。更新、删除前保存一份安全备份，撤销记录直接引用。","目标内容核验通过且所需普通 回执 已持久保存后，清理对应 inbox 原件及 staging；失败、冲突、未确认项保留。"],[]);
       part("六、统一文件列表与笔记附件",["查看下载的文件列出可访问的候选原件。Android 会查找百度网盘下载路径里的群组子目录，并排除 VaultRelay-Transfer/outgoing。导入文件列表按正式写入记录展示笔记和附件。","打开目录、复制路径及系统分享沿用宿主能力；外部下载目录无法取得删除授权时保留原件并提示。","普通 Markdown 导入不自动携带附件；普通 ZIP 支持笔记和附件，正式写入仍须审核。"],[]);
       part("七、增量包管理与清理",["默认显示全部本机传输 ZIP，也可按状态分类；显示完整名称、生成时间和版本数量。","已核验配对的普通 回执 显示在对应 ZIP 下方；回收及恢复记录持久保存。恢复备份本版暂不自动淘汰。"],[]);
@@ -3144,6 +3144,12 @@ function createUnifiedPanel() {
       if(this.plugin._v5213Ingest)return new Notice("正在校验后台发现的原件，请稍后再手动选取。",5500);
       const items=Array.from(files||[]);
       if(!items.length)return;
+      if(!this.plugin.data.groupId){
+        try{await VRFirstPackage.choose(this.plugin,items.map(file=>({name:file.name,file})),
+          ()=>this.plugin._vrControlPanel===this,()=>{});}
+        catch(error){new Notice(String(error.message||error),8000);}
+        return;
+      }
       const received=await this.run('① 增量包校验与安全接收',async()=>{
         const paths=[];let acks=0;
         for(const file of items){
@@ -12510,7 +12516,7 @@ const VR5215=(()=>{
           files.set(path,{name,path,source:'vault'});
       }
     }
-    return {...source,files:[...files.values()].map(item=>({...item,status:item.unavailable?'由原有流程管理':'已发现 · 加入群组后可审核'})),candidateFiles:files.size};
+    return {...source,files:[...files.values()].map(item=>({...item,status:item.unavailable?'由原有流程管理':'已发现 · 可选取后加入群组'})),candidateFiles:files.size};
   }
   async function androidList(p,cancelled){
     const queue=[],seen=new Set(),files=[],ids=new Set();
@@ -12599,8 +12605,12 @@ const VR5215=(()=>{
       let review;
       if(!imported)review=btn(actions,'审核与确认导入',async()=>{
         const selected=chosen();if(!selected.length)return;
-        if(!p.data.groupId)return new Notice('请先在设置与连接检查中加入此 ZIP 所属群组，再审核导入。',6500);review.disabled=true;
+        review.disabled=true;
         try{
+          if(!group){
+            await VRFirstPackage.choose(p,selected,()=>!closed,()=>m.close());
+            return;
+          }
           const received=[],markdown=[];let failures=[],showForeign=false;
           for(const item of selected){try{
             const offset=received.length;
@@ -13512,6 +13522,78 @@ const VRReviewExternalFiles={
   }
 };
 
+// Only an expressly selected first package may offer to join an unbound vault.
+const VRFirstPackage={
+  async choose(plugin,selected,isOpen,afterReceive){
+    const [item]=selected;
+    if(selected.length!==1||!item||!/\.zip$/i.test(item.name))
+      throw Error('首次加入群组，请单独选择发送端生成的一个普通增量 ZIP。');
+    const device=plugin.data.deviceId;
+    const available=()=>isOpen()&&!plugin.data.groupId&&!plugin.engine?.state&&plugin.data.deviceId===device;
+    if(!available())throw Error('知识库已绑定群组或选包页面已关闭。');
+    const source=item.externalFile?{...item,file:item.externalFile}:{...item};
+    if(!source.source&&source.path?.startsWith('file:///'))source.source='android';
+    if(source.source==='android'&&!source.entry){
+      const folder=source.path.slice(0,source.path.lastIndexOf('/')+1);
+      const entries=await plugin.getMobileDownloadEntries(folder,{full:true});
+      source.entry=entries.find(entry=>entry.isFile&&entry.name===source.name);
+      if(!source.entry)throw Error('找不到所选 ZIP，请刷新列表。');
+    }
+    const tools=Bridge.__testing,raw=await v5215Runtime.readItem(plugin,source);
+    const name=plugin.v5218BaseName(source.name);
+    const archive={name,size:raw.byteLength,arrayBuffer:async()=>raw};
+    if(source.source==='vault'&&source.path.startsWith(VR_DOWNLOAD_BOX+'/'))
+      archive._vr5217Source={kind:'vault-dbox',path:source.path};
+    if(!tools.sourceZipInfo(name))throw Error('请选取发送端生成的原始增量 ZIP。');
+    const group=await ImportManager.claimedGroup(archive);
+    if(!group)throw Error('无法从所选 ZIP 读取群组 ID。');
+    const context={plugin:{data:{groupId:group},engine:{state:{deviceId:null}}},app:null,desktop:OBS.Platform.isDesktopApp};
+    const report=await ImportManager.inspect(archive,context);
+    const sender=report.inventory?.identity?.card.deviceId;
+    const contents=(report.contents||[]).filter(part=>part.path.startsWith('content/'));
+    if(report.kind!=='incremental'||!sender||!contents.length)
+      throw Error('首包需要包含正文和可验证设备身份的普通增量 ZIP。');
+    if(sender===device)throw Error('本机发出的增量包不能用来加入群组。');
+    for(const part of contents){
+      const inner=await ImportManager.inspect({name:part.path.slice(8),size:part.data.length,arrayBuffer:async()=>part.data},context);
+      if(inner.kind!=='formal')throw Error('首包中的正文包格式无效。');
+    }
+    if(!available())throw Error('知识库或选包页面已变化，请重新选包。');
+    const dialog=new OBS.Modal(plugin.app),content=dialog.contentEl;
+    content.createEl('h3',{text:'从增量包加入群组'});
+    content.createEl('p',{text:report.inventory.shared?.groupName||group});
+    content.createEl('p',{text:'群组 ID '+group});
+    content.createEl('p',{text:'发送设备 '+(report.inventory.identity.name||sender)});
+    const join=content.createEl('button',{text:'加入群组并审核',cls:'mod-cta'});
+    const cancel=content.createEl('button',{text:'取消'});
+    cancel.addEventListener('click',()=>dialog.close());
+    join.addEventListener('click',async()=>{
+      if(join.disabled)return;
+      if(!available()){
+        dialog.close();
+        return new OBS.Notice('知识库或选包页面已变化，请重新选包。',6500);
+      }
+      join.disabled=cancel.disabled=true;
+      try{
+        await plugin.joinGroup(group);
+        const received=await plugin.v614ReceiveZip(archive,raw);
+        dialog.close();
+        afterReceive();
+        plugin._vrControlPanel?.render?.();
+        await plugin.v614OpenSelectedReview([received.path],{openEmpty:true});
+      }catch(error){
+        if(plugin.data.groupId===group){
+          dialog.close();
+          afterReceive();
+          plugin._vrControlPanel?.render?.();
+        }
+        new OBS.Notice(String(error.message||error),8000);
+      }finally{join.disabled=cancel.disabled=false;}
+    });
+    dialog.open();
+  }
+};
+
 // Progress belongs to a scan session. Completed dialogs keep their own snapshot.
 const VR5218ScanUI=(()=>{
   const snapshot=s=>({...s,files:(s.files||[]).map(f=>({...f,batchMembers:f.batchMembers?.map(member=>({...member}))})),unreadablePaths:[...(s.unreadablePaths||[])]});
@@ -13687,9 +13769,13 @@ const VR5218ScanUI=(()=>{
           this.review=this.contentEl.createEl('button',{text:'审核与确认导入（已选 0 项）',cls:'vru-primary'});
           this.review.addEventListener('click',()=>{
             if(this.busy||!this.selected.size)return;
-            if(!plugin.data.groupId)return new Notice('请先在设置与连接检查中加入此 ZIP 所属群组，再审核导入。',6500);
             const files=[...this.value.files,...this.externalFiles.values()]
               .filter(f=>this.selected.has(f.path)).map(f=>({...f,scanId:this.scanId}));
+            if(!this.group){
+              this.busy=true;this.refresh();
+              return VRFirstPackage.choose(plugin,files,()=>plugin._v5216ScanModal===this,()=>this.close())
+                .catch(e=>new Notice(String(e.message||e),8000)).finally(()=>{this.busy=false;this.refresh();});
+            }
             this.busy=true;this.refresh();
             if(this.value.running)plugin.cancelMobileDownloadScan();
             return Promise.resolve().then(()=>plugin.v5218ReviewScanSelection(files,this.group))
@@ -13737,7 +13823,7 @@ const VR5218ScanUI=(()=>{
           const s=this.value,running=!!s.running;
           this.heading.textContent=this.unboundReview?'审核与确认导入':'扫描下载的增量包';
           this.groupHint.hidden=!!this.group;
-          this.groupHint.textContent=this.group?'':(this.unboundReview?'可导入 0。':'')+'当前知识库尚未加入群组。找到的 ZIP 保留原处，加入对应群组后可审核。';
+          this.groupHint.textContent=this.group?'':(this.unboundReview?'可导入 0。':'')+'当前知识库尚未加入群组。可勾选一个普通增量 ZIP，从包内读取群组 ID 后加入并审核。';
           if(!running)this.finished=true;
           this.full.disabled=this.searching||this.busy;
           this.rescan.hidden=this.addExternal.hidden=!this.manualResults;
