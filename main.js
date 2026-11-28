@@ -2199,7 +2199,7 @@ function createUnifiedPanel() {
       }
       part("插件特色",["通过百度网盘网页或 App 传输增量 ZIP，省去自建同步服务器的费用，无需申请百度网盘 API 或开通百度网盘会员。","全部功能免费使用。爱发电赞助完全自愿，不影响功能、更新或问题反馈。","支持多端增量同步、知识库比对和隐私笔记定向开放。"],[]);
       part("一、升级与安全规则",["升级时保留本机 data.json，其中有群组、设备身份、隐私设置和同步记录。","上传前预览，接收后审核。普通 回执 在下载或手动接收包完整校验后生成，每包每设备一份，不证明笔记已导入。随包回执区分已校验、已确认处理和按规则忽略，清理仍需核对凭据。","outbox 为封装工作区，outgoing 保存传输成品，inbox 归集接收原件；内部版本保存在 internal/core。"],[]);
-      part("二、百度设置：只填短路径，两种目录入口",["上传和下载目录填写 /示例目录/共享区 这样的短路径，内部只补齐一次 /_pcs_.workspace。不要把 Windows 盘路径填到网盘目录框。", "上传入口使用百度 /disk/main，下载入口使用 /disk/synchronization。上传与下载目录独立按群组保存；输入框编辑不会立即保存，只读取已保存的当前目录配置。", "云端清单与自动下载尚未接入，仍需在网盘选择文件。浏览器电脑版由用户设置，插件不能强制切换网页模式。Windows 自动运输另使用已配置的本地同步目录。", "圈③按网盘里的实际目录名称填写，例如 /00Obsidian/VaultRelay-Transfer/test3。创建端先保存圈③，再生成首包。接收端可选取首包加入群组，圈③尚未配置时，可在首包通过接收校验后带入目录。"],[]);
+      part("二、百度设置：只填短路径，两种目录入口",["上传和下载目录填写 /示例目录/共享区 这样的短路径，内部只补齐一次 /_pcs_.workspace。不要把 Windows 盘路径填到网盘目录框。", "上传入口使用百度 /disk/main，下载入口使用 /disk/synchronization。上传与下载目录独立按群组保存；输入框编辑不会立即保存，只读取已保存的当前目录配置。", "云端清单与自动下载尚未接入，仍需在网盘选择文件。浏览器电脑版由用户设置，插件不能强制切换网页模式。Windows 自动运输另使用已配置的本地同步目录。", "圈③按网盘里的实际目录名称填写，例如 /00Obsidian/VaultRelay-Transfer/test3。发送端先保存圈②上传和圈③下载目录，再生成首包。接收端可选取首包加入群组，校验通过后从包中带入圈③目录，并补填本机该群组尚未设置的圈②上传目录。"],[]);
       part("三、第一步：生成与上传 ZIP / 回执",["扫描自动选择安全新增和修改；本机已删除候选单独确认发布删除版本。","本轮内容 ZIP 与可选普通 回执 生成传输 ZIP，保存到 outgoing；承载包、版本副本及账本核验完成后，清理 outbox 对应工作文件。","生成或本地排队不代表已上传云端。没有新内容时待回传普通 回执 保留。"],[]);
       part("四、第二步：从同步空间下载原件",["从百度网盘网页或 App 下载。在系统「设置 → App → Safari 浏览器 → 下载 → 其他」选择当前知识库中的 VaultRelay-Transfer/Dbox。旧版系统可从「设置 → Safari 浏览器」进入。 如果无法选择 Dbox，可用「文件」在下载后移动原 ZIP。","如果 iPhone／iPad 的百度网盘 App 未显示同步空间，发送端可用微信等发送原 ZIP。接收端用「保存到‘文件’」保存到当前库的 Dbox 后点刷新，也可用「查看下载的文件 → 添加外部 ZIP / 回执」选取。未加入群组时可选中一份普通增量 ZIP，确认加入包所属群组后继续审核导入。","下载或手动接收的原件归集到 inbox，整包及内层内容校验通过即生成一份普通 回执；笔记仍须审核确认导入。","校验工作副本位于 internal/staging，正式版本位于 internal/core；正式笔记仍需审核确认。"],[]);
       part("五、第三步：审核与确认导入",["确认导入前重核本机内容和版本。更新、删除前保存一份安全备份，撤销记录直接引用。","目标内容核验通过且所需普通 回执 已持久保存后，清理对应 inbox 原件及 staging；失败、冲突、未确认项保留。"],[]);
@@ -12485,7 +12485,7 @@ const VR5215=(()=>{
       if(saved.space!=='synchronization'||t.path!==saved.path)throw Error('下载目录配置无效，请重新保存');
       return t;
     }
-    const existing=VR527UI.savedDirectory(data);
+    const existing=VRSharedInfo.legacyDownloadDirectory(data)&&VR527UI.savedDirectory(data);
     if(existing?.space==='synchronization')return existing;
     throw Error('请先保存百度网盘同步空间下载目录；旧分享链接不转换为目录');
   }
@@ -16920,16 +16920,24 @@ const VRSharedInfo=(()=>{
     }
   }
   function downloadDirectory(data){return data.downloadDirectoryTarget;}
+  function legacyDownloadDirectory(data){
+    const target=data.cloudDirectoryTarget;
+    // A received upload directory is only for uploading, even in synchronization space.
+    return target?.fromPackage?null:target;
+  }
   function local(p){
     const id=p.engine?.state?.deviceId||p.data.deviceId;
     const data=p.data,owner=data.vr713GroupOwner;
     let downloadPath;
     if(owner===id||!owner){
-      const saved=downloadDirectory(data)||data.cloudDirectoryTarget;
+      const saved=downloadDirectory(data)||legacyDownloadDirectory(data);
       if(saved?.groupId===data.groupId&&saved.space==='synchronization')downloadPath=saved.path;
     }
+    let uploadDirectory;
+    try{uploadDirectory=VR527UI.savedDirectory(data);}catch(_){}
     return {groupId:data.groupId,deviceId:id,deviceShortName:data.deviceShortName||'',groupName:data.groupName||'',
-      groupShortName:data.groupShortName||'',...(downloadPath?{downloadPath}:{}),...(owner===id?{managed:true}:{})};
+      groupShortName:data.groupShortName||'',...(downloadPath?{downloadPath}:{}),
+      ...(uploadDirectory?{uploadDirectory}:{}),...(owner===id?{managed:true}:{})};
   }
   function parsePublic(doc,identity){
     const r=doc.sharedBasic;
@@ -16941,29 +16949,41 @@ const VRSharedInfo=(()=>{
       const value=VR527UI.syncSpaceTarget(r.downloadPath);
       if(value.path===r.downloadPath&&value.space==='synchronization')path=value.path;
     }catch(_){}
+    let uploadDirectory;
+    const upload=r.uploadDirectory;
+    if(typeof upload?.path==='string'&&['main','synchronization'].includes(upload.space))try{
+      const value=VR527UI.directoryTarget(upload.path,upload.space);
+      if(value.path===upload.path&&value.space===upload.space)uploadDirectory=value;
+    }catch(_){}
     return {groupId:r.groupId,deviceId:r.deviceId,deviceShortName:short(r.deviceShortName),groupName:name,
-      groupShortName:short(r.groupShortName),downloadPath:path,managed:r.managed===true};
+      groupShortName:short(r.groupShortName),downloadPath:path,uploadDirectory,managed:r.managed===true};
   }
   function updateGroup(p,record){
     const d=p.data;
     if(!record||record.groupId!==d.groupId||record.deviceId===p.engine?.state?.deviceId)return ()=>{};
     const owner=d.vr713GroupOwner;
+    const savedUpload=d.cloudDirectoryTarget;
+    const fillUpload=record.uploadDirectory&&!(savedUpload?.groupId===d.groupId&&savedUpload.path);
     // A configured legacy destination remains local until its owner supplies a matching directory.
-    if(owner&&owner!==record.deviceId||!owner&&(!record.downloadPath||
-      (d.downloadDirectoryTarget||d.cloudDirectoryTarget)?.path&&(d.downloadDirectoryTarget||d.cloudDirectoryTarget).path!==record.downloadPath))return ()=>{};
-    const fields=['vr713GroupOwner','downloadDirectoryTarget','groupName','groupShortName'];
+    const savedDownload=(downloadDirectory(d)||legacyDownloadDirectory(d))?.path;
+    const updateGroupDetails=owner?owner===record.deviceId:record.downloadPath&&(!savedDownload||savedDownload===record.downloadPath);
+    const fields=updateGroupDetails?['vr713GroupOwner','downloadDirectoryTarget','groupName','groupShortName']:[];
+    if(fillUpload)fields.push('cloudDirectoryTarget');
     const before=fields.map(k=>[k,Object.hasOwn(d,k),d[k]]);
-    d.vr713GroupOwner=record.deviceId;
-    if(record.downloadPath)d.downloadDirectoryTarget={groupId:d.groupId,space:'synchronization',path:record.downloadPath};
-    if(record.groupName)d.groupName=record.groupName;
-    if(record.groupShortName)d.groupShortName=record.groupShortName;
+    if(updateGroupDetails){
+      d.vr713GroupOwner=record.deviceId;
+      if(record.downloadPath)d.downloadDirectoryTarget={groupId:d.groupId,space:'synchronization',path:record.downloadPath};
+      if(record.groupName)d.groupName=record.groupName;
+      if(record.groupShortName)d.groupShortName=record.groupShortName;
+    }
+    if(fillUpload)d.cloudDirectoryTarget={groupId:d.groupId,...record.uploadDirectory,fromPackage:true};
     return ()=>{for(const [k,had,value] of before)if(had)d[k]=value;else delete d[k];};
   }
   function subscribe(p,refresh){
     const views=basicInfoViews.get(p)||new Set();basicInfoViews.set(p,views);views.add(refresh);
     return ()=>views.delete(refresh);
   }
-  return {key,transport,peers,peer,snapshot,advertisedName,registry,changeDevices,discover,notify,subscribe,local,parsePublic,updateGroup,downloadDirectory};
+  return {key,transport,peers,peer,snapshot,advertisedName,registry,changeDevices,discover,notify,subscribe,local,parsePublic,updateGroup,downloadDirectory,legacyDownloadDirectory};
 })();
 
 const VR606=(()=>{

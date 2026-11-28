@@ -12,7 +12,84 @@ const chooseExternal=async(modal,files)=>{
 };
 const chosen=packet=>({name:packet.rec.name,size:packet.bytes.length,arrayBuffer:async()=>packet.bytes});
 const DBOX='VaultRelay-Transfer/Dbox/';
+async function verifyUploadDirectory(){
+  const source=await host(Windows,null,'Upload directory sender',{});
+  const gid=await source.p.createGroup();
+  await source.p.updateSetting('groupShortName','Qat1');
+  await source.p.updateSetting('deviceShortName','Win1');
+  const uploadPath='/Windows 回传目录';
+  const downloadPath='/_pcs_.workspace/Windows 下载目录';
+  await source.p.saveCloudDirectoryTarget(uploadPath,'main');
+  await source.p.saveDownloadDirectoryTarget(downloadPath);
+  await source.write('First transfer.md','Welcome\n');
+  const first=await publish(source);
+  const readShared=p=>{
+    const contents=Windows.__testing.tools.zipDecode(p.bytes);
+    return JSON.parse(Buffer.from(contents.get('sync-inventory.json')).toString('utf8')).sharedBasic;
+  };
+  const firstShared=readShared(first);
+  assert.deepEqual(firstShared.uploadDirectory,{path:uploadPath,space:'main'});
+  assert.equal(firstShared.downloadPath,downloadPath);
+
+  const tablet=await host(IOS,null,'Upload directory first package receiver',{});
+  const modal=tablet.p.showMobileScanProgress({manualResults:true,unboundReview:true});
+  await chooseExternal(modal,[chosen(first)]);
+  modal.selected.add([...modal.externalFiles.keys()][0]);modal.refresh();await modal.review.click();
+  assert(!tablet.p.data.cloudDirectoryTarget,'Selecting a first ZIP never fills settings before joining');
+  await find(tablet.p.app.openedModals.at(-1).contentEl,'加入群组并审核').click();
+  assert.equal(tablet.p.data.groupId,gid);
+  assert(tablet.p._vrReviewModal&&!tablet.p._vrReviewModal.closed);
+  tablet.p._vrReviewModal.close();
+  tablet.p=await tablet.restart();
+  assert.equal(tablet.p.data.cloudDirectoryTarget?.path,uploadPath);
+  assert.equal(tablet.p.data.downloadDirectoryTarget?.path,downloadPath);
+  const urls=[],oldWindow=global.window;
+  global.window={open:url=>{urls.push(new URL(url));return {};}};
+  try{
+    const panel=new IOS.__testing.panel(tablet.p.app,tablet.p);
+    panel.openUploadBrowser();panel.openSyncSpaceBrowser();
+    assert.deepEqual(urls.map(url=>[url.origin,url.pathname,new URLSearchParams(url.hash.split('?')[1]).get('path')]),[
+      ['https://pan.baidu.com','/disk/main',uploadPath],
+      ['https://pan.baidu.com','/disk/synchronization',downloadPath],
+    ]);
+
+    // The returning device is not the group download directory owner.
+    const replyPath='/_pcs_.workspace/平板回传目录';
+    await tablet.p.saveCloudDirectoryTarget(replyPath,'synchronization');
+    await tablet.p.updateSetting('deviceShortName','Pad1');
+    await tablet.write('Reply.md','Returning\n');
+    const reply=await publish(tablet);
+    const replyShared=readShared(reply);
+    assert.deepEqual(replyShared.uploadDirectory,{path:replyPath,space:'synchronization'});
+    assert(!replyShared.downloadPath);
+    await receive(source,reply,false);
+    assert.equal(source.p.data.cloudDirectoryTarget.path,uploadPath,'An incoming upload directory must never replace one already set');
+    assert.equal(source.p.data.downloadDirectoryTarget.path,downloadPath);
+
+    const empty=await host(Mobile,null,'Upload-only receiver',{});
+    await empty.p.joinGroup(gid);
+    await empty.p.updateSetting('groupShortName','Qat1');
+    await empty.p.updateSetting('deviceShortName','Red1');
+    await receive(empty,reply,false);
+    assert.equal(empty.p.data.cloudDirectoryTarget?.path,replyPath);
+    assert(!empty.p.data.downloadDirectoryTarget);
+    const emptyPanel=new Mobile.__testing.panel(empty.p.app,empty.p);
+    const count=urls.length;
+    assert.equal(emptyPanel.openSyncSpaceBrowser(),false,'A received upload directory must not become the download fallback');
+    assert.equal(urls.length,count);
+    await empty.write('Android reply.md','Returning again\n');
+    const uploaded=readShared(await publish(empty));
+    assert.deepEqual(uploaded.uploadDirectory,replyShared.uploadDirectory);
+    assert(!uploaded.downloadPath,'A received upload directory must not be advertised as a download directory');
+    await receive(empty,first,false);
+    assert.equal(empty.p.data.downloadDirectoryTarget?.path,downloadPath,'An earlier upload-only package does not block subsequent download setup');
+    assert.equal(empty.p.data.cloudDirectoryTarget.path,replyPath,'The first filled upload directory stays until the user saves another');
+  }finally{if(oldWindow===undefined)delete global.window;else global.window=oldWindow;}
+  console.log('PASS signed upload directory fills empty settings, stays separate from download, persists on restart and opens the actual upload URL');
+}
+
 (async()=>{
+  await verifyUploadDirectory();
   const sender=await host(Windows,null,'Sending',{}),note='713-冲突-备份.md';
   const gid=await sender.p.createGroup(),owner=sender.p.engine.state.deviceId;
   await sender.p.updateSetting('deviceShortName','Win1');
