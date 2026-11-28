@@ -289,6 +289,9 @@ const VR5213 = (()=>{
     key(p){const x=this.path.resolve(p);return process.platform==='win32'?x.toLowerCase():x;}
     inside(p,root){return isWithin(this.path,p,root);}
     allowed(p){const x=this.path.resolve(p);if(!this.roots.some(r=>this.inside(x,r)))return false;
+      return this.scanAll?!outgoingTransferPath(x):this.canReceive(x);
+    }
+    canReceive(x){
       if(this.exclude.some(r=>this.inside(this.key(x),r)))return false;
       if(managedTransferPath(x))return false;
       return !x.split(/[\\/]/).some(n=>/^(?:Windows|WinSxS|Program Files(?: \(x86\))?|ProgramData|System Volume Information|\$Recycle\.Bin|\$RECYCLE\.BIN|Recovery|Config\.Msi|\$Windows\..*|\.obsidian|node_modules|\.git|AppData)$/i.test(n));
@@ -329,7 +332,7 @@ const VR5213 = (()=>{
           const full=this.path.join(current.path,entry.name);
           if(entry.isDirectory()&&this.recursive!==false)this.enqueue(full);
           else if(entry.isFile()&&this.allowed(full)&&this.looksLike(entry.name)){
-            const stat=await this.safe(full);if(stat.size<10||this.now()-stat.mtimeMs<4500)continue;
+            const stat=await this.safe(full);if(!this.scanAll&&(stat.size<10||this.now()-stat.mtimeMs<4500))continue;
             this.files++;const prior=this.found.get(this.key(full));
             const item={path:full,name:entry.name,size:stat.size,mtime:stat.mtimeMs,ctime:Math.max(stat.ctimeMs,stat.birthtimeMs)};
             this.found.set(this.key(full),item);
@@ -397,9 +400,14 @@ const VR5213 = (()=>{
         return {...status,files:[...service.found.values()].sort((a,b)=>b.mtime-a.mtime)};})();
       try{return await this._v5213DiscoveryTask;}finally{this._v5213ReceiveDiscovery=false;this._v5213AllowActive=false;this._v5213DiscoveryTask=null;}
     };
-    P.prototype.v615CollectDesktopDownloads=async function({light=false,discoverOnly=false}={}){
+    P.prototype.v615CollectDesktopDownloads=async function({light=false,discoverOnly=false,scanAll=false}={}){
       if(!discoverOnly)this.assertGroup();
-      if(this._v615DesktopCollecting)return this._v615DesktopCollecting;
+      const mode=JSON.stringify([this.data.groupId,light,discoverOnly,scanAll]);
+      if(this._v615DesktopCollecting){
+        if(mode===this._v615DesktopCollectingMode)return this._v615DesktopCollecting;
+        await this._v615DesktopCollecting.catch(()=>{});
+        return this.v615CollectDesktopDownloads({light,discoverOnly,scanAll});
+      }
       const previous=this._v5213DiscoveryTask;
       const group=this.data.groupId;
       const collecting=Promise.resolve().then(async()=>{
@@ -410,25 +418,27 @@ const VR5213 = (()=>{
         const exclude=base?[path.join(base,'VaultRelay-Transfer'),path.join(base,'.obsidian')]:[];
         if(this.data.windowsCloudDir)exclude.push(this.data.windowsCloudDir);
         const roots=light?[]:(await this.v5213GetDiscovery()).roots;
-         const priority=[...(light&&!discoverOnly?[this.data.windowsDownloadDir]:downloadRoots(this.data.windowsDownloadDir)),
+         const priority=[...(light?[this.data.windowsDownloadDir]:downloadRoots(this.data.windowsDownloadDir)),
            ...(this.data.v5213DownloadLocations||[])].filter(dir=>typeof dir==='string'&&path.isAbsolute(dir));
          const discovery=new Discovery({fs,path,roots:[...new Set([...roots,...priority])],exclude,
           looksLike:name=>isBaiduBatch(name)||/\.zip$/i.test(name)&&this.mobileDownloadLooksLikeExchange(name)});
         discovery.recursive=!light;
+        discovery.scanAll=scanAll;
          const active=()=>!this._v5213Stopped&&this.data.groupId===group;
          try{
           let status=await discovery.batch({priority});
           while(active()&&status.pendingDirs)status=await discovery.batch();
-          if(discoverOnly)return {...status,files:[...discovery.found.values()].map(item=>({...item,source:'desktop'}))};
+          if(discoverOnly)return {...status,files:[...discovery.found.values()].map(item=>({...item,source:'desktop',unavailable:!discovery.canReceive(item.path)}))};
           for(const item of discovery.found.values()){
             if(!active())break;
-            await this.v5213ReceiveDiscovered(item,{collect:true,discovery});
+            if(discovery.canReceive(item.path))await this.v5213ReceiveDiscovered(item,{collect:true,discovery});
            }
            return status;
          }finally{await discovery.stop();}
       });
+      this._v615DesktopCollectingMode=mode;
       this._v615DesktopCollecting=collecting;
-      try{return await collecting;}finally{this._v615DesktopCollecting=null;}
+      try{return await collecting;}finally{this._v615DesktopCollecting=null;this._v615DesktopCollectingMode=null;}
     };
     P.prototype.v5213ReceiveDiscovered=async function(item,{manual=false,collect=false,discovery}={}){
       if(this._v5213Ingest||this._v5213Stopped)return {busy:true};this._v5213Ingest=true;
@@ -2189,14 +2199,14 @@ function createUnifiedPanel() {
       }
       part("插件特色",["通过百度网盘网页或 App 传输增量 ZIP，省去自建同步服务器的费用，无需申请百度网盘 API 或开通百度网盘会员。","全部功能免费使用。爱发电赞助完全自愿，不影响功能、更新或问题反馈。","支持多端增量同步、知识库比对和隐私笔记定向开放。"],[]);
       part("一、升级与安全规则",["升级时保留本机 data.json，其中有群组、设备身份、隐私设置和同步记录。","上传前预览，接收后审核。普通 回执 在下载或手动接收包完整校验后生成，每包每设备一份，不证明笔记已导入。随包回执区分已校验、已确认处理和按规则忽略，清理仍需核对凭据。","outbox 为封装工作区，outgoing 保存传输成品，inbox 归集接收原件；内部版本保存在 internal/core。"],[]);
-      part("二、百度设置：只填短路径，两种目录入口",["上传和下载目录填写 /示例目录/共享区 这样的短路径，内部只补齐一次 /_pcs_.workspace。不要把 Windows 盘路径填到网盘目录框。", "上传入口使用百度 /disk/main，下载入口使用 /disk/synchronization。上传与下载目录独立按群组保存；输入框编辑不会立即保存，只读取已保存的当前目录配置。", "云端清单与自动下载尚未接入，仍需在网盘选择文件。浏览器电脑版由用户设置，插件不能强制切换网页模式。Windows 自动运输另使用已配置的本地同步目录。", "本次保留既有真实目录与配置；00Obsdian 的拼写迁移留待正式版统一处理。"],[]);
+      part("二、百度设置：只填短路径，两种目录入口",["上传和下载目录填写 /示例目录/共享区 这样的短路径，内部只补齐一次 /_pcs_.workspace。不要把 Windows 盘路径填到网盘目录框。", "上传入口使用百度 /disk/main，下载入口使用 /disk/synchronization。上传与下载目录独立按群组保存；输入框编辑不会立即保存，只读取已保存的当前目录配置。", "云端清单与自动下载尚未接入，仍需在网盘选择文件。浏览器电脑版由用户设置，插件不能强制切换网页模式。Windows 自动运输另使用已配置的本地同步目录。", "圈③按网盘里的实际目录名称填写，例如 /00Obsidian/VaultRelay-Transfer/test3。创建端先保存圈③，再生成首包。接收端先手动加入同一群组，圈③尚未配置时，可在首包通过接收校验后带入目录。"],[]);
       part("三、第一步：生成与上传 ZIP / 回执",["扫描自动选择安全新增和修改；本机已删除候选单独确认发布删除版本。","本轮内容 ZIP 与可选普通 回执 生成传输 ZIP，保存到 outgoing；承载包、版本副本及账本核验完成后，清理 outbox 对应工作文件。","生成或本地排队不代表已上传云端。没有新内容时待回传普通 回执 保留。"],[]);
-      part("四、第二步：从同步空间下载原件",["从百度网盘网页或 App 下载。未加入群组也可先扫描或查看已下载的 ZIP。加入包所属群组后，再重新审核导入。","下载或手动接收的原件归集到 inbox，整包及内层内容校验通过即生成一份普通 回执；笔记仍须审核确认导入。","校验工作副本位于 internal/staging，正式版本位于 internal/core；正式笔记仍需审核确认。"],[]);
+      part("四、第二步：从同步空间下载原件",["从百度网盘网页或 App 下载。在系统「设置 → App → Safari 浏览器 → 下载 → 其他」选择当前知识库中的 VaultRelay-Transfer/Dbox。旧版系统可从「设置 → Safari 浏览器」进入。 如果无法选择 Dbox，可用「文件」在下载后移动原 ZIP。","如果 iPhone／iPad 的百度网盘 App 未显示同步空间，发送端可用微信等发送原 ZIP。接收端用「保存到‘文件’」保存到当前库的 Dbox 后点刷新，也可用「查看下载的文件 → 添加外部 ZIP / 回执」选取。未加入群组时可先查找 ZIP。用群组 ID 加入后，再审核导入。","下载或手动接收的原件归集到 inbox，整包及内层内容校验通过即生成一份普通 回执；笔记仍须审核确认导入。","校验工作副本位于 internal/staging，正式版本位于 internal/core；正式笔记仍需审核确认。"],[]);
       part("五、第三步：审核与确认导入",["确认导入前重核本机内容和版本。更新、删除前保存一份安全备份，撤销记录直接引用。","目标内容核验通过且所需普通 回执 已持久保存后，清理对应 inbox 原件及 staging；失败、冲突、未确认项保留。"],[]);
       part("六、统一文件列表与笔记附件",["查看下载的文件列出可访问的候选原件。Android 会查找百度网盘下载路径里的群组子目录，并排除 VaultRelay-Transfer/outgoing。导入文件列表按正式写入记录展示笔记和附件。","打开目录、复制路径及系统分享沿用宿主能力；外部下载目录无法取得删除授权时保留原件并提示。","普通 Markdown 导入不自动携带附件；普通 ZIP 支持笔记和附件，正式写入仍须审核。"],[]);
       part("七、增量包管理与清理",["默认显示全部本机传输 ZIP，也可按状态分类；显示完整名称、生成时间和版本数量。","已核验配对的普通 回执 显示在对应 ZIP 下方；回收及恢复记录持久保存。恢复备份本版暂不自动淘汰。"],[]);
       part("八、知识库同步记录比对",["导出本机可追溯发送、接收和传输包 回执 记录，不含笔记正文。新流程不提供旧反馈历史查询。","添加多个对端记录后可按完整 ZIP 和设备比对，本机记录自动参与。","随包回执区分已校验待审核、已确认处理和按规则忽略。快照用于查看，回收仍需核对清理凭据。"],[]);
-      part("九、注意事项与常见问题",["Q：笔记能脱离插件使用吗？答：确认导入的 Markdown 和附件保存在正式知识库；同步版本、反馈和恢复备份用于插件后续同步或撤销。","Q：生成 ZIP 就是上传了吗？答：不是。需按当前设备流程发送，并在同步空间确认。","Q：为什么文件还没清理？答：未确认、失败、冲突、文件变化或记录保存失败时，程序保留文件供重试。","Q：为什么把浏览器下载设在 Dbox？答："+downloadBoxNote,"问：轻量扫描没有找到刚下载的包怎么办？答：在审核页或扫描结果页点全盘扫描，也可以从系统添加外部 ZIP。平板把下载位置设为当前知识库的 Dbox，日常用轻量扫描。"],[]);
+      part("九、注意事项与常见问题",["Q：笔记能脱离插件使用吗？答：确认导入的 Markdown 和附件保存在正式知识库；同步版本、反馈和恢复备份用于插件后续同步或撤销。","Q：生成 ZIP 就是上传了吗？答：不是。需按当前设备流程发送，并在同步空间确认。","Q：为什么文件还没清理？答：未确认、失败、冲突、文件变化或记录保存失败时，程序保留文件供重试。","Q：为什么把浏览器下载设在 Dbox？答："+downloadBoxNote,"问：轻量扫描没有找到刚下载的包怎么办？答：先在系统文件管理器里确认文件名和保存位置。iPhone／iPad 的全盘扫描从当前知识库开始。库外的 ZIP 可用「文件」移到 Dbox，也可通过「添加外部 ZIP / 回执」手动选取。 Android 的全盘扫描范围取决于系统允许读取的共享目录。"],[]);
 
       part("十、知识库比对：导出 → 导入 → 比对",[
         "入口为「高级操作 → 知识库比对」，不在日常主按钮中。用于检测两台设备的正式知识库文件是否不同，不会更改任何笔记。两台设备清单生成时间不同，结果仅代表两个快照。",
@@ -10032,7 +10042,7 @@ class VaultRelayV4 extends UnifiedBase {
   // V4.0.7: best-effort public Android Downloads probe. This uses only a File
   // API ALREADY EXPOSED by the Obsidian host; it neither installs a native
   // plugin nor requests broad storage permissions. Scoped storage may deny it.
-  normalizeMobileSourcePath(value){
+  normalizeMobileSourcePath(value,{scanOnly=false}={}){
     const raw=String(value||'').trim();
     if(!raw)return '';
     if(raw.length>4096 || /[\x00-\x1f\\?#]/.test(raw) ||
@@ -10044,7 +10054,7 @@ class VaultRelayV4 extends UnifiedBase {
     try{parsed=new URL(url);}catch(_){throw Error('下载目录路径格式无效');}
     if(parsed.hostname || parsed.search || parsed.hash ||
        !/^\/(?:storage\/(?:emulated\/[0-9]+|[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4})|sdcard)(?:\/|$)/.test(parsed.pathname) ||
-       /\/Android\/(?:data|obb)(?:\/|$)/i.test(parsed.pathname))
+       (!scanOnly&&/\/Android\/(?:data|obb)(?:\/|$)/i.test(parsed.pathname)))
       throw Error('只接受当前 Android 可读取的共享存储路径，不允许进入 Android/data/obb');
     return parsed.href.endsWith('/')?parsed.href:parsed.href+'/';
   }
@@ -10261,8 +10271,8 @@ class VaultRelayV4 extends UnifiedBase {
     return fs && typeof fs.readdir==='function' &&
       typeof fs.stat==='function' && typeof fs.readFile==='function'?fs:null;
   }
-  mobileCapPathOptions(directory,name=null){
-    const uri=this.normalizeMobileSourcePath(directory);
+  mobileCapPathOptions(directory,name=null,{scanOnly=false}={}){
+    const uri=this.normalizeMobileSourcePath(directory,{scanOnly});
     const raw=decodeURIComponent(new URL(uri).pathname).replace(/\/$/,'');
     const encoded=name===null?'':encodeURIComponent(name);
     const unescaped=name===null?'':name;
@@ -10340,12 +10350,12 @@ class VaultRelayV4 extends UnifiedBase {
     }
     throw last||Error('Capacitor Filesystem.readFile 失败');
   }
-  async getMobileDownloadEntries(path,{full=false}={}){
+  async getMobileDownloadEntries(path,{full=false,scanOnly=false}={}){
     // Prefer Capacitor: it has been verified on Redmi K60 to list and read
     // the Baidu download directory with no system file picker.
     const fs=this.mobileCapacitorFilesystem();
     if(fs){
-      const opts=this.mobileCapPathOptions(path);
+      const opts=this.mobileCapPathOptions(path,null,{scanOnly});
       let listing;
       try{
         listing=await this.mobileCapTry(fs,'readdir',opts,x=>
@@ -10380,7 +10390,7 @@ class VaultRelayV4 extends UnifiedBase {
               throw Error('无类型目录项超过 240 个，本轮停止以避免手机卡顿');
             try{
               const st=await this.mobileCapTry(fs,'stat',
-                this.mobileCapPathOptions(path,name),v=>v&&typeof v.type==='string');
+                this.mobileCapPathOptions(path,name,{scanOnly}),v=>v&&typeof v.type==='string');
               type=String(st.type||'unknown');
             }catch(_){/* Treat an unresolved unknown as a file, not an assumed directory. */}
           }
@@ -10441,22 +10451,30 @@ class VaultRelayV4 extends UnifiedBase {
     if(/\.json$/i.test(name))return Bridge.__testing.validAckName(name);
     return /^VR-[A-Z][a-z]{1,2}[0-9][A-Z][a-z]{1,2}[0-9]-\d{12}-[0-9]{2}[a-f0-9]{12}\.zip$/.test(name);
   }
-  async scanMobileDownloadSource({reason='manual'}={}){
+  async scanMobileDownloadSource({reason='manual',discoverOnly=false}={}){
     if(!OBS.Platform.isAndroidApp)
       return {state:'not-applicable',copied:0,direct:0,paths:[]};
     const foreground=['manual','review','full'].includes(reason);
     const light=reason==='manual-light';
     const inspectTransferDirs=reason==='manual-full'||reason==='full';
     const full=foreground||['console','return','manual-results','manual-full'].includes(reason);
+    const manualScan=light||reason==='manual-full';
+    const group=this.data.groupId;
+    const scope=full?'all-accessible':'priority';
+    const mode=[group,discoverOnly,manualScan?reason:scope];
+    const active=()=>group===this.data.groupId;
     if(this._mobileSourcePromise){
-      const needsFullScan=full&&this._v5216ScanProgress?.scope!=='all-accessible';
-      if(foreground)this.showMobileScanProgress?.({waitingForFull:needsFullScan});
+      const needsNewScan=manualScan||discoverOnly
+        ?mode.some((value,index)=>value!==this._mobileSourceMode?.[index])
+        :this._mobileSourceMode?.[0]!==group||this._mobileSourceMode?.[1]||full&&this._v5216ScanProgress?.scope!=='all-accessible';
+      if(foreground)this.showMobileScanProgress?.({waitingForFull:needsNewScan});
       const existing=await this._mobileSourcePromise.catch(error=>{
-        if(!needsFullScan)throw error;
+        if(!needsNewScan)throw error;
         return null;
       });
-      if(!needsFullScan)return existing;
-      const result=await this.scanMobileDownloadSource({reason});
+      if(!needsNewScan)return existing;
+      const result=await this.scanMobileDownloadSource({reason,discoverOnly});
+      if(manualScan||discoverOnly)return result;
       return {...result,paths:[...new Set([...(existing?.paths||[]),...(result.paths||[])])],
         acceptedZips:[...(existing?.acceptedZips||[]),...(result.acceptedZips||[])]};
     }
@@ -10469,16 +10487,17 @@ class VaultRelayV4 extends UnifiedBase {
       const hasApi=!!this.mobileCapacitorFilesystem() ||
         typeof window!=='undefined' && typeof window.resolveLocalFileSystemURL==='function';
       if(!hasApi){result.state='no-native-api';result.detail='宿主未提供目录读取接口';return result;}
-      const ledger=this.data.mobileSourceLedger ||= {};
       const seen=new Set(),queue=[];let rankDirty=true;
       const add=(path,depth=0)=>{
         try{
-          const normalized=this.normalizeMobileSourcePath(path);
+          const normalized=this.normalizeMobileSourcePath(path,{scanOnly:manualScan&&full});
           if(!normalized||seen.has(normalized))return;
           const localPath=decodeURIComponent(new URL(normalized).pathname);
           const managed=VR5213.managedTransferPath(localPath);
-          if(managed&&(!inspectTransferDirs||VR5213.outgoingTransferPath(localPath))){result.excludedDirs++;return;}
-          seen.add(normalized);queue.push({path:normalized,depth,managed});rankDirty=true;
+          if(VR5213.outgoingTransferPath(localPath)){result.excludedDirs++;return;}
+          if(managed&&!inspectTransferDirs){result.excludedDirs++;return;}
+          const protectedPath=/(?:^|\/)(?:\.obsidian|lost\+found)(?:\/|$)|\/Android\/(?:data|obb)(?:\/|$)/i.test(localPath);
+          seen.add(normalized);queue.push({path:normalized,depth,managed:managed||(manualScan&&full&&protectedPath)});rankDirty=true;
         }catch(_){}
       };
       // Priority order is intentional: previous successful folders first,
@@ -10486,11 +10505,12 @@ class VaultRelayV4 extends UnifiedBase {
       const carry=!full&&!light?(this.data.v5217PendingDirs||[]):[];
       // Learned directories run first. Background continuation still gets
       // at least twelve of its sixteen directory slots to avoid starvation.
-      for(const dir of this.v5218RankedDirs().slice(0,full?500:light?24:4))add(dir);
+      const ranked=this.v5218RankedDirs({allGroups:manualScan});
+      for(const dir of (manualScan?ranked:ranked.slice(0,full?500:4)))add(dir);
       for(const dir of carry.slice(0,500))add(dir.path,dir.depth);
-      if(!light&&(!carry.length||full))for(const dir of (this.data.mobileRecentDirs||[]).slice(0,24))add(dir);
+      if(!light&&(!carry.length||full)||manualScan)for(const dir of (this.data.mobileRecentDirs||[]))add(dir);
       if(!carry.length||full)add(this.data.mobileSourcePath||(light?'':'/storage/emulated/0/Download/BaiduNetdisk/'));
-      if(!carry.length||full)for(const dir of (full?(this.data.mobileExtraSources||[]):(this.data.mobileExtraSources||[]).slice(0,20)))add(dir);
+      if(!carry.length||full)for(const dir of (full||manualScan?(this.data.mobileExtraSources||[]):(this.data.mobileExtraSources||[]).slice(0,20)))add(dir);
       if(full)for(const dir of (this.data.mobilePendingScanDirs||[])){
         if(typeof dir==='string')add(dir);
         else if(dir && typeof dir==='object')add(dir.path,Math.max(0,Number(dir.depth)||0));
@@ -10512,12 +10532,12 @@ class VaultRelayV4 extends UnifiedBase {
       // Iterate native directories in small chunks. On Android scoped storage
       // inaccessible roots/subdirectories are reported, never bypassed.
       while(queue.length && result.scannedDirs<dirCap && listed<entryCap &&
-            Date.now()-started<maxMs && !this._mobileScanCancelled){
+            Date.now()-started<maxMs && !this._mobileScanCancelled&&active()){
         result.pendingDirs=queue.length;progress();
-        if(full&&rankDirty){this.v5218RankQueue(queue);rankDirty=false;}
+        if(full&&!manualScan&&rankDirty){this.v5218RankQueue(queue);rankDirty=false;}
         const current=queue.shift();
         let entries;
-        try{entries=await this.getMobileDownloadEntries(current.path,{full});}
+        try{entries=await this.getMobileDownloadEntries(current.path,{full:full||manualScan,scanOnly:manualScan&&full});}
         catch(err){
           if(this._mobileScanCancelled){queue.unshift(current);break;}
           result.unreadableDirs++;result.unreadablePaths.push(current.path);
@@ -10531,6 +10551,7 @@ class VaultRelayV4 extends UnifiedBase {
         // Mark coverage partial even if matching filenames were processed.
         if(entries.some(e=>e?.unknownType)){
           result.unreadableDirs++;
+          result.unreadablePaths.push(current.path);
           result.detail+=(result.detail?'；':'')+current.path+
             '：系统未报告部分目录项的类型，子目录覆盖不完整';
         }
@@ -10539,11 +10560,11 @@ class VaultRelayV4 extends UnifiedBase {
           if(entry.isDirectory && !light && (full || current.depth<1)){
             // Do not inspect hidden OS/application-specific subtrees, or the
             // app's private Android/data/obb directories.
-            if(/^(?:\.obsidian|\.|lost\+found)$/i.test(entry.name)||
-               (!inspectTransferDirs&&/^VaultRelay-Transfer$/i.test(entry.name))){
+            if(!manualScan&&(/^(?:\.obsidian|\.|lost\+found)$/i.test(entry.name)||
+               (!inspectTransferDirs&&/^VaultRelay-Transfer$/i.test(entry.name))||
+               (/\/Android\/$/i.test(current.path)&&/^(?:data|obb)$/i.test(entry.name)))){
               result.excludedDirs++;continue;
             }
-            if(/\/Android\/$/i.test(current.path)&&/^(?:data|obb)$/i.test(entry.name)){result.excludedDirs++;continue;}
             add(current.path+encodeURIComponent(entry.name)+'/',current.depth+1);
           }else if(entry.isFile && (this.mobileDownloadLooksLikeExchange(entry.name)||VR5213.isBaiduBatch(entry.name))){
             const key=current.path+encodeURIComponent(entry.name);
@@ -10564,6 +10585,15 @@ class VaultRelayV4 extends UnifiedBase {
         }
         if(result.scannedDirs%8===0)await new Promise(resolve=>setTimeout(resolve,0));
       }
+      result.pendingDirs=queue.length;
+      if(discoverOnly||!active()){
+        result.candidateFiles=result.files.length;
+        result.cancelled=!!this._mobileScanCancelled||!active();
+        if(result.unreadableDirs||result.pendingDirs)result.state='partial';
+        this._mobileScanCancelled=false;
+        return result;
+      }
+      const ledger=this.data.mobileSourceLedger ||= {};
       this._v5218ScanPhase='checking';
       result.searchStopped=!!this._mobileScanStopDiscovery;
       this._mobileScanCancelled=false;
@@ -10585,7 +10615,7 @@ class VaultRelayV4 extends UnifiedBase {
       // No file contents read just for discovery. Only candidate ZIP/ACKs that
       // are new/changed by size+mtime are opened, and still require CRC/SHA.
       for(const row of candidates){
-        if(this._mobileScanCancelled){result.state='partial';break;}
+        if(this._mobileScanCancelled||!active()){result.state='partial';break;}
         try{
           const meta=await this.readMobileDownloadEntry(row.entry);row.finding.mtime=meta.mtime??null;
           if(meta.pending){row.finding.status='下载尚未稳定，保留待下次检查';result.pending++;continue;}
@@ -10613,7 +10643,7 @@ class VaultRelayV4 extends UnifiedBase {
       }
       if(ready.length)await new Promise(resolve=>setTimeout(resolve,1100));
       for(const {entry,meta,key,dir,finding} of ready){
-        if(this._mobileScanCancelled){result.state='partial';break;}
+        if(this._mobileScanCancelled||!active()){result.state='partial';break;}
         let hashed='';
         try{
           const second=await this.readMobileDownloadEntry(entry);
@@ -10718,7 +10748,7 @@ class VaultRelayV4 extends UnifiedBase {
         const ordered=Object.entries(ledger).sort((a,b)=>(a[1]?.at||0)-(b[1]?.at||0));
         for(const [key] of ordered.slice(0,ordered.length-3000))delete ledger[key];
       }
-      result.cancelled=!!this._mobileScanCancelled;
+      result.cancelled=!!this._mobileScanCancelled||!active();
       result.searchStopped=!!this._mobileScanStopDiscovery;
       for(const f of result.files)if(f.status==='已发现，等待检查')f.status=result.cancelled?'已停止，未处理':'未处理';
       this.data.mobileLastSource={at:Date.now(),state:result.state,
@@ -10735,6 +10765,7 @@ class VaultRelayV4 extends UnifiedBase {
     this._v5216ScanProgress={scanId,files:[],running:true,phase:'discovering',
       scope:full?'all-accessible':'priority',scannedDirs:0,pendingDirs:0,candidateFiles:0,copied:0};
     const operation=Promise.resolve().then(task);
+    this._mobileSourceMode=mode;
     this._mobileSourcePromise=operation;
     if(foreground||(full&&this._v5216ScanModal?.value.waitingForFull))this.showMobileScanProgress?.();
     let finalResult;
@@ -10742,7 +10773,8 @@ class VaultRelayV4 extends UnifiedBase {
     catch(error){finalResult={...this._v5216ScanProgress,state:'failed'};throw error;}
     finally{
       this._mobileSourcePromise=null;
-      this.reportMobileScanProgress?.({...finalResult,scanId,running:false,cancelled:!!this._mobileScanCancelled});
+      this._mobileSourceMode=null;
+      this.reportMobileScanProgress?.({...finalResult,scanId,running:false,cancelled:!!finalResult?.cancelled});
     }
   }
   cancelMobileDownloadScan(){
@@ -10818,22 +10850,23 @@ class VaultRelayV4 extends UnifiedBase {
 
   async vr713ScanDownloads({full=false,onSourceScanned}={}){
     if(this._vr713ScanTask){
-      if(!full||this._vr713ScanningFull)return this._vr713ScanTask;
+      if(this.data.groupId===this._vr713ScanningGroup&&(!full||this._vr713ScanningFull))return this._vr713ScanTask;
       await this._vr713ScanTask.catch(()=>{});return this.vr713ScanDownloads({full,onSourceScanned});
     }
     const run=async()=>{
       if(!this.data.groupId)return {source:await VR5215.scanUnbound(this,{full}),local:{}};
       if(OBS.Platform.isDesktopApp){
         const dbox=await this.vrCollectDbox();
-        const source=await this.v615CollectDesktopDownloads({light:!full})||{};
+        const source=await this.v615CollectDesktopDownloads({light:!full,scanAll:full})||{};
         onSourceScanned?.();await this.v604PrepareInbox();
         return {source,local:dbox};
       }
       if(this._v603Download)this._v603Download.quietReview=true;
       return this.scanMobileReception({reason:full?'manual-full':'manual-light',notify:false,onSourceScanned});
     };
+    this._vr713ScanningGroup=this.data.groupId;
     this._vr713ScanningFull=full;this._vr713ScanTask=Promise.resolve().then(run);
-    try{return await this._vr713ScanTask;}finally{this._vr713ScanTask=null;this._vr713ScanningFull=false;}
+    try{return await this._vr713ScanTask;}finally{this._vr713ScanTask=null;this._vr713ScanningFull=false;this._vr713ScanningGroup=null;}
   }
 
   async vr710CollectForReview({desktopFull=false}={}){
@@ -10872,7 +10905,7 @@ class VaultRelayV4 extends UnifiedBase {
   async scanMobileReception({reason='manual',notify=true,onSourceScanned}={}){
     if(OBS.Platform.isDesktopApp)throw Error('Windows 接收流程保持原配置');
     const scanIos=OBS.Platform.isIosApp&&['manual','review','full','console','return','manual-light','manual-full'].includes(reason);
-    const source=scanIos?await this.scanIosVaultDownloads({light:reason==='manual-light'}):await this.scanMobileDownloadSource({reason});
+    const source=scanIos?await this.scanIosVaultDownloads({light:reason==='manual-light',scanAll:reason==='manual-full'}):await this.scanMobileDownloadSource({reason});
     if(source.cancelled)return {source,local:{zip:0,ack:0},summary:'已停止本次搜索；已安全复制的原件保留，未继续接收或打开审核。'};
     onSourceScanned?.();
     const dbox=await this.vrCollectDbox().catch(async error=>{
@@ -10901,14 +10934,26 @@ class VaultRelayV4 extends UnifiedBase {
     return {source,local,summary:combined};
   }
 
-  async scanIosVaultDownloads({light=false}={}){
-    if(this._vrIosVaultScan)return this._vrIosVaultScan;
+  async scanIosVaultDownloads({light=false,discoverOnly=false,scanAll=false}={}){
+    const group=this.data.groupId,device=this.engine?.state?.deviceId||this.data.deviceId;
+    const mode=JSON.stringify([group,device,light,discoverOnly,scanAll]);
+    if(this._vrIosVaultScan){
+      if(this._vrIosVaultScanMode===mode)return this._vrIosVaultScan;
+      await this._vrIosVaultScan.catch(()=>{});
+      return this.scanIosVaultDownloads({light,discoverOnly,scanAll});
+    }
     const run=async()=>{
-      const adapter=this.app.vault.adapter,group=this.data.groupId,device=this.engine.state.deviceId;
-      const result={state:'ok',scannedDirs:0,unreadableDirs:0,pendingDirs:0,copied:0,errors:0,paths:[],acceptedZips:[]};
-      const ledger=this.data.mobileSourceLedger ||= {};
-      const dirKey=JSON.stringify([group,device]),book=this.data.vr713VaultDownloadDirs||={};
-      const queue=light?[...(book[dirKey]||[])]:[''],active=()=>group===this.data.groupId&&device===this.engine?.state?.deviceId;
+      const adapter=this.app.vault.adapter;
+      const result={state:'ok',files:[],scannedDirs:0,unreadableDirs:0,pendingDirs:0,copied:0,errors:0,paths:[],acceptedZips:[]};
+      const ledger=discoverOnly?null:(this.data.mobileSourceLedger ||= {});
+      const dirKey=JSON.stringify([group,device]);
+      const book=discoverOnly?(this.data.vr713VaultDownloadDirs||{}):(this.data.vr713VaultDownloadDirs||={});
+      const dirs=new Set();
+      if(light)for(const [key,paths] of Object.entries(book)){
+        try{if(JSON.parse(key)?.[1]===device&&Array.isArray(paths))for(const path of paths)if(!VR5213.outgoingTransferPath(path))dirs.add(path);}catch(_){}
+      }
+      const queue=light?[...dirs]:[''];
+      const active=()=>group===this.data.groupId&&device===(this.engine?.state?.deviceId||this.data.deviceId);
       for(let index=0;index<queue.length&&active();index++){
         if(index%8===0)await new Promise(resolve=>setTimeout(resolve,0));
         const dir=queue[index],prefix=dir?dir+'/':'';
@@ -10916,12 +10961,20 @@ class VaultRelayV4 extends UnifiedBase {
         try{listing=await adapter.list(dir);}catch(_){result.unreadableDirs++;continue;}
         result.scannedDirs++;
         const children=(paths)=> (paths||[]).map(path=>path.replace(/^\//,'')).filter(path=>
-          path.startsWith(prefix)&&/^[^/\\:\x00-\x1f]+$/.test(path.slice(prefix.length))&&!path.slice(prefix.length).startsWith('.'));
-        if(!light)for(const path of children(listing.folders))if(!VR5213.managedTransferPath(path))queue.push(path);
+          path.startsWith(prefix)&&/^[^/\\:\x00-\x1f]+$/.test(path.slice(prefix.length))&&(scanAll||!path.slice(prefix.length).startsWith('.')));
+        if(!light)for(const path of children(listing.folders)){
+          if(path===prefix+'.'||path===prefix+'..'||VR5213.outgoingTransferPath(path))continue;
+          if(scanAll||!VR5213.managedTransferPath(path))queue.push(path);
+        }
         for(const path of children(listing.files)){
           if(!active())break;
           const name=path.slice(prefix.length),batch=VR5213.isBaiduBatch(name);
           if(!batch&&(!/\.zip$/i.test(name)||!this.mobileDownloadLooksLikeExchange(name)))continue;
+          const protectedPath=VR5213.managedTransferPath(path)||path.split('/').some(part=>part.startsWith('.'));
+          if(discoverOnly||protectedPath){
+            result.files.push({path,name,source:'vault',unavailable:protectedPath,status:protectedPath?'由原有流程管理':'已发现，等待检查'});
+            continue;
+          }
           try{
             const stat=await adapter.stat(path);
             if(!stat||stat.type!=='file'||stat.size<22)continue;
@@ -10959,8 +11012,9 @@ class VaultRelayV4 extends UnifiedBase {
       if(result.copied)await this.persistTransport();
       return result;
     };
+    this._vrIosVaultScanMode=mode;
     this._vrIosVaultScan=run();
-    try{return await this._vrIosVaultScan;}finally{this._vrIosVaultScan=null;}
+    try{return await this._vrIosVaultScan;}finally{this._vrIosVaultScan=null;this._vrIosVaultScanMode=null;}
   }
 
   async scanMobileTemporary({reason='manual',notify=true,verifiedPaths=[]}={}){
@@ -12427,17 +12481,15 @@ const VR5215=(()=>{
   async function scanUnbound(p,{full=false}={}){
     const a=p.app.vault.adapter,files=new Map(),source={state:'ok',scannedDirs:0,unreadableDirs:0,pendingDirs:0,copied:0};
     const unbound=()=>!p.data.groupId;
-    if(OBS.Platform.isDesktopApp){
-      const found=await p.v615CollectDesktopDownloads({light:!full,discoverOnly:true});
+    let found;
+    if(OBS.Platform.isDesktopApp)found=await p.v615CollectDesktopDownloads({light:!full,discoverOnly:true,scanAll:full});
+    else if(OBS.Platform.isAndroidApp)found=await p.scanMobileDownloadSource({reason:full?'manual-full':'manual-light',discoverOnly:true});
+    else if(OBS.Platform.isIosApp)found=await p.scanIosVaultDownloads({light:!full,discoverOnly:true,scanAll:full});
+    if(found){
       Object.assign(source,found);
       for(const item of found.files||[])files.set(item.path,item);
-    }else if(OBS.Platform.isAndroidApp){
-      const found=await androidList(p,()=>!unbound(),{light:!full});
-      Object.assign(source,{scannedDirs:found.scannedDirs,unreadableDirs:found.unreadableDirs,pendingDirs:found.pendingDirs});
-      for(const item of found.files)files.set(item.path,item);
     }
     const queue=['VaultRelay-Transfer/Dbox','VaultRelay-Transfer/inbox'];
-    if(full&&OBS.Platform.isIosApp)queue.push('');
     const seen=new Set();
     for(let index=0;index<queue.length&&unbound();index++){
       const dir=queue[index];if(seen.has(dir))continue;seen.add(dir);
@@ -12445,39 +12497,44 @@ const VR5215=(()=>{
       let listing;
       try{listing=await a.list(dir);}catch(_){if(!VR5213.managedTransferPath(dir))source.unreadableDirs++;continue;}
       source.scannedDirs++;
-      if(full&&OBS.Platform.isIosApp)for(const child of listing.folders||[]){
-        const next=child.replace(/^\//,'');
-        if(next&&next.split('/').every(part=>part&&!part.startsWith('.'))&&!VR5213.managedTransferPath(next))queue.push(next);
-      }
       for(const child of listing.files||[]){
         const path=child.replace(/^\//,''),name=path.split('/').pop();
         if(!VR5213.outgoingTransferPath(path)&&(p.mobileDownloadLooksLikeExchange(name)||VR5213.isBaiduBatch(name)))
           files.set(path,{name,path,source:'vault'});
       }
     }
-    return {...source,files:[...files.values()].map(item=>({...item,status:'已发现 · 加入群组后可审核'})),candidateFiles:files.size};
+    return {...source,files:[...files.values()].map(item=>({...item,status:item.unavailable?'由原有流程管理':'已发现 · 加入群组后可审核'})),candidateFiles:files.size};
   }
-  async function androidList(p,cancelled,{light=false}={}){
-    const queue=[],seen=new Set(),files=[],ids=new Set();let scanned=0,denied=0,entriesCount=0;
-    const add=(path,depth=0)=>{try{const dir=p.normalizeMobileSourcePath(path);if(dir&&!seen.has(dir)&&!VR5213.outgoingTransferPath(decodeURIComponent(new URL(dir).pathname))){seen.add(dir);queue.push({path:dir,depth});}}catch(_){}};
-    for(const dir of [...(p.data.mobileRecentDirs||[]).slice(0,24),p.data.mobileSourcePath,...(p.data.mobileExtraSources||[]).slice(0,20),'/storage/emulated/0/Download/BaiduNetdisk/','/storage/emulated/0/Download/','/storage/emulated/0/Documents/','/storage/emulated/0/'])if(dir)add(dir);
-    const started=Date.now();
-    while(queue.length&&scanned<600&&entriesCount<12000&&Date.now()-started<12000&&!cancelled()){
-      const dir=queue.shift();let entries;
-      try{entries=await p.getMobileDownloadEntries(dir.path);scanned++;}catch(_){denied++;continue;}
-      entriesCount+=entries.length;if(entries.some(x=>x.unknownType))denied++;
+  async function androidList(p,cancelled){
+    const queue=[],seen=new Set(),files=[],ids=new Set();
+    let scanned=0,denied=0;
+    const add=path=>{
+      try{
+        const dir=p.normalizeMobileSourcePath(path);
+        if(!dir||seen.has(dir)||VR5213.outgoingTransferPath(decodeURIComponent(new URL(dir).pathname)))return;
+        seen.add(dir);queue.push(dir);
+      }catch(_){}
+    };
+    for(const dir of [...(p.data.mobileRecentDirs||[]),p.data.mobileSourcePath,...(p.data.mobileExtraSources||[]),
+      '/storage/emulated/0/Download/DLManager/','/storage/emulated/0/Download/BaiduNetdisk/',
+      '/storage/emulated/0/Download/','/storage/emulated/0/Documents/','/storage/emulated/0/'])if(dir)add(dir);
+    for(let index=0;index<queue.length&&!cancelled();index++){
+      const dir=queue[index];let entries;
+      try{entries=await p.getMobileDownloadEntries(dir,{full:true});scanned++;}catch(_){denied++;continue;}
+      if(cancelled())break;
+      if(entries.some(x=>x.unknownType))denied++;
       for(const entry of entries){
         if(!entry?.name||/[\\/]/.test(entry.name))continue;
-        if(entry.isDirectory){
-          if(light||dir.depth>=9||entry.name.startsWith('.')||/^lost\+found$/i.test(entry.name)||/\/Android\/$/i.test(dir.path)&&/^(?:data|obb)$/i.test(entry.name))continue;
-          add(dir.path+encodeURIComponent(entry.name)+'/',dir.depth+1);
-        }else if(entry.isFile&&(p.mobileDownloadLooksLikeExchange(entry.name)||VR5213.isBaiduBatch(entry.name))){
-          const path=dir.path+encodeURIComponent(entry.name);if(ids.has(path))continue;ids.add(path);
-          files.push({path,name:entry.name,source:'android',entry});
+        const path=dir+encodeURIComponent(entry.name);
+        if(entry.isDirectory)add(path+'/');
+        else if(entry.isFile&&(p.mobileDownloadLooksLikeExchange(entry.name)||VR5213.isBaiduBatch(entry.name))&&!ids.has(path)){
+          ids.add(path);files.push({path,name:entry.name,source:'android',entry});
         }
       }
+      if(scanned%8===0)await new Promise(resolve=>setTimeout(resolve,0));
     }
-    return {files,scannedDirs:scanned,unreadableDirs:denied,pendingDirs:queue.length,status:'共享存储：已查 '+scanned+' 个目录 · 不可读／类型未知 '+denied+' · 待查 '+queue.length+'。受权限、时间和数量限制，不代表全盘扫描完成。'};
+    const status='共享存储：已查 '+scanned+' 个目录 · 不可读／类型未知 '+denied+'。'+(denied?'有目录无法读取或识别。':'');
+    return {files,status};
   }
   function install(P,{Panel,Modal,Platform,Notice,tools,Zip}){
     const el=(parent,tag,text,cls)=>{const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;parent.appendChild(e);return e;};
@@ -12607,7 +12664,11 @@ const VR5215=(()=>{
         if(imported){for(const item of importedRecords(p.data)){if(await p.app.vault.adapter.exists(item.path))files.push(item);else details.push('已缺失：'+item.path);}status.textContent='列出有正式写入记录且仍存在的文件。'+details.slice(0,10).join('；');}
         else{
           if(Platform.isDesktopApp){const scan=await p.v5213Discover({receive:false});files=(scan.files||[]).map(x=>({...x,source:'desktop'}));details.push('本地发现：'+scan.state+' · 已查 '+scan.scannedDirs+' · 不可读 '+scan.unreadableDirs+' · 待查 '+scan.pendingDirs);}
-          if(Platform.isAndroidApp){const scan=await androidList(p,()=>closed);files.push(...scan.files);details.push(scan.status);}
+          if(Platform.isAndroidApp){
+            const scan=await androidList(p,()=>closed);
+            if(closed)return;
+            files.push(...scan.files);details.push(scan.status);
+          }
           try{const listing=await p.app.vault.adapter.list('VaultRelay-Transfer/inbox');files.push(...(listing.files||[]).filter(x=>p.mobileDownloadLooksLikeExchange(x.split('/').pop())||/\.md$/i.test(x)).map(path=>({path,name:path.split('/').pop(),source:'vault'})));}catch(_){details.push('本库临时目录暂不可读或未建立');}
           if(Platform.isIosApp)details.push("Safari 下载位置可设为当前知识库的 VaultRelay-Transfer/Dbox。其他位置的文件可用“添加外部 ZIP / 回执”选取。");
           files.push(...picked.values());await p.v5217RefreshSources();
@@ -13707,7 +13768,7 @@ const VR5218ScanUI=(()=>{
             const byPath=new Map(inbox.map(file=>[file.path,file]));
             for(const file of result.source?.files||[]){
               if(file.target&&byPath.has(file.target)){byPath.delete(file.target);byPath.set(file.path,{...file,inbox:true});continue;}
-              if(!file.completed&&!/\.md$/i.test(file.name))byPath.set(file.path,file);
+              if(!byPath.has(file.path)&&!file.completed&&!/\.md$/i.test(file.name))byPath.set(file.path,file);
             }
             if(result.source?.cancelled)for(const file of previous)if(!byPath.has(file.path))byPath.set(file.path,file);
             const selections=new Set();
@@ -13745,9 +13806,11 @@ const VR5218ScanRank=(()=>{
       const groups=p.data.v5218DirectoryRank ||= {};
       return groups[p.data.groupId||'ungrouped'] ||= {};
     };
-    P.prototype.v5218RankedDirs=function(){
-      return Object.entries(book(this)).filter(([,r])=>score(r)>0)
-        .sort((a,b)=>score(b[1])-score(a[1])||(b[1].lastHit||0)-(a[1].lastHit||0)).map(([path])=>path);
+    P.prototype.v5218RankedDirs=function({allGroups=false}={}){
+      const groups=allGroups?Object.values(this.data.v5218DirectoryRank||{}):[book(this)];
+      const rows=groups.flatMap(entries=>Object.entries(entries||{})).filter(([,r])=>score(r)>0);
+      rows.sort((a,b)=>score(b[1])-score(a[1])||(b[1].lastHit||0)-(a[1].lastHit||0));
+      return [...new Set(rows.map(([path])=>path))];
     };
     P.prototype.v5218RankHit=function(path,sha){
       if(!/^[a-f0-9]{64}$/i.test(sha))return;
@@ -14847,7 +14910,7 @@ const VR603=(()=>{
  };
  // Associate source signatures with the exact path; unchanged metadata is not a SHA proof.
  const scanSource=P.scanMobileDownloadSource;
- P.scanMobileDownloadSource=async function(...args){const result=await scanSource.apply(this,args);let dirty=false;
+ P.scanMobileDownloadSource=async function(...args){const result=await scanSource.apply(this,args);if(args[0]?.discoverOnly)return result;let dirty=false;
    for(const [path,row]of Object.entries(this.data.mobileSourceLedger||{}))if(row.sourcePath!==path){row.sourcePath=path;dirty=true;}
    if(dirty)await this.persistTransport();return result;
  };
