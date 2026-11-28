@@ -966,6 +966,16 @@
 .vr71-history-section label{display:flex;gap:8px;min-width:0;flex:1 1 100%}
 .vr607-difference .vr607-file:has(.vr71-source){display:grid;grid-template-columns:minmax(0,1fr) auto}
 .vr607-difference .vr71-source{grid-column:1/-1;grid-row:2;margin:0;font-size:.83em;overflow-wrap:anywhere}
+.vr607-difference .vr607-review-section{display:block;min-width:0}
+.vr607-review-heading{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px}
+.vr607-difference .vr607-review-heading > .vr607-file-title{flex:1 1 12em;flex-wrap:nowrap}
+.vr607-review-heading > .vr607-status{flex:0 1 auto;min-width:0}
+.vr607-review-section .vr607-file-title > input{flex:none}
+.vr607-review-section .vr607-file-title > span{min-width:0;overflow-wrap:anywhere}
+.vr607-review-detail{margin-block-start:.35em;margin-inline-start:1.5em;font-size:.9em}
+.vr607-review-detail > summary{cursor:pointer;color:var(--text-muted);overflow-wrap:anywhere}
+.vr607-review-detail-body{padding-inline-start:.75em;border-inline-start:1px solid var(--background-modifier-border)}
+.vr607-review-meta{margin:.35em 0;color:var(--text-muted);overflow-wrap:anywhere}
 .vr71-restricted pre{white-space:pre-wrap;overflow:auto;max-height:35vh}
 @media(max-width:640px){
  .vr70-rule-fields label{grid-template-columns:minmax(0,1fr)}

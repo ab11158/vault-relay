@@ -17121,11 +17121,11 @@ const VR607=(()=>{
   function rowKey(row){
     return JSON.stringify([row.path,row.version?.versionId,row.version?.sha256,row.kind,row.peerId,row.remote?.sha256,row.local?.sha256]);
   }
-  function addDifferenceDetails(parent,row){
-    node(parent,'p',row.reason||'本机与对端的清单内容不同。','vru-meta');
+  function addDifferenceDetails(parent,row,metaClass='vru-meta'){
+    node(parent,'p',row.reason||'本机与对端的清单内容不同。',metaClass);
     for(const [label,entry] of [['本机',row.local],['对端清单',row.remote]]){
       if(!entry)continue;
-      node(parent,'p',label+' · '+entry.size+' 字节 · SHA-256 '+entry.sha256,'vru-meta');
+      node(parent,'p',label+' · '+entry.size+' 字节 · SHA-256 '+entry.sha256,metaClass);
     }
   }
   const tools=Bridge.__testing;
@@ -17190,7 +17190,7 @@ const VR607=(()=>{
       confirm.textContent=picked.length?'确认跳过（'+picked.length+'）':'确认跳过';
     };
   }
-  function renderRows(parent,rows,state,{tabs,selected,updateActions,inspect,openSpace,discard,resolve,p,reviewRoot=parent.parentNode}){
+  function renderRows(parent,rows,state,{tabs,selected,updateActions,inspect,openSpace,discard,resolve,p,reviewRoot=parent.parentNode,groupVersions=false}){
     const filters=node(parent,'div',undefined,'vr607-filters');
     const tool=node(parent,'div',undefined,'vr607-tools');
     const all=node(tool,'label');const allCheck=node(all,'input');allCheck.type='checkbox';
@@ -17221,7 +17221,14 @@ const VR607=(()=>{
       list.empty();
       const visible=VR603.sorted((state.showIgnored?hidden:active.filter(row=>matches(row,state.filter)))
         .map(row=>({...row,mtime:differenceTime(row)})),state,p);
-      const display=visible.filter(row=>!(row.kind==='restricted'&&(row.v71Sealed||row.v71Private||row.label==='无法解密'))).slice(0,state.limit);
+      const displayRows=visible.filter(row=>!(row.kind==='restricted'&&(row.v71Sealed||row.v71Private||row.label==='无法解密')));
+      const sections=new Map();
+      for(const row of displayRows){
+        const key=groupVersions?row.path:row;
+        if(!sections.has(key))sections.set(key,[]);
+        sections.get(key).push(row);
+      }
+      const display=[...sections.values()].slice(0,state.limit);
       const kind=state.filter==='all'?tabs[1][0]:state.filter;
       const filter=state.showIgnored?'ignored':state.filter;
       const pendingRows=['pending','remote'].includes(filter)?visible:[];
@@ -17247,14 +17254,11 @@ const VR607=(()=>{
       allText.textContent='全选';
       all.hidden=!eligible.length;
       allCheck.setAttribute('aria-label',allText.textContent);
-      for(const row of display){
-        const line=node(list,'div',undefined,'vr607-file');
-        const pick=state.showIgnored?null:row.pick;
-        const title=node(line,pick?'label':'div',undefined,'vr607-file-title');
+      function addCheck(title,row,label,pick){
         if(pick||markedSet.has(row)){
           const check=node(title,'input');
           check.type='checkbox';
-          check.setAttribute('aria-label','选择 '+row.path);
+          check.setAttribute('aria-label',label);
           inputs.set(row,check);
           let extend=false;
           check.addEventListener('click',event=>{extend=!!event.shiftKey;});
@@ -17269,25 +17273,66 @@ const VR607=(()=>{
             sync();
           });
         }
+      }
+      function restore(parent,row){button(parent,'恢复显示',()=>{state.ignored.delete(rowKey(row));draw();});}
+      function addRowActions(detail,row){
+        const actions=node(detail,'div',undefined,'vr607-actions');
+        if(row.needsPackage&&openSpace)button(actions,'打开同步空间',openSpace);
+        if(row.item&&inspect&&row.kind==='pending')
+          button(actions,row.item.status==='conflict'&&row.item.recordId?'查看原文':'查看差异',()=>inspect(row.item));
+        if(row.ignorable)button(actions,'本次忽略',()=>ignoreRow(row));
+        if(row.item?.status==='conflict'&&row.item.recordId){
+          if(resolve&&row.item.version?.op==='upsert'&&row.item.localHash&&!VR70Privacy.blocks(p,row.path)){
+            button(actions,'导入',()=>resolve(row,false));
+            button(actions,'备份导入',()=>resolve(row,true));
+          }
+          if(discard)button(actions,'取消导入',()=>discard(row));
+        }
+      }
+      function addReviewDetails(parent,row,{secondary=false,position}={}){
+        const pick=state.showIgnored?null:row.pick;
+        const comparison=row.status==='different'&&row.ignorable;
+        if(!secondary&&!row.reason&&!comparison&&!state.showIgnored)return;
+        const detail=node(parent,'details',undefined,'vr607-review-detail');
+        const summary=secondary?row.label:'详细内容';
+        node(detail,'summary',summary);
+        const content=node(detail,'div',undefined,'vr607-review-detail-body');
+        if(secondary&&(pick||markedSet.has(row))){
+          const selectVersion=node(content,'label',undefined,'vr607-file-title');
+          addCheck(selectVersion,row,'选择 '+row.path+' · 版本 '+position,pick);
+          node(selectVersion,'span','选择此版本');
+        }
+        if(state.showIgnored){restore(content,row);return;}
+        if(comparison)addDifferenceDetails(content,row,'vr607-review-meta');
+        else if(row.reason)node(content,'p',row.reason,'vr607-review-meta');
+        if(!pick)addRowActions(content,row);
+      }
+      for(const section of display){
+        const row=(state.showIgnored?null:section.find(entry=>entry.pick))||section[0];
+        const line=node(list,'div',undefined,'vr607-file');
+        const pick=state.showIgnored?null:row.pick;
+        if(groupVersions){
+          line.addClass('vr607-review-section');
+          const header=node(line,'div',undefined,'vr607-review-heading');
+          const title=node(header,pick||markedSet.has(row)?'label':'div',undefined,'vr607-file-title');
+          addCheck(title,row,'选择 '+row.path,pick);
+          node(title,'span',row.path);
+          node(header,'span',row.label,'vr607-status');
+          addReviewDetails(line,row);
+          const others=section.filter(entry=>entry!==row);
+          for(const [index,other] of others.entries())addReviewDetails(line,other,{secondary:true,position:index+2});
+          continue;
+        }
+        const title=node(line,pick?'label':'div',undefined,'vr607-file-title');
+        addCheck(title,row,'选择 '+row.path,pick);
         if(state.showIgnored){
           node(title,'span',row.path);
-          button(title,'恢复显示',()=>{state.ignored.delete(rowKey(row));draw();});
+          restore(title,row);
         }else if(row.reason&&!pick){
           const detail=node(title,'details');node(detail,'summary',row.path);
           node(detail,'p',row.reason,'vru-meta');
           if(row.item?.recordName&&row.kind==='pending')node(detail,'p',row.item.recordName,'vru-meta');
-          const actions=node(detail,'div',undefined,'vr607-actions');
-          if(row.needsPackage&&openSpace)button(actions,'打开同步空间',openSpace);
-          if(row.item&&inspect&&row.kind==='pending')
-            button(actions,row.item.status==='conflict'&&row.item.recordId?'查看原文':'查看差异',()=>inspect(row.item));
-          if(row.ignorable)button(actions,'本次忽略',()=>ignoreRow(row));
-          if(row.item?.status==='conflict'&&row.item.recordId){
-            if(resolve&&row.item.version?.op==='upsert'&&row.item.localHash&&!VR70Privacy.blocks(p,row.path)){
-              button(actions,'导入',()=>resolve(row,false));
-              button(actions,'备份导入',()=>resolve(row,true));
-            }
-            if(discard)button(actions,'取消导入',()=>discard(row));
-          }
+          addRowActions(detail,row);
         }else{
           node(title,'span',row.path);
           if(row.status==='different'&&row.ignorable){
@@ -17310,7 +17355,8 @@ const VR607=(()=>{
         draw();
       }
       if(!visible.length)node(list,'p','当前分类没有差异。','vru-meta');
-      if(visible.length>display.length)button(list,'继续显示（剩余 '+(visible.length-display.length)+' 项）',()=>{
+      const remaining=sections.size-display.length;
+      if(remaining>0)button(list,'继续显示（剩余 '+remaining+' 项）',()=>{
         state.limit+=120;draw();
       });
       allCheck.onchange=()=>{
@@ -17662,7 +17708,7 @@ const VR607=(()=>{
     const canVerify=!selection.import.size&&plan.items.some(row=>['same','absent','history-only'].includes(row.status));
     function draw(){
       body.empty();
-      renderRows(body,reviewRows(p,plan,report),state,{p,selected:selection,reviewRoot:c,
+      renderRows(body,reviewRows(p,plan,report),state,{p,selected:selection,reviewRoot:c,groupVersions:true,
         tabs:[['all','全部差异'],['import','可导入'],['send','本机独有'],['pending','待处理'],['restricted','受限'],['skipped','已跳过']],
         openSpace,discard,resolve,inspect,updateActions:context=>{
           const {filter}=context;

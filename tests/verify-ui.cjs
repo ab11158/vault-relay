@@ -8,6 +8,42 @@ const button=(modal,title)=>{const el=exact(modal.contentEl,'button',title);asse
 const settled=async test=>{for(let i=0;i<500;i++){if(test())return;await new Promise(resolve=>setTimeout(resolve,10));}assert(test(),'UI did not update');};
 const click=async el=>{assert(!el.disabled&&!el.hidden);await el.handlers.click({preventDefault(){},stopPropagation(){}});};
 const set=(el,value)=>{el.checked=value;el.handlers.change();};
+async function reviewSamePathVersions(){
+  const source=await host(Windows,A,'Review layout sender'),target=await host(Mobile,B,'Review layout receiver');
+  const note='8.0-互测.md',other='欢迎.md';
+  await source.write(note,'Base');await receive(target,await publish(source));
+  await source.write(note,'Second version');const older=await publish(source);await receive(target,older,false);
+  await source.write(note,'Third version');await source.write(other,'New note');
+  const newer=await publish(source);await receive(target,newer,false);
+  target.p.openCoreUi('download');
+  const modal=target.p.app.openedModals.at(-1);
+  await target.p._v602ReviewReady;
+  await click(button(modal,'全选'));
+  await click(button(modal,'刷新'));
+  await settled(()=>exact(modal.contentEl,'button','全部差异 3'));
+  const sections=()=>modal.contentEl.querySelectorAll('.vr607-review-section');
+  const ofNote=()=>sections().find(section=>section.querySelector('.vr607-file-title').textContent===note);
+  const check=section=>section.querySelector('.vr607-file-title').querySelector('input');
+  const occurrences=(text,value)=>text.split(value).length-1;
+  assert.equal(sections().length,2);
+  let section=ofNote();
+  assert.equal(occurrences(section.textContent,note),1);
+  assert(check(section).checked);
+  const details=section.querySelectorAll('.vr607-review-detail');
+  assert.equal(details.length,2);
+  assert.deepEqual(details.map(detail=>detail.querySelector('summary').textContent),['详细内容','同路径的其他版本 · 请核对版本关系']);
+  assert(details.every(detail=>!detail.open&&detail.parentNode===section));
+  assert(details[0].textContent.includes(newer.rec.name));
+  assert(details[1].textContent.includes(older.rec.name));
+  assert(exact(details[1],'button','查看差异'));
+  await click(button(modal,'待处理 1'));
+  assert.equal(sections().length,1);
+  section=ofNote();assert.equal(occurrences(section.textContent,note),1);
+  set(check(section),true);
+  await click(button(modal,'全部差异 3'));
+  await click(button(modal,'预览确认处理（2）'));
+  assert(exact(target.p.app.openedModals.at(-1).contentEl,'button','确认处理'));
+}
 async function run(){
   for(const [fromType,toType,sourceId,toId] of [[Windows,Mobile,A,B],[Mobile,Windows,B,A]]){
     const source=await host(fromType,sourceId,'Source'),target=await host(toType,toId,'Target');
@@ -67,7 +103,8 @@ async function run(){
   }
   const checks=['双端审核弹窗支持部分导入，全部导入后保留本次清单及回传入口，两个按钮分别调用现有网盘入口','双端知识库比对弹窗隐藏一致文件，勾选后确认只发布所选笔记并调用现有上传入口'];
   fs.writeFileSync(path.join(results,'ui.json'),JSON.stringify({status:'PASS',checks},null,2)+'\n');
-  console.log('PASS '+checks.length+' native dialog groups');
+  await reviewSamePathVersions();
+  console.log('PASS '+checks.length+' native dialog groups and same-path review layout');
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});
 

@@ -57,7 +57,10 @@ async function discardScenario(fromType,toType,fromID,toID){
   }finally{delete global.document;}
   assert(!button(pending,'取消导入').hidden);
   assert(button(pending,'打开同步空间').hidden);
-  assert.equal(find(content,'summary','Diverged.md').tag,'summary');
+  const conflictSection=content.querySelectorAll('.vr607-review-section').find(row=>row.querySelector('.vr607-file-title').textContent==='Diverged.md');
+  const conflictDetails=find(conflictSection,'summary','详细内容').parentNode;
+  assert(!conflictDetails.open);
+  for(const label of ['查看原文','导入','备份导入','取消导入'])assert(button(conflictDetails,label));
   await click(button(pending,'本次忽略'));
   assert(button(content,'待处理 0'));assert(!target.p.data.v608DiscardedVersions);
   await click(button(content,'显示已忽略（1）'));
@@ -110,8 +113,8 @@ async function run(){
   const missing=await openReview(stage),reviewContent=missing.contentEl;
   await settle(()=>find(reviewContent,'button','待处理 1'));
   await click(button(reviewContent,'待处理 1'));
-  assert(find(reviewContent,'summary','OldOnly.md'));
-  const row=find(reviewContent,'summary','OldOnly.md').parentNode;
+  const fileSection=reviewContent.querySelectorAll('.vr607-review-section').find(row=>row.querySelector('.vr607-file-title').textContent==='OldOnly.md');
+  const row=find(fileSection,'summary','详细内容').parentNode;
   assert(button(row,'打开同步空间'));assert(button(row,'本次忽略'));
   assert(!find(row,'button','取消导入'));
   const [importFooter,missingFooter]=footers(reviewContent);

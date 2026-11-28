@@ -1,6 +1,6 @@
 # Vault Relay 使用说明
 
-本说明适用于 **Vault Relay 8.6 测试版**。建议先在测试知识库完成一轮发送、审核和导入，再用于日常知识库。
+本说明适用于 **Vault Relay 8.7 测试版**。建议先在测试知识库完成一轮发送、审核和导入，再用于日常知识库。
 
 ## 一、插件特点和功能介绍
 
@@ -19,7 +19,7 @@
 
 ### 1. 安装或升级
 
-1. 从 GitHub 发布页下载插件包，把 `main.js`、`manifest.json`、`styles.css` 放入知识库的 `.obsidian/plugins/vault-relay-v4/`。使用 BRAT 时可选版本 `8.6`。
+1. 从 GitHub 发布页下载插件包，把 `main.js`、`manifest.json`、`styles.css` 放入知识库的 `.obsidian/plugins/vault-relay-v4/`。使用 BRAT 时可选版本 `8.7`。
 2. 升级时替换上述三个文件，保留 `data.json` 和知识库里的 `VaultRelay-Transfer`。然后重新启用插件。
 3. 在第一台设备 A 的「设置与连接检查」创建群组，填写群组名称、群组简称、本机简称，并分别保存圈②上传目录和圈③同步空间下载目录。先让参与测试的设备使用同一插件版本。
 
